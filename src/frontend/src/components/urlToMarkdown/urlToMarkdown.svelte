@@ -63,6 +63,30 @@
       convertUrlToMarkdown()
     }
   }
+
+  const downloadMarkdown = () => {
+    if (!markdown) return
+
+    // Create a filename from the URL or use a default
+    const urlObj = new URL(convertedUrl || url)
+    const hostname = urlObj.hostname.replace(/\./g, '_')
+    const filename = `${hostname || 'markdown'}_${Date.now()}.md`
+
+    // Create a blob with the markdown content
+    const blob = new Blob([markdown], { type: 'text/markdown' })
+    const url_blob = URL.createObjectURL(blob)
+
+    // Create a temporary anchor element and trigger download
+    const a = document.createElement('a')
+    a.href = url_blob
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+
+    // Cleanup
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url_blob)
+  }
 </script>
 
 <div class="url-to-markdown">
@@ -91,7 +115,42 @@
 
   {#if convertedUrl}
     <div class="url-info">
-      <strong>Converted URL:</strong> <a href={convertedUrl} target="_blank" rel="noopener noreferrer">{convertedUrl}</a>
+      <strong>Converted URL:</strong>
+      <a href={convertedUrl} target="_blank" rel="noopener noreferrer"
+        >{convertedUrl}</a
+      >
+    </div>
+  {/if}
+
+  {#if markdown}
+    <div class="markdown-container">
+      <div class="markdown-header">
+        <h4>Markdown Output:</h4>
+        <button
+          onclick={downloadMarkdown}
+          class="download-button"
+          title="Download markdown file"
+          aria-label="Download markdown file"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download
+        </button>
+      </div>
+      <pre class="markdown-output"><code>{markdown}</code></pre>
     </div>
   {/if}
 
@@ -101,18 +160,13 @@
       <ul class="links-list">
         {#each internalLinks as link}
           <li>
-            <a href={link.full_url} target="_blank" rel="noopener noreferrer">{link.original}</a>
+            <a href={link.full_url} target="_blank" rel="noopener noreferrer"
+              >{link.original}</a
+            >
             <span class="link-url"> → {link.full_url}</span>
           </li>
         {/each}
       </ul>
-    </div>
-  {/if}
-
-  {#if markdown}
-    <div class="markdown-container">
-      <h4>Markdown Output:</h4>
-      <pre class="markdown-output"><code>{markdown}</code></pre>
     </div>
   {/if}
 </div>
@@ -207,6 +261,43 @@
     margin-top: 1rem;
   }
 
+  .markdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .markdown-header h4 {
+    margin: 0;
+  }
+
+  .download-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .download-button:hover {
+    background-color: #1565c0;
+  }
+
+  .download-button:active {
+    background-color: #0d47a1;
+  }
+
+  .download-button svg {
+    flex-shrink: 0;
+  }
+
   .markdown-output {
     background-color: #f5f5f5;
     border: 1px solid #ddd;
@@ -215,7 +306,8 @@
     overflow-x: auto;
     max-height: 600px;
     overflow-y: auto;
-    font-family: 'Menlo', 'Monaco', 'Lucida Console', 'Liberation Mono',
+    font-family:
+      'Menlo', 'Monaco', 'Lucida Console', 'Liberation Mono',
       'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Courier New', monospace;
     font-size: 0.9rem;
     line-height: 1.5;
@@ -272,4 +364,3 @@
     margin-left: 0.5rem;
   }
 </style>
-
