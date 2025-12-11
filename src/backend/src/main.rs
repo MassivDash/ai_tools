@@ -17,6 +17,7 @@ use crate::api::hello::get::json_response_get;
 use crate::api::hello::post::json_response;
 use crate::api::protected::get::protected_endpoint;
 use crate::api::space_x::get::json_get_space_x;
+use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
 use crate::auth::auth_middleware::Authentication;
 use crate::cors::get_cors_options::get_cors_options;
@@ -31,10 +32,6 @@ async fn main() -> std::io::Result<()> {
     let port = args.port.parse::<u16>().unwrap();
     let cors_url = args.cors_url;
     let cookie_domain = args.cookie_domain;
-
-    // configure logging
-    std::env::set_var("RUST_LOG", "actix_web=info");
-    env_logger::init();
 
     // Set up the actix server
     let server = HttpServer::new(move || {
@@ -51,6 +48,7 @@ async fn main() -> std::io::Result<()> {
             .service(json_response)
             .service(json_response_get)
             .service(json_get_space_x)
+            .service(convert_url_to_markdown)
             .service(protected_endpoint)
             .service(
                 Files::new("/", "../frontend/dist/")

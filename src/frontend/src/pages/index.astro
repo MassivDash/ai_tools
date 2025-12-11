@@ -1,7 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import UrlToMarkdown from '../components/urlToMarkdown/urlToMarkdown.svelte'
 ---
 
 <Layout title='Welcome to Spaceout api tools'>
-  <div transition:animate='fade'></div>
+  <div transition:animate='fade'>
+    <UrlToMarkdown client:load />
+  </div>
 </Layout>
