@@ -4,8 +4,9 @@ use url::Url;
 /// Represents an internal link found in markdown
 #[derive(Debug, Clone)]
 pub struct InternalLink {
-    pub original: String,
-    pub full_url: String,
+    pub original: String,  // The relative URL path
+    pub full_url: String,  // The full absolute URL
+    pub link_text: String, // The text/title from [text](url)
 }
 
 /// Extracts internal links from markdown content and converts them to full URLs
@@ -30,6 +31,7 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<InternalLin
     let mut internal_links: Vec<InternalLink> = Vec::new();
 
     for cap in link_regex.captures_iter(markdown) {
+        let link_text = cap.get(1).map(|m| m.as_str().trim()).unwrap_or("");
         let link_url = cap.get(2).map(|m| m.as_str().trim()).unwrap_or("");
 
         // Skip empty links, anchors (#), mailto:, tel:, and external links
@@ -40,6 +42,12 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<InternalLin
             || link_url.starts_with("http://")
             || link_url.starts_with("https://")
         {
+            continue;
+        }
+
+        // Skip circular/self-referential links like [/](/) or [2D Shapes](/)
+        // These are links that point to the root path "/" which are typically navigation elements
+        if link_url == "/" {
             continue;
         }
 
@@ -66,6 +74,7 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<InternalLin
             internal_links.push(InternalLink {
                 original: link_url.to_string(),
                 full_url,
+                link_text: link_text.to_string(),
             });
         }
     }
@@ -93,17 +102,27 @@ mod tests {
 [External Link](https://example.com)
 [Anchor Link](#section)
 [Another Internal](/about)
+[/](/)
+[Home](/)
 "#;
 
         let base_url = "https://example.com/docs";
         let links = extract_internal_links(markdown, base_url);
 
+        // Should have 4 links (circular links [/](/) and [Home](/) pointing to root should be filtered out)
         assert_eq!(links.len(), 4);
+        assert!(
+            links
+                .iter()
+                .any(|l| l.full_url == "https://example.com/page1"
+                    && l.link_text == "Internal Link 1")
+        );
         assert!(links
             .iter()
-            .any(|l| l.full_url == "https://example.com/page1"));
-        assert!(links
-            .iter()
-            .any(|l| l.full_url == "https://example.com/docs/page2"));
+            .any(|l| l.full_url == "https://example.com/docs/page2"
+                && l.link_text == "Internal Link 2"));
+
+        // Verify circular links are not included
+        assert!(!links.iter().any(|l| l.full_url == "https://example.com/"));
     }
 }

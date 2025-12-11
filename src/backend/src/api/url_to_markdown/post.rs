@@ -1,12 +1,9 @@
 use actix_web::{post, web, Error as ActixError, HttpResponse};
-use html_to_markdown_rs::{convert, ConversionOptions, PreprocessingPreset};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::markdown_utils::clean::clean_markdown;
-use crate::markdown_utils::extract::extract_body_content;
-use crate::markdown_utils::links::extract_internal_links;
+use crate::markdown_utils::convert::{convert_html_to_markdown, ConversionConfig};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct UrlRequest {
@@ -20,13 +17,16 @@ pub struct UrlRequest {
     #[serde(default)]
     pub remove_forms: bool,
     #[serde(default)]
-    pub preprocessing_preset: Option<String>, // "minimal", "aggressive", or None for default
+    pub preprocessing_preset: Option<String>, // "minimal", "standard", "aggressive", or None for default
+    #[serde(default)]
+    pub follow_links: bool, // Whether to follow internal links and create zip file
 }
 
 #[derive(Serialize, Debug)]
 pub struct LinkInfo {
     pub original: String,
     pub full_url: String,
+    pub link_text: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -74,102 +74,74 @@ pub async fn convert_url_to_markdown(
                         })));
                     }
 
-                    // Extract body content if requested
-                    let html_to_convert = if body.extract_body {
-                        println!("🔎 Extracting body content...");
-                        extract_body_content(&html_content)
-                    } else {
-                        println!("📄 Using full HTML content (body extraction disabled)");
-                        html_content
+                    // Build conversion config from request
+                    let config = ConversionConfig {
+                        extract_body: body.extract_body,
+                        enable_preprocessing: body.enable_preprocessing,
+                        remove_navigation: body.remove_navigation,
+                        remove_forms: body.remove_forms,
+                        preprocessing_preset: body.preprocessing_preset.clone(),
+                        follow_links: body.follow_links,
                     };
 
-                    // Configure conversion options to strip unwanted tags and remove forms
-                    let mut options = ConversionOptions::default();
-
-                    // Strip script, style, img, iframe, and other non-content tags
-                    options.strip_tags = vec![
-                        "script".to_string(),
-                        "style".to_string(),
-                        "img".to_string(),
-                        "iframe".to_string(),
-                        "noscript".to_string(),
-                        "object".to_string(),
-                        "embed".to_string(),
-                    ];
-
-                    // Enable preprocessing if requested
-                    if body.enable_preprocessing {
-                        options.preprocessing.enabled = true;
-                        
-                        // Set preprocessing preset
-                        match body.preprocessing_preset.as_deref() {
-                            Some("minimal") => {
-                                options.preprocessing.preset = PreprocessingPreset::Minimal;
-                            }
-                            Some("standard") => {
-                                options.preprocessing.preset = PreprocessingPreset::Standard;
-                            }
-                            Some("aggressive") => {
-                                options.preprocessing.preset = PreprocessingPreset::Aggressive;
-                            }
-                            _ => {
-                                // Default preset
-                                options.preprocessing.preset = PreprocessingPreset::Minimal;
-                            }
-                        }
-                        
-                        options.preprocessing.remove_navigation = body.remove_navigation;
-                        options.preprocessing.remove_forms = body.remove_forms;
-                        
-                        println!("⚙️  Preprocessing enabled: preset={:?}, remove_navigation={}, remove_forms={}", 
-                            options.preprocessing.preset, 
-                            body.remove_navigation, 
-                            body.remove_forms
-                        );
-                    } else {
-                        println!("⚙️  Preprocessing disabled");
-                    }
-
-                    // Convert HTML to Markdown using html_to_markdown_rs
+                    // Convert HTML to Markdown using the reusable function
                     println!("🔄 Converting HTML to Markdown...");
-                    match convert(&html_to_convert, Some(options)) {
-                        Ok(markdown) => {
+                    match convert_html_to_markdown(&html_content, &url, &config) {
+                        Ok(main_result) => {
                             println!(
-                                "✅ Conversion successful! Markdown length: {}",
-                                markdown.len()
+                                "✅ Main page conversion successful! Markdown length: {}, Links: {}",
+                                main_result.markdown.len(),
+                                main_result.internal_links.len()
                             );
 
-                            // Clean markdown: strip data URI images and remove artifacts
-                            let cleaned_markdown = clean_markdown(&markdown);
-                            println!(
-                                "🧹 Cleaned markdown (removed data URI images and artifacts), new length: {}",
-                                cleaned_markdown.len()
-                            );
+                            // If follow_links is enabled, convert all internal links and create zip
+                            if body.follow_links && !main_result.internal_links.is_empty() {
+                                println!(
+                                    "🔗 Following {} internal links...",
+                                    main_result.internal_links.len()
+                                );
 
-                            // Extract internal links from cleaned markdown
-                            let internal_links = extract_internal_links(&cleaned_markdown, &url);
-                            println!("🔗 Found {} internal links", internal_links.len());
+                                match create_zip_with_links(&url, &main_result, &config).await {
+                                    Ok(zip_data) => {
+                                        println!(
+                                            "✅ Created zip file with {} bytes",
+                                            zip_data.len()
+                                        );
 
-                            // Convert InternalLink to LinkInfo for serialization
-                            let link_info: Vec<LinkInfo> = internal_links
-                                .iter()
-                                .map(|link| LinkInfo {
-                                    original: link.original.clone(),
-                                    full_url: link.full_url.clone(),
-                                })
-                                .collect();
+                                        // Return zip file as binary response
+                                        return Ok(HttpResponse::Ok()
+                                            .content_type("application/zip")
+                                            .append_header(("Content-Disposition", format!("attachment; filename=\"markdown_archive_{}.zip\"", 
+                                                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())))
+                                            .body(zip_data));
+                                    }
+                                    Err(e) => {
+                                        println!("⚠️  Failed to create zip file: {}, returning main page only", e);
+                                        // Fall through to return main page only
+                                    }
+                                }
+                            }
 
+                            // Return single page result (either follow_links disabled or zip creation failed)
                             Ok(HttpResponse::Ok().json(MarkdownResponse {
-                                markdown: cleaned_markdown,
+                                markdown: main_result.markdown,
                                 url: url.clone(),
-                                internal_links_count: link_info.len(),
-                                internal_links: link_info,
+                                internal_links_count: main_result.internal_links.len(),
+                                internal_links: main_result
+                                    .internal_links
+                                    .iter()
+                                    .map(|link| LinkInfo {
+                                        original: link.original.clone(),
+                                        full_url: link.full_url.clone(),
+                                        link_text: link.link_text.clone(),
+                                    })
+                                    .collect(),
                             }))
                         }
                         Err(error) => {
                             println!("❌ Conversion failed: {}", error);
                             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-                                "error": format!("Failed to convert HTML to Markdown: {}", error)
+                                "error": error
                             })))
                         }
                     }
@@ -183,6 +155,186 @@ pub async fn convert_url_to_markdown(
             "error": format!("Failed to fetch URL: {}", error)
         }))),
     }
+}
+
+/// Creates a zip file containing the main page and all internal links (1st level only)
+async fn create_zip_with_links(
+    main_url: &str,
+    main_result: &crate::markdown_utils::convert::ConversionResult,
+    config: &ConversionConfig,
+) -> Result<Vec<u8>, String> {
+    use std::collections::HashSet;
+    use std::io::{Cursor, Write};
+    use zip::write::{FileOptions, ZipWriter};
+    use zip::CompressionMethod;
+
+    let zip_buffer = {
+        let mut buffer = Vec::new();
+        let mut zip_writer = ZipWriter::new(Cursor::new(&mut buffer));
+
+        // Helper function to create a safe filename from link text or URL
+        let create_filename = |link_text: &str, url: &str| -> String {
+            // First, try to use the link text if it's meaningful
+            let mut filename = if !link_text.is_empty() && link_text.len() < 100 {
+                // Sanitize link text: remove special chars, keep alphanumeric, spaces, hyphens, underscores
+                link_text
+                    .chars()
+                    .map(|c| {
+                        if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                            c
+                        } else if c.is_whitespace() {
+                            ' '
+                        } else {
+                            '_'
+                        }
+                    })
+                    .collect::<String>()
+                    .split_whitespace()
+                    .collect::<Vec<&str>>()
+                    .join("_")
+                    .to_lowercase()
+            } else {
+                // Fall back to URL path if link text is empty or too long
+                let parsed = Url::parse(url).ok();
+                parsed
+                    .as_ref()
+                    .and_then(|u| u.path_segments())
+                    .and_then(|segments| segments.last())
+                    .unwrap_or("index")
+                    .to_string()
+            };
+
+            // Clean up the filename - remove any remaining invalid chars
+            filename = filename
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+                .collect::<String>();
+
+            if filename.is_empty() {
+                filename = "index".to_string();
+            }
+
+            // Truncate if too long
+            if filename.len() > 100 {
+                filename = filename.chars().take(100).collect();
+            }
+
+            // Ensure .md extension
+            if !filename.ends_with(".md") {
+                filename.push_str(".md");
+            }
+
+            filename
+        };
+
+        // Add main page to zip
+        let main_filename = create_filename("index", main_url);
+        println!("📄 Adding main page: {}", main_filename);
+        zip_writer
+            .start_file(
+                &main_filename,
+                FileOptions::default().compression_method(CompressionMethod::Deflated),
+            )
+            .map_err(|e| format!("Failed to create zip entry: {}", e))?;
+        zip_writer
+            .write_all(main_result.markdown.as_bytes())
+            .map_err(|e| format!("Failed to write to zip: {}", e))?;
+
+        // Track processed URLs to avoid duplicates
+        let mut processed_urls = HashSet::new();
+        processed_urls.insert(main_url.to_string());
+
+        // Convert each internal link (1st level only - follow_links flag prevents deeper recursion)
+        let mut config_no_follow = config.clone();
+        config_no_follow.follow_links = false; // Prevent recursive following
+
+        for (idx, link) in main_result.internal_links.iter().enumerate() {
+            // Skip if already processed
+            if processed_urls.contains(&link.full_url) {
+                continue;
+            }
+            processed_urls.insert(link.full_url.clone());
+
+            println!(
+                "🔗 [{}/{}] Converting link: {}",
+                idx + 1,
+                main_result.internal_links.len(),
+                link.full_url
+            );
+
+            // Fetch HTML from the link
+            match reqwest::get(&link.full_url).await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        println!(
+                            "⚠️  Failed to fetch {}: HTTP {}",
+                            link.full_url,
+                            response.status()
+                        );
+                        continue;
+                    }
+
+                    match response.text().await {
+                        Ok(link_html) => {
+                            // Limit size
+                            if link_html.len() > 10 * 1024 * 1024 {
+                                println!("⚠️  Link {} too large, skipping", link.full_url);
+                                continue;
+                            }
+
+                            // Convert to markdown
+                            match convert_html_to_markdown(
+                                &link_html,
+                                &link.full_url,
+                                &config_no_follow,
+                            ) {
+                                Ok(link_result) => {
+                                    let link_filename =
+                                        create_filename(&link.link_text, &link.full_url);
+                                    println!(
+                                        "✅ Adding link page: {} (from link text: '{}')",
+                                        link_filename, link.link_text
+                                    );
+
+                                    zip_writer
+                                        .start_file(
+                                            &link_filename,
+                                            FileOptions::default()
+                                                .compression_method(CompressionMethod::Deflated),
+                                        )
+                                        .map_err(|e| {
+                                            format!("Failed to create zip entry: {}", e)
+                                        })?;
+                                    zip_writer
+                                        .write_all(link_result.markdown.as_bytes())
+                                        .map_err(|e| format!("Failed to write to zip: {}", e))?;
+                                }
+                                Err(e) => {
+                                    println!("⚠️  Failed to convert link {}: {}", link.full_url, e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("⚠️  Failed to read response from {}: {}", link.full_url, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️  Failed to fetch {}: {}", link.full_url, e);
+                }
+            }
+        }
+
+        // Finish zip file and extract the buffer from the Cursor
+        let cursor = zip_writer
+            .finish()
+            .map_err(|e| format!("Failed to finish zip file: {}", e))?;
+
+        // Extract the buffer from the Cursor - clone since into_inner() returns &mut
+        cursor.into_inner().clone()
+    };
+
+    Ok(zip_buffer)
 }
 
 #[cfg(test)]
@@ -203,6 +355,7 @@ mod tests {
                 remove_navigation: false,
                 remove_forms: false,
                 preprocessing_preset: None,
+                follow_links: false,
             })
             .to_request();
 

@@ -28,6 +28,7 @@
   let removeNavigation = false
   let removeForms = false
   let preprocessingPreset: 'minimal' | 'standard' | 'aggressive' = 'minimal'
+  let followLinks = false
 
   const convertUrlToMarkdown = async () => {
     if (!url.trim()) {
@@ -43,7 +44,7 @@
     internalLinksCount = 0
 
     try {
-      const res = await axiosBackendInstance.post<MarkdownResponse>(
+      const res = await axiosBackendInstance.post<MarkdownResponse | Blob>(
         'url-to-markdown',
         {
           url: url.trim(),
@@ -51,13 +52,38 @@
           enable_preprocessing: enablePreprocessing,
           remove_navigation: removeNavigation,
           remove_forms: removeForms,
-          preprocessing_preset: enablePreprocessing ? preprocessingPreset : null
+          preprocessing_preset: enablePreprocessing
+            ? preprocessingPreset
+            : null,
+          follow_links: followLinks
+        },
+        {
+          responseType: followLinks ? 'blob' : 'json'
         }
       )
-      markdown = res.data.markdown
-      convertedUrl = res.data.url
-      internalLinks = res.data.internal_links
-      internalLinksCount = res.data.internal_links_count
+
+      if (followLinks && res.data instanceof Blob) {
+        // Download the zip file
+        const url_blob = window.URL.createObjectURL(res.data)
+        const a = document.createElement('a')
+        a.href = url_blob
+        a.download = `markdown_archive_${Date.now()}.zip`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url_blob)
+        document.body.removeChild(a)
+
+        markdown = 'Zip file downloaded successfully!'
+        convertedUrl = url.trim()
+        internalLinks = []
+        internalLinksCount = 0
+      } else {
+        const data = res.data as MarkdownResponse
+        markdown = data.markdown
+        convertedUrl = data.url
+        internalLinks = data.internal_links
+        internalLinksCount = data.internal_links_count
+      }
     } catch (err: any) {
       error =
         err.response?.data?.error ||
@@ -144,6 +170,11 @@
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={enablePreprocessing} />
           <span>Enable preprocessing</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={followLinks} />
+          <span>Follow internal links (creates zip file)</span>
         </label>
 
         {#if enablePreprocessing}
