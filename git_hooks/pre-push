@@ -1,0 +1,25 @@
+set -e
+
+echo 'running cli cargo test...'
+cargo test
+
+echo 'running cli runner cargo fmt...'
+cargo fmt 
+
+echo 'running cli cargo clippy...'
+cargo clippy -- -D warnings
+
+echo 'running backend cargo test...'
+cargo test --manifest-path src/backend/Cargo.toml
+
+echo 'running backend cargo fmt...'
+cargo fmt --manifest-path src/backend/Cargo.toml
+
+echo 'running backend cargo clippy...'
+cargo clippy --manifest-path src/backend/Cargo.toml -- -D warnings
+
+
+echo 'running frontend project lint...'
+npm run lint:all --prefix src/frontend/
+
+echo '------ Done ------'

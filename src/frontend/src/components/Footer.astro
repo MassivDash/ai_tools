@@ -1,0 +1,74 @@
+<nav>
+  <ul>
+    <li>
+      <a href='/'>main</a>
+    </li>
+    <li>
+      <a href='/cli'>cli</a>
+    </li>
+    <li><a href='/astro'>astro</a></li>
+    <li><a href='/actix'>actix</a></li>
+  </ul>
+</nav>
+<footer>
+  <div class='footer'>
+    <div class='flex'>
+      <a href='https://github.com/MassivDash/astroX'>Astro X</a>
+      <p>by</p>
+      <a href='https://github.com/MassivDash'>Spaceghost</a>
+    </div>
+    <div class='flex'>
+      <a href='https://spaceout.pl'>spaceout.pl</a>
+    </div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    background-color: rgb(44 44 44);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1560px;
+  }
+
+  .flex {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  a {
+    color: white;
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  ul {
+    list-style: none;
+    display: flex;
+    height: 100px;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    background-color: whitesmoke;
+
+    a {
+      color: rgba(6, 6, 6, 0.854);
+    }
+
+    &:hover {
+      color: rgb(6, 6, 6);
+    }
+  }
+</style>

@@ -1,0 +1,68 @@
+---
+import { ClientRouter } from 'astro:transitions'
+import Navbar from '../components/navbar/Navbar.astro'
+import Footer from '../components/Footer.astro'
+
+interface Props {
+  title: string
+}
+
+const { title } = Astro.props
+---
+
+<!doctype html>
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='description' content='Astro description' />
+    <meta name='viewport' content='width=device-width' />
+    <link rel='icon' type='image/svg+xml' href='/favicon.svg' />
+    <meta name='generator' content={Astro.generator} />
+    <title>{title}</title>
+    <link rel='preconnect' href='https://fonts.googleapis.com' />
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
+    <link
+      href='https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
+      rel='stylesheet'
+    />
+    <ClientRouter />
+  </head>
+  <body>
+    <Navbar transition:persist />
+    <slot />
+    <Footer />
+    <style is:global>
+      html {
+        font-family: system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding-top: 10px;
+        width: 100%;
+        background: linear-gradient(
+          90deg,
+          #f6f6f663,
+          #eeeeeec9,
+          #f4f4f4,
+          #fefefe
+        );
+        scroll-behavior: smooth;
+        overflow-x: hidden;
+      }
+
+      code {
+        font-family:
+          Menlo,
+          Monaco,
+          Lucida Console,
+          Liberation Mono,
+          DejaVu Sans Mono,
+          Bitstream Vera Sans Mono,
+          Courier New,
+          monospace,
+          Pacifico;
+      }
+    </style>
+  </body>
+</html>

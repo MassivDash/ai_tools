@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Hero from '../components/Hero.astro'
+import HomeMiddleLinks from '../sections/Home/HomeMiddleLinks.astro'
+import HomeSecondary from '../sections/Home/HomeSecondary.astro'
+import HomeClone from '../sections/Home/HomeClone.astro'
+---
+
+<Layout title='Welcome to Astro X'>
+  <div transition:animate='fade'>
+    <div class='container'>
+      <Hero />
+      <HomeSecondary />
+      <HomeClone />
+      <HomeMiddleLinks />
+    </div>
+  </div>
+</Layout>
