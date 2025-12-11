@@ -10,6 +10,7 @@ mod api;
 mod args;
 mod auth;
 mod cors;
+mod markdown_utils;
 mod session;
 mod ssr_routes;
 

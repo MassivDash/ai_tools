@@ -1,9 +1,16 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 
+  interface LinkInfo {
+    original: string
+    full_url: string
+  }
+
   interface MarkdownResponse {
     markdown: string
     url: string
+    internal_links_count: number
+    internal_links: LinkInfo[]
   }
 
   let url = ''
@@ -11,6 +18,8 @@
   let loading = false
   let error = ''
   let convertedUrl = ''
+  let internalLinks: LinkInfo[] = []
+  let internalLinksCount = 0
 
   const convertUrlToMarkdown = async () => {
     if (!url.trim()) {
@@ -22,6 +31,8 @@
     error = ''
     markdown = ''
     convertedUrl = ''
+    internalLinks = []
+    internalLinksCount = 0
 
     try {
       const res = await axiosBackendInstance.post<MarkdownResponse>(
@@ -30,6 +41,8 @@
       )
       markdown = res.data.markdown
       convertedUrl = res.data.url
+      internalLinks = res.data.internal_links
+      internalLinksCount = res.data.internal_links_count
     } catch (err: any) {
       error =
         err.response?.data?.error ||
@@ -37,6 +50,8 @@
         'Failed to convert URL to markdown'
       markdown = ''
       convertedUrl = ''
+      internalLinks = []
+      internalLinksCount = 0
     } finally {
       loading = false
     }
@@ -77,6 +92,20 @@
   {#if convertedUrl}
     <div class="url-info">
       <strong>Converted URL:</strong> <a href={convertedUrl} target="_blank" rel="noopener noreferrer">{convertedUrl}</a>
+    </div>
+  {/if}
+
+  {#if internalLinksCount > 0}
+    <div class="links-info">
+      <h4>Internal Links Found: {internalLinksCount}</h4>
+      <ul class="links-list">
+        {#each internalLinks as link}
+          <li>
+            <a href={link.full_url} target="_blank" rel="noopener noreferrer">{link.original}</a>
+            <span class="link-url"> → {link.full_url}</span>
+          </li>
+        {/each}
+      </ul>
     </div>
   {/if}
 
@@ -196,6 +225,51 @@
 
   .markdown-output code {
     font-family: inherit;
+  }
+
+  .links-info {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 4px;
+  }
+
+  .links-info h4 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: #1976d2;
+  }
+
+  .links-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .links-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #bbdefb;
+  }
+
+  .links-list li:last-child {
+    border-bottom: none;
+  }
+
+  .links-list a {
+    color: #1976d2;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .links-list a:hover {
+    text-decoration: underline;
+  }
+
+  .link-url {
+    color: #666;
+    font-size: 0.9rem;
+    margin-left: 0.5rem;
   }
 </style>
 
