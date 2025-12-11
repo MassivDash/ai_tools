@@ -1,5 +1,5 @@
 use actix_web::{post, web, Error as ActixError, HttpResponse};
-use html_to_markdown_rs::convert;
+use html_to_markdown_rs::{convert, ConversionOptions, PreprocessingPreset};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -103,12 +103,6 @@ pub async fn convert_url_to_markdown(
             match html {
                 Ok(html_content) => {
                     println!("📥 Received HTML from URL (length: {})", html_content.len());
-                    println!(
-                        "📄 First 1000 chars of original HTML:\n{}",
-                        html_content.chars().take(1000).collect::<String>()
-                    );
-                    println!("--- End of original HTML preview ---");
-
                     // Limit response size to prevent stack overflow (10MB max)
                     const MAX_HTML_SIZE: usize = 10 * 1024 * 1024;
                     if html_content.len() > MAX_HTML_SIZE {
@@ -120,25 +114,33 @@ pub async fn convert_url_to_markdown(
                     // Extract body content from HTML
                     let body_content = extract_body_content(&html_content);
 
-                    // Debug: Print the extracted body content
-                    println!(
-                        "🔍 Extracted body content (length: {}):",
-                        body_content.len()
-                    );
-                    println!("{}", body_content);
-                    println!("--- End of body content ---");
+                    // Configure conversion options to strip unwanted tags and remove forms
+                    let mut options = ConversionOptions::default();
 
-                    // Convert HTML to Markdown using html_to_markdown_rs with default options
-                    println!("🔄 Converting HTML to Markdown with default options...");
-                    match convert(&body_content, None) {
+                    // Strip script, style, img, iframe, and other non-content tags
+                    options.strip_tags = vec![
+                        "script".to_string(),
+                        "style".to_string(),
+                        "img".to_string(),
+                        "iframe".to_string(),
+                        "noscript".to_string(),
+                        "object".to_string(),
+                        "embed".to_string(),
+                    ];
+
+                    // Enable preprocessing for web scraping to remove forms and navigation
+                    options.preprocessing.enabled = true;
+                    options.preprocessing.preset = PreprocessingPreset::Aggressive;
+                    options.preprocessing.remove_navigation = true;
+                    options.preprocessing.remove_forms = true;
+
+                    // Convert HTML to Markdown using html_to_markdown_rs
+                    println!("🔄 Converting HTML to Markdown with preprocessing...");
+                    match convert(&body_content, Some(options)) {
                         Ok(markdown) => {
                             println!(
                                 "✅ Conversion successful! Markdown length: {}",
                                 markdown.len()
-                            );
-                            println!(
-                                "📝 First 500 chars of markdown:\n{}",
-                                &markdown.chars().take(500).collect::<String>()
                             );
                             Ok(HttpResponse::Ok().json(MarkdownResponse {
                                 markdown,
