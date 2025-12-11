@@ -11,6 +11,16 @@ use crate::markdown_utils::links::extract_internal_links;
 #[derive(Deserialize, Serialize, Debug)]
 pub struct UrlRequest {
     pub url: String,
+    #[serde(default)]
+    pub extract_body: bool,
+    #[serde(default)]
+    pub enable_preprocessing: bool,
+    #[serde(default)]
+    pub remove_navigation: bool,
+    #[serde(default)]
+    pub remove_forms: bool,
+    #[serde(default)]
+    pub preprocessing_preset: Option<String>, // "minimal", "aggressive", or None for default
 }
 
 #[derive(Serialize, Debug)]
@@ -64,8 +74,14 @@ pub async fn convert_url_to_markdown(
                         })));
                     }
 
-                    // Extract body content from HTML
-                    let body_content = extract_body_content(&html_content);
+                    // Extract body content if requested
+                    let html_to_convert = if body.extract_body {
+                        println!("🔎 Extracting body content...");
+                        extract_body_content(&html_content)
+                    } else {
+                        println!("📄 Using full HTML content (body extraction disabled)");
+                        html_content
+                    };
 
                     // Configure conversion options to strip unwanted tags and remove forms
                     let mut options = ConversionOptions::default();
@@ -81,15 +97,42 @@ pub async fn convert_url_to_markdown(
                         "embed".to_string(),
                     ];
 
-                    // Enable preprocessing for web scraping to remove forms and navigation
-                    options.preprocessing.enabled = true;
-                    options.preprocessing.preset = PreprocessingPreset::Aggressive;
-                    options.preprocessing.remove_navigation = true;
-                    options.preprocessing.remove_forms = true;
+                    // Enable preprocessing if requested
+                    if body.enable_preprocessing {
+                        options.preprocessing.enabled = true;
+                        
+                        // Set preprocessing preset
+                        match body.preprocessing_preset.as_deref() {
+                            Some("minimal") => {
+                                options.preprocessing.preset = PreprocessingPreset::Minimal;
+                            }
+                            Some("standard") => {
+                                options.preprocessing.preset = PreprocessingPreset::Standard;
+                            }
+                            Some("aggressive") => {
+                                options.preprocessing.preset = PreprocessingPreset::Aggressive;
+                            }
+                            _ => {
+                                // Default preset
+                                options.preprocessing.preset = PreprocessingPreset::Minimal;
+                            }
+                        }
+                        
+                        options.preprocessing.remove_navigation = body.remove_navigation;
+                        options.preprocessing.remove_forms = body.remove_forms;
+                        
+                        println!("⚙️  Preprocessing enabled: preset={:?}, remove_navigation={}, remove_forms={}", 
+                            options.preprocessing.preset, 
+                            body.remove_navigation, 
+                            body.remove_forms
+                        );
+                    } else {
+                        println!("⚙️  Preprocessing disabled");
+                    }
 
                     // Convert HTML to Markdown using html_to_markdown_rs
-                    println!("🔄 Converting HTML to Markdown with preprocessing...");
-                    match convert(&body_content, Some(options)) {
+                    println!("🔄 Converting HTML to Markdown...");
+                    match convert(&html_to_convert, Some(options)) {
                         Ok(markdown) => {
                             println!(
                                 "✅ Conversion successful! Markdown length: {}",
@@ -155,6 +198,11 @@ mod tests {
             .uri("/api/url-to-markdown")
             .set_json(&UrlRequest {
                 url: "not-a-valid-url".to_string(),
+                extract_body: true,
+                enable_preprocessing: false,
+                remove_navigation: false,
+                remove_forms: false,
+                preprocessing_preset: None,
             })
             .to_request();
 

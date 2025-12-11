@@ -35,6 +35,8 @@ pub fn extract_body_content(html: &str) -> String {
         );
 
         // Find closing body tag (case-insensitive)
+        // Note: HTML5 allows omitting the closing </body> tag, so many modern sites don't have it
+        // Search for </body> in the lowercase version (handles </BODY>, </Body>, etc.)
         if let Some(body_end_offset) = remaining_lower.find("</body>") {
             println!("✅ Found </body> tag at offset: {}", body_end_offset);
 
@@ -46,8 +48,12 @@ pub fn extract_body_content(html: &str) -> String {
             return body_content.to_string();
         }
 
-        println!("⚠️  No closing </body> tag found, returning everything after <body>");
-        // If no closing tag found, return everything after the opening tag
+        // No closing body tag found - this is valid HTML5!
+        // HTML5 specification allows omitting closing tags for html, head, body, and p elements
+        // Browsers automatically close these tags, so many modern websites don't include </body>
+        println!("⚠️  No closing </body> tag found");
+
+        // Return everything after the opening tag - this is what browsers do
         return remaining_html.to_string();
     }
 

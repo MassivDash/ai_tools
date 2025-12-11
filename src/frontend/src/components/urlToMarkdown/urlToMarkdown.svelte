@@ -21,6 +21,14 @@
   let internalLinks: LinkInfo[] = []
   let internalLinksCount = 0
 
+  // Advanced options
+  let showAdvanced = false
+  let extractBody = true
+  let enablePreprocessing = false
+  let removeNavigation = false
+  let removeForms = false
+  let preprocessingPreset: 'minimal' | 'standard' | 'aggressive' = 'minimal'
+
   const convertUrlToMarkdown = async () => {
     if (!url.trim()) {
       error = 'Please enter a valid URL'
@@ -37,7 +45,14 @@
     try {
       const res = await axiosBackendInstance.post<MarkdownResponse>(
         'url-to-markdown',
-        { url: url.trim() }
+        {
+          url: url.trim(),
+          extract_body: extractBody,
+          enable_preprocessing: enablePreprocessing,
+          remove_navigation: removeNavigation,
+          remove_forms: removeForms,
+          preprocessing_preset: enablePreprocessing ? preprocessingPreset : null
+        }
       )
       markdown = res.data.markdown
       convertedUrl = res.data.url
@@ -107,6 +122,58 @@
     >
       {loading ? 'Converting...' : 'Convert'}
     </button>
+  </div>
+
+  <div class="advanced-section">
+    <button
+      class="advanced-toggle"
+      onclick={() => (showAdvanced = !showAdvanced)}
+      type="button"
+    >
+      <span class="toggle-icon">{showAdvanced ? '▼' : '▶'}</span>
+      Advanced Options
+    </button>
+
+    {#if showAdvanced}
+      <div class="advanced-options">
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={extractBody} />
+          <span>Extract body content only</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={enablePreprocessing} />
+          <span>Enable preprocessing</span>
+        </label>
+
+        {#if enablePreprocessing}
+          <div class="preprocessing-options">
+            <label class="checkbox-label">
+              <input type="checkbox" bind:checked={removeNavigation} />
+              <span>Remove navigation elements</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input type="checkbox" bind:checked={removeForms} />
+              <span>Remove forms</span>
+            </label>
+
+            <div class="select-group">
+              <label for="preset-select">Preprocessing Preset:</label>
+              <select
+                id="preset-select"
+                bind:value={preprocessingPreset}
+                class="preset-select"
+              >
+                <option value="minimal">Minimal</option>
+                <option value="standard">Standard</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   {#if error}
@@ -362,5 +429,104 @@
     color: #666;
     font-size: 0.9rem;
     margin-left: 0.5rem;
+  }
+
+  .advanced-section {
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .advanced-toggle {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #f5f5f5;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+  }
+
+  .advanced-toggle:hover {
+    background-color: #e8e8e8;
+  }
+
+  .toggle-icon {
+    font-size: 0.8rem;
+    color: #666;
+    width: 1rem;
+    display: inline-block;
+  }
+
+  .advanced-options {
+    padding: 1rem;
+    background-color: #fafafa;
+    border-top: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .checkbox-label input[type='checkbox'] {
+    cursor: pointer;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .checkbox-label span {
+    color: #333;
+    font-size: 0.95rem;
+  }
+
+  .preprocessing-options {
+    margin-left: 1.5rem;
+    padding-left: 1rem;
+    border-left: 2px solid #b12424;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .select-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .select-group label {
+    font-size: 0.9rem;
+    color: #555;
+    font-weight: 500;
+  }
+
+  .preset-select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: white;
+    cursor: pointer;
+    max-width: 200px;
+  }
+
+  .preset-select:focus {
+    outline: none;
+    border-color: #b12424;
   }
 </style>
