@@ -1,10 +1,12 @@
 use std::env;
+use std::net::SocketAddr;
 
 use actix_files::{Files, NamedFile};
 use actix_rt::System;
 use actix_web::dev::{fn_service, ServiceRequest, ServiceResponse};
 use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::{middleware, web, App, HttpServer};
+use socket2::{Domain, Socket, Type};
 
 mod api;
 mod args;
@@ -32,6 +34,18 @@ async fn main() -> std::io::Result<()> {
     let port = args.port.parse::<u16>().unwrap();
     let cors_url = args.cors_url;
     let cookie_domain = args.cookie_domain;
+
+    // Create TCP listener with SO_REUSEADDR to allow immediate port reuse after restart
+    let address: SocketAddr = format!("{}:{}", host, port)
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+
+    let socket = Socket::new(Domain::IPV4, Type::STREAM, None)?;
+    socket.set_reuse_address(true)?; // This sets SO_REUSEADDR to allow immediate port reuse
+    socket.bind(&address.into())?;
+    socket.listen(128)?;
+
+    let listener = socket.into();
 
     // Set up the actix server
     let server = HttpServer::new(move || {
@@ -72,7 +86,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .wrap(NormalizePath::new(TrailingSlash::Trim)) // Add this line to handle trailing slashes\
     })
-    .bind((host, port))?;
+    .listen(listener)?;
 
     let server = server.run();
 
