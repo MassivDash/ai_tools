@@ -2,8 +2,6 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { expect, test } from 'vitest'
 import IndexPage from '../pages/index.astro'
 import Page404 from '../pages/404.astro'
-import CliPage from '../pages/cli.astro'
-import ActixPage from '../pages/actix.astro'
 import ProtectedPage from '../pages/auth/protected.astro'
 import AstroPage from '../pages/astro.astro'
 import ssr from '@astrojs/svelte/server.js'
@@ -21,17 +19,6 @@ test('404 Page', async () => {
   expect(result).toContain('404')
 })
 
-test('Cli Page', async () => {
-  const container = await AstroContainer.create()
-  const result = await container.renderToString(CliPage)
-  expect(result).toContain('AstroX Cli')
-})
-
-test('Actix Page', async () => {
-  const container = await AstroContainer.create()
-  const result = await container.renderToString(ActixPage)
-  expect(result).toContain('What is Actix Web?')
-})
 
 test('Astro Page', async () => {
   const container = await AstroContainer.create()

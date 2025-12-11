@@ -1,21 +1,32 @@
 use actix_web::{post, web, Error as ActixError, HttpResponse};
-use html_to_markdown_rs::{convert, ConversionOptions, PreprocessingPreset};
+use html_to_markdown_rs::convert;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// Extracts the body content from HTML, falling back to the full HTML if no body tag is found
 fn extract_body_content(html: &str) -> String {
+    println!(
+        "🔎 Extracting body content from HTML (total length: {})",
+        html.len()
+    );
+
     // Try to find the body tag (case-insensitive search)
     let html_lower = html.to_lowercase();
 
     // Find opening body tag
     if let Some(body_start_idx) = html_lower.find("<body") {
+        println!("✅ Found <body tag at index: {}", body_start_idx);
+
         // Find the closing > of the opening body tag (handles attributes like <body class="...">)
         let body_tag_end = match html[body_start_idx..].find('>') {
-            Some(pos) => body_start_idx + pos + 1,
+            Some(pos) => {
+                let end = body_start_idx + pos + 1;
+                println!("✅ Found closing > of body tag at index: {}", end);
+                end
+            }
             None => {
-                // Malformed body tag, return original HTML
+                println!("⚠️  Malformed body tag (no closing >), returning original HTML");
                 return html.to_string();
             }
         };
@@ -24,19 +35,29 @@ fn extract_body_content(html: &str) -> String {
         let remaining_html = &html[body_tag_end..];
         let remaining_lower = &html_lower[body_tag_end..];
 
+        println!(
+            "📏 Remaining HTML after body tag: {} chars",
+            remaining_html.len()
+        );
+
         // Find closing body tag (case-insensitive)
         if let Some(body_end_offset) = remaining_lower.find("</body>") {
+            println!("✅ Found </body> tag at offset: {}", body_end_offset);
+
             // Extract content between opening and closing body tags
             let body_content = &remaining_html[..body_end_offset];
+            println!("📦 Extracted body content: {} chars", body_content.len());
 
             // Return body content (even if it's just whitespace, let the converter handle it)
             return body_content.to_string();
         }
 
+        println!("⚠️  No closing </body> tag found, returning everything after <body>");
         // If no closing tag found, return everything after the opening tag
         return remaining_html.to_string();
     }
 
+    println!("⚠️  No <body tag found, returning original HTML");
     // If no body tag found, return the original HTML
     // This handles cases where the HTML is just body content or malformed
     html.to_string()
@@ -81,6 +102,13 @@ pub async fn convert_url_to_markdown(
 
             match html {
                 Ok(html_content) => {
+                    println!("📥 Received HTML from URL (length: {})", html_content.len());
+                    println!(
+                        "📄 First 1000 chars of original HTML:\n{}",
+                        html_content.chars().take(1000).collect::<String>()
+                    );
+                    println!("--- End of original HTML preview ---");
+
                     // Limit response size to prevent stack overflow (10MB max)
                     const MAX_HTML_SIZE: usize = 10 * 1024 * 1024;
                     if html_content.len() > MAX_HTML_SIZE {
@@ -92,32 +120,33 @@ pub async fn convert_url_to_markdown(
                     // Extract body content from HTML
                     let body_content = extract_body_content(&html_content);
 
-                    // Configure conversion options to strip unwanted tags and use preprocessing
-                    let mut options = ConversionOptions::default();
+                    // Debug: Print the extracted body content
+                    println!(
+                        "🔍 Extracted body content (length: {}):",
+                        body_content.len()
+                    );
+                    println!("{}", body_content);
+                    println!("--- End of body content ---");
 
-                    // Strip script, style, and other non-content tags
-                    options.strip_tags = vec![
-                        "script".to_string(),
-                        "style".to_string(),
-                        "noscript".to_string(),
-                        "iframe".to_string(),
-                        "object".to_string(),
-                        "embed".to_string(),
-                    ];
-
-                    // Enable preprocessing for web scraping
-                    options.preprocessing.enabled = true;
-                    options.preprocessing.preset = PreprocessingPreset::Aggressive;
-                    options.preprocessing.remove_navigation = true;
-                    options.preprocessing.remove_forms = true;
-
-                    // Convert HTML to Markdown using html_to_markdown_rs
-                    match convert(&body_content, Some(options)) {
-                        Ok(markdown) => Ok(HttpResponse::Ok().json(MarkdownResponse {
-                            markdown,
-                            url: url.clone(),
-                        })),
+                    // Convert HTML to Markdown using html_to_markdown_rs with default options
+                    println!("🔄 Converting HTML to Markdown with default options...");
+                    match convert(&body_content, None) {
+                        Ok(markdown) => {
+                            println!(
+                                "✅ Conversion successful! Markdown length: {}",
+                                markdown.len()
+                            );
+                            println!(
+                                "📝 First 500 chars of markdown:\n{}",
+                                &markdown.chars().take(500).collect::<String>()
+                            );
+                            Ok(HttpResponse::Ok().json(MarkdownResponse {
+                                markdown,
+                                url: url.clone(),
+                            }))
+                        }
                         Err(error) => {
+                            println!("❌ Conversion failed: {}", error);
                             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                                 "error": format!("Failed to convert HTML to Markdown: {}", error)
                             })))
