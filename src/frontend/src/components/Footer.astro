@@ -1,24 +1,64 @@
+---
+import { menuConfig } from '@config/menu'
+
+const footerMenuItems = menuConfig.footer
+const footerLinks = menuConfig.footerLinks
+---
+
 <nav>
   <ul>
-    <li>
-      <a href='/'>main</a>
-    </li>
-    <li>
-      <a href='/cli'>cli</a>
-    </li>
-    <li><a href='/astro'>astro</a></li>
-    <li><a href='/actix'>actix</a></li>
+    {
+      footerMenuItems.map((item) => (
+        <li>
+          <a href={item.href} id={item.id || undefined}>
+            {item.label}
+          </a>
+        </li>
+      ))
+    }
   </ul>
 </nav>
 <footer>
   <div class='footer'>
     <div class='flex'>
-      <a href='https://github.com/MassivDash/astroX'>Astro X</a>
-      <p>by</p>
-      <a href='https://github.com/MassivDash'>Spaceghost</a>
+      {
+        footerLinks.project && (
+          <>
+            <a
+              href={footerLinks.project.url}
+              target='_blank'
+              rel='noopener noreferrer'
+            >
+              {footerLinks.project.name}
+            </a>
+            {footerLinks.author && <p>by</p>}
+          </>
+        )
+      }
+      {
+        footerLinks.author && (
+          <a
+            href={footerLinks.author.url}
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {footerLinks.author.name}
+          </a>
+        )
+      }
     </div>
     <div class='flex'>
-      <a href='https://spaceout.pl'>spaceout.pl</a>
+      {
+        footerLinks.website && (
+          <a
+            href={footerLinks.website.url}
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {footerLinks.website.name}
+          </a>
+        )
+      }
     </div>
   </div>
 </footer>

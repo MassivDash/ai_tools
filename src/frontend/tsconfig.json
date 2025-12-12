@@ -15,7 +15,8 @@
     "paths": {
       "@components/*": ["src/components/*"],
       "@layouts/*": ["src/layouts/*"],
-      "@axios/*": ["src/axiosInstance/*"]
+      "@axios/*": ["src/axiosInstance/*"],
+      "@config/*": ["src/config/*"]
     },
     "types": ["vitest/jsdom"]
   }

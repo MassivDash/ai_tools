@@ -1,5 +1,7 @@
 ---
+import { menuConfig } from '@config/menu'
 
+const mainMenuItems = menuConfig.main
 ---
 
 <script>
@@ -53,15 +55,13 @@
 
     <!-- Desktop navigation -->
     <ul class='desktop-nav'>
-      <li>
-        <a href='/' class='nav-link'>Home</a>
-      </li>
-      <li>
-        <a href='/tools' class='nav-link'>Tools</a>
-      </li>
-      <li>
-        <a href='/rag' class='nav-link'>RAG</a>
-      </li>
+      {mainMenuItems.map((item) => (
+        <li>
+          <a href={item.href} class='nav-link' id={item.id || undefined}>
+            {item.label}
+          </a>
+        </li>
+      ))}
     </ul>
 
     <!-- Mobile hamburger button -->
@@ -74,15 +74,13 @@
     <!-- Mobile menu -->
     <div id='mobile-menu' class='mobile-menu'>
       <ul>
-        <li>
-          <a href='/' class='nav-link'>Home</a>
-        </li>
-        <li>
-          <a href='/tools' class='nav-link'>Tools</a>
-        </li>
-        <li>
-          <a href='/rag' class='nav-link'>RAG</a>
-        </li>
+        {mainMenuItems.map((item) => (
+          <li>
+            <a href={item.href} class='nav-link' id={item.id || undefined}>
+              {item.label}
+            </a>
+          </li>
+        ))}
       </ul>
     </div>
   </div>
