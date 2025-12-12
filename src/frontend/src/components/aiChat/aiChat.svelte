@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Terminal from './terminal.svelte'
-  import ConfigModal from './ConfigModal.svelte'
+  import LlamaConfig from './llamaConfig.svelte'
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
 
@@ -104,7 +104,7 @@
   <div class="chat-header">
     <h3>Llama.cpp Server</h3>
     <div class="header-actions">
-      <Button variant="info" onclick={() => (showConfig = true)}>
+      <Button variant="info" onclick={() => (showConfig = !showConfig)}>
         ⚙️ Config
       </Button>
       <Button variant="info" onclick={() => (showTerminal = !showTerminal)}>
@@ -126,11 +126,19 @@
     <div class="error">{error}</div>
   {/if}
 
-  <div class="content-area" class:has-terminal={showTerminal}>
+  <div
+    class="content-area"
+    class:has-terminal={showTerminal}
+    class:has-config={showConfig}
+  >
     <div class="terminal-sidebar" class:visible={showTerminal}>
       <Terminal />
     </div>
-    <div class="main-content" class:with-terminal={showTerminal}>
+    <div
+      class="main-content"
+      class:with-terminal={showTerminal}
+      class:with-config={showConfig}
+    >
       {#if serverStatus.active}
         <div class="iframe-container">
           <iframe
@@ -150,14 +158,13 @@
         </div>
       {/if}
     </div>
+    <LlamaConfig
+      isOpen={showConfig}
+      onClose={() => (showConfig = false)}
+      onSave={handleConfigSave}
+    />
   </div>
 </div>
-
-<ConfigModal
-  isOpen={showConfig}
-  onClose={() => (showConfig = false)}
-  onSave={handleConfigSave}
-/>
 
 <style>
   .ai-chat {
@@ -233,14 +240,26 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    transition: margin-left 0.3s ease-in-out;
+    transition:
+      margin-left 0.3s ease-in-out,
+      margin-right 0.3s ease-in-out;
     margin-left: 0;
+    margin-right: 0;
     min-width: 0;
     width: 100%;
   }
 
   .main-content.with-terminal {
     margin-left: 70%;
+  }
+
+  .main-content.with-config {
+    margin-right: 70%;
+  }
+
+  .main-content.with-terminal.with-config {
+    margin-left: 70%;
+    margin-right: 70%;
   }
 
   .iframe-container {
