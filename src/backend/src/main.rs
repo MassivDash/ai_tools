@@ -14,10 +14,6 @@ mod markdown_utils;
 mod session;
 mod ssr_routes;
 
-use crate::api::hello::get::json_response_get;
-use crate::api::hello::post::json_response;
-use crate::api::protected::get::protected_endpoint;
-use crate::api::space_x::get::json_get_space_x;
 use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
 use crate::auth::auth_middleware::Authentication;
@@ -46,11 +42,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(post_login))
-            .service(json_response)
-            .service(json_response_get)
-            .service(json_get_space_x)
             .service(convert_url_to_markdown)
-            .service(protected_endpoint)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)

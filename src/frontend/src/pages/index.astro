@@ -1,10 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import UrlToMarkdown from '../components/urlToMarkdown/urlToMarkdown.svelte'
+import AiChat from '../components/aiChat/aiChat.svelte'
 ---
 
-<Layout title='Welcome to Spaceout api tools'>
+<Layout title='AI Tools - Chat Assistant'>
   <div transition:animate='fade'>
-    <UrlToMarkdown client:load />
+    <AiChat client:load />
   </div>
 </Layout>

@@ -1,0 +1,88 @@
+---
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title='RAG - Retrieval Augmented Generation'>
+  <main transition:animate='fade'>
+    <div class="rag-container">
+      <h1>RAG (Retrieval Augmented Generation)</h1>
+      <div class="rag-content">
+        <p class="description">
+          RAG combines the power of retrieval-based and generative AI models to provide
+          accurate, context-aware responses by searching through knowledge bases and
+          generating answers based on retrieved information.
+        </p>
+        <div class="placeholder-section">
+          <p>🚧 RAG functionality coming soon</p>
+          <p class="hint">
+            This page will provide tools for document indexing, semantic search, and
+            context-aware AI responses.
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .rag-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #100f0f;
+    text-align: center;
+  }
+
+  .rag-content {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #333;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .placeholder-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    text-align: center;
+    color: #666;
+  }
+
+  .placeholder-section p {
+    margin: 0.5rem 0;
+    font-size: 1.1rem;
+  }
+
+  .placeholder-section .hint {
+    font-size: 0.9rem;
+    color: #999;
+    max-width: 600px;
+  }
+
+  @media screen and (max-width: 768px) {
+    h1 {
+      font-size: 2rem;
+    }
+
+    .rag-content {
+      padding: 1.5rem;
+    }
+  }
+</style>
+

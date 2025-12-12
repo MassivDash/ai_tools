@@ -1,17 +1,21 @@
 ---
-import GithubIcon from '../../svgs/Github.astro'
-import SpaceoutIcon from '../../svgs/Spaceout.astro'
-import AstroIcon from '../../svgs/AstroIcon.astro'
-import RustIcon from '../../svgs/RustIcon.astro'
-import ActixIcon from '../../svgs/Actix.astro'
-import NavbarItem from './NavbarItem.astro'
+
 ---
 
 <script>
   document.addEventListener('astro:page-load', () => {
-    const homeLink = document.getElementById('homeIcon')
-    const isHome = window.location.pathname === '/'
-    isHome && homeLink?.classList.add('active')
+    // Update active state for navigation links
+    const currentPath = window.location.pathname
+    const navLinks = document.querySelectorAll('.nav-link')
+
+    navLinks.forEach((link) => {
+      const href = link.getAttribute('href')
+      if (href === currentPath || (currentPath === '/' && href === '/')) {
+        link.classList.add('active')
+      } else {
+        link.classList.remove('active')
+      }
+    })
 
     // Hamburger menu functionality
     const hamburger = document.getElementById('hamburger')
@@ -41,7 +45,25 @@ import NavbarItem from './NavbarItem.astro'
 </script>
 
 <nav>
-  <div class='nav'>
+  <div class='nav-container'>
+    <!-- Logo/Brand -->
+    <div class='logo'>
+      <a href='/' class='logo-link'>AI Tools</a>
+    </div>
+
+    <!-- Desktop navigation -->
+    <ul class='desktop-nav'>
+      <li>
+        <a href='/' class='nav-link'>Home</a>
+      </li>
+      <li>
+        <a href='/tools' class='nav-link'>Tools</a>
+      </li>
+      <li>
+        <a href='/rag' class='nav-link'>RAG</a>
+      </li>
+    </ul>
+
     <!-- Mobile hamburger button -->
     <button id='hamburger' class='hamburger' aria-label='Toggle menu'>
       <span></span>
@@ -49,82 +71,17 @@ import NavbarItem from './NavbarItem.astro'
       <span></span>
     </button>
 
-    <!-- Desktop navigation -->
-    <div class='desktop-nav'>
-      <ul>
-        <li>
-          <a id='home-link' href='/'>
-            <div class='logo'>
-              <p>astro <span id='homeIcon' class='navi-link'>X</span></p>
-            </div>
-          </a>
-        </li>
-        <NavbarItem id='cli-link' href='/cli'>
-          <RustIcon height={30} width={30} />
-          <p>cli</p>
-        </NavbarItem>
-        <NavbarItem id='actix-link' href='/actix'>
-          <ActixIcon height={30} width={30} />
-          <p>actiX</p>
-        </NavbarItem>
-        <NavbarItem id='astro-link' href='/astro'>
-          <AstroIcon height={30} width={30} />
-          <p>astro</p>
-        </NavbarItem>
-      </ul>
-      <ul class='social-links'>
-        <NavbarItem
-          external
-          id='github-link'
-          href='https://github.com/MassivDash/AstroX'
-        >
-          <GithubIcon height={28} width={28} />
-          <p>Repository</p>
-        </NavbarItem>
-        <NavbarItem external id='spaceout-link' href='https://spaceout.pl'>
-          <SpaceoutIcon height={35} width={35} />
-          <p>Spaceout</p>
-        </NavbarItem>
-      </ul>
-    </div>
-
-    <!-- Mobile slide-out menu -->
+    <!-- Mobile menu -->
     <div id='mobile-menu' class='mobile-menu'>
-      <div class='mobile-logo'>
-        <a href='/'>
-          <p>astro <span class='mobile-x'>X</span></p>
-        </a>
-      </div>
       <ul>
         <li>
-          <a href='/cli'>
-            <RustIcon height={30} width={30} />
-            <p>cli</p>
-          </a>
+          <a href='/' class='nav-link'>Home</a>
         </li>
         <li>
-          <a href='/actix'>
-            <ActixIcon height={30} width={30} />
-            <p>actiX</p>
-          </a>
+          <a href='/tools' class='nav-link'>Tools</a>
         </li>
         <li>
-          <a href='/astro'>
-            <AstroIcon height={30} width={30} />
-            <p>astro</p>
-          </a>
-        </li>
-        <li>
-          <a href='https://github.com/MassivDash/AstroX' target='_blank'>
-            <GithubIcon height={28} width={28} />
-            <p>Repository</p>
-          </a>
-        </li>
-        <li>
-          <a href='https://spaceout.pl' target='_blank'>
-            <SpaceoutIcon height={35} width={35} />
-            <p>Spaceout</p>
-          </a>
+          <a href='/rag' class='nav-link'>RAG</a>
         </li>
       </ul>
     </div>
@@ -132,23 +89,78 @@ import NavbarItem from './NavbarItem.astro'
 </nav>
 
 <style>
-  /* Mobile-first base styles */
   nav {
-    display: flex;
-    justify-content: flex-start;
-    position: relative;
-    top: 0;
     width: 100%;
+    background-color: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
     z-index: 100;
   }
 
-  .nav {
+  .nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
-    width: 100%;
-    padding: 0.5rem 1rem;
+  }
+
+  .logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .logo-link {
+    text-decoration: none;
+    color: #100f0f;
+    transition: color 0.2s;
+  }
+
+  .logo-link:hover {
+    color: #b12424;
+  }
+
+  .desktop-nav {
+    display: none;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+    align-items: center;
+  }
+
+  .desktop-nav li {
+    margin: 0;
+  }
+
+  .nav-link {
+    text-decoration: none;
+    color: #666;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
     position: relative;
+  }
+
+  .nav-link:hover {
+    color: #b12424;
+  }
+
+  .nav-link.active {
+    color: #b12424;
+  }
+
+  .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #b12424;
   }
 
   /* Hamburger menu button - mobile only */
@@ -188,12 +200,7 @@ import NavbarItem from './NavbarItem.astro'
     transform: rotate(-45deg);
   }
 
-  /* Desktop navigation - hidden on mobile */
-  .desktop-nav {
-    display: none;
-  }
-
-  /* Mobile slide-out menu */
+  /* Mobile menu */
   .mobile-menu {
     position: fixed;
     top: 0;
@@ -201,237 +208,66 @@ import NavbarItem from './NavbarItem.astro'
     width: 80%;
     max-width: 300px;
     height: 100vh;
-    background: linear-gradient(180deg, #f6f6f6, #eeeeee, #f4f4f4);
+    background: #fff;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
     transition: right 0.3s ease-in-out;
     z-index: 1000;
     overflow-y: auto;
+    padding-top: 4rem;
   }
 
   .mobile-menu.open {
     right: 0;
   }
 
-  .mobile-logo {
-    padding: 2rem 2rem 1rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    margin-bottom: 1rem;
-  }
-
-  .mobile-logo a {
-    text-decoration: none;
-    display: flex;
-    justify-content: center;
-  }
-
-  .mobile-logo p {
-    font-weight: 700;
-    font-size: 1.8rem;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-  }
-
-  .mobile-x {
-    display: inline-flex;
-    width: 60px;
-    height: 60px;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(90deg, #f6f6f6, #eeeeee, #f4f4f4, #fefefe);
-    border-radius: 30px;
-    box-shadow: inset 0px 1px 2px 1px #1f1e1a69;
-    font-size: 2.2rem;
-    color: #8b8b8b;
-    font-weight: 700;
-  }
-
   .mobile-menu ul {
     list-style: none;
-    padding: 1rem 2rem 2rem;
+    padding: 0;
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
   }
 
   .mobile-menu li {
     width: 100%;
+    border-bottom: 1px solid #e0e0e0;
   }
 
-  .mobile-menu ul a {
-    text-decoration: none;
+  .mobile-menu .nav-link {
+    display: block;
+    padding: 1rem 2rem;
     color: #333;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    border-radius: 8px;
-    transition: all 0.3s ease;
     font-size: 1.1rem;
   }
 
-  .mobile-menu ul a:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: #b12424;
+  .mobile-menu .nav-link:hover {
+    background-color: #f5f5f5;
   }
 
-  .mobile-menu ul p {
-    margin: 0;
-    font-weight: 600;
-    text-transform: lowercase;
+  .mobile-menu .nav-link.active {
+    background-color: #f5f5f5;
   }
 
-  a {
-    text-decoration: none;
-    color: #8b8b8b;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .logo p {
-    font-weight: 700;
-    font-size: 2rem;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin: 0;
-  }
-
-  span {
-    font-weight: 700;
-    font-size: 2.5rem;
-    color: #8b8b8b;
-    line-height: 1.5;
-    padding-bottom: 5px;
-  }
-
-  .navi-link {
-    display: flex;
-    position: relative;
-    width: 80px;
-    height: 80px;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(90deg, #f6f6f6, #eeeeee, #f4f4f4, #fefefe);
-    border-radius: 45px;
-    box-shadow: inset 0px 1px 2px 1px #1f1e1a69;
-    transition: all 0.7s cubic-bezier(0, 1.5, 1, 1.5);
-  }
-
-  .active {
-    box-shadow: none;
-    color: #0a0909;
-    transform: scale(1);
-    filter: drop-shadow(1px 1px 1px rgba(30, 21, 21, 3.47));
-    background: linear-gradient(-90deg, #f6f6f6, #eeeeee, #f4f4f4, #fefefe);
-    position: relative;
-    transitions: all 0.7s ease-in-out;
-
-    &:active {
-      box-shadow: inset 0px 1px 2px 3px #1f1e1a69;
-    }
+  .mobile-menu .nav-link.active::after {
+    display: none;
   }
 
   /* Tablet and desktop styles */
-  @media screen and (min-width: 1024px) {
-    .nav {
-      padding: 0;
-      justify-content: center;
+  @media screen and (min-width: 768px) {
+    .nav-container {
+      padding: 1rem 2rem;
     }
 
-    /* Hide hamburger on desktop */
+    .desktop-nav {
+      display: flex;
+    }
+
     .hamburger {
       display: none;
     }
 
-    /* Show desktop navigation */
-    .desktop-nav {
-      display: flex;
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .desktop-nav ul {
-      display: flex;
-      list-style: none;
-      padding: 0 1rem;
-      align-items: center;
-    }
-
-    .desktop-nav li {
-      margin: 0 1rem;
-
-      &:first-child {
-        margin-right: 30px;
-      }
-    }
-
-    .desktop-nav .social-links {
-      justify-content: flex-end;
-    }
-
-    .logo {
-      padding-left: 1rem;
-    }
-
-    /* Hide mobile menu on desktop */
     .mobile-menu {
       display: none;
-    }
-
-    .navi-link p {
-      position: absolute;
-      margin: 10px auto;
-      font-size: 0.6rem;
-      opacity: 0;
-      bottom: -40px;
-      transition: all 0.7s ease-in-out;
-    }
-
-    .navi-link:hover {
-      color: #0a0909;
-      box-shadow: inset 0px 0px 0px 0px #1f1e1a69;
-
-      p {
-        display: block;
-        opacity: 1;
-        transition: all 0.7s ease-in-out;
-      }
-
-      a {
-        color: #0a0909;
-        transition: all 0.7s ease-in-out;
-      }
-
-      &:active {
-        box-shadow: inset 0px 1px 2px 3px #1f1e1a69;
-      }
-    }
-
-    .active p {
-      display: none;
-    }
-
-    .active .logo > p {
-      color: #0a0909;
-      display: flex;
-      margin: auto;
-      position: relative;
-      font-size: 2rem;
-      transition: all 0.7s ease-in-out;
-    }
-
-    .active a {
-      color: #0a0909;
-      transition: all 0.7s ease-in-out;
     }
   }
 </style>

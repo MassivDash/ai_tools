@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro'
+import ToolSwitcher from '../components/toolSwitcher/toolSwitcher.svelte'
+---
+
+<Layout title='AI Tools - Converter Tools'>
+  <div transition:animate='fade'>
+    <ToolSwitcher client:load />
+  </div>
+</Layout>
+
