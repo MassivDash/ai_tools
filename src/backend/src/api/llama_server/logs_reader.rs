@@ -135,7 +135,13 @@ fn process_log_line(
                 LogSource::Stderr => "stderr".to_string(),
             },
         };
+        println!("📡 Broadcasting log via WebSocket: {} clients", {
+            let clients = state.logs_clients.lock().unwrap();
+            clients.len()
+        });
         state.broadcast_log(log_line);
+    } else {
+        println!("⚠️  WebSocket state not available for broadcasting logs");
     }
 
     // Check if server is ready

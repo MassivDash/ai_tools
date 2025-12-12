@@ -51,12 +51,14 @@ impl WebSocketState {
 
     pub fn add_logs_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
         let mut clients = self.logs_clients.lock().unwrap();
-        clients.insert(id, tx);
+        clients.insert(id.clone(), tx);
+        println!("✅ Logs WebSocket client connected: {} (total: {})", id, clients.len());
     }
 
     pub fn remove_logs_client(&self, id: &str) {
         let mut clients = self.logs_clients.lock().unwrap();
         clients.remove(id);
+        println!("🔌 Logs WebSocket client disconnected: {} (remaining: {})", id, clients.len());
     }
 
     pub fn add_status_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
@@ -71,9 +73,16 @@ impl WebSocketState {
 
     pub fn broadcast_log(&self, log: LogLine) {
         let clients = self.logs_clients.lock().unwrap();
+        let client_count = clients.len();
         let message = serde_json::to_string(&WebSocketMessage::Log { log }).unwrap();
+        let mut sent_count = 0;
         for tx in clients.values() {
-            let _ = tx.send(message.clone());
+            if tx.send(message.clone()).is_ok() {
+                sent_count += 1;
+            }
+        }
+        if client_count > 0 {
+            println!("📤 Sent log to {}/{} WebSocket clients", sent_count, client_count);
         }
     }
 

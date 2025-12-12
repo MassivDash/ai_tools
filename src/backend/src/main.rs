@@ -50,69 +50,70 @@ async fn main() -> std::io::Result<()> {
     let llama_server_state: ServerStateHandle =
         Arc::new(Mutex::new(ServerState { is_ready: false }));
 
+    // Create WebSocket state ONCE before the server (shared across all workers)
+    let ws_state = Arc::new(WebSocketState::new(
+        web::Data::new(llama_logs.clone()),
+        web::Data::new(llama_process.clone()),
+        web::Data::new(llama_server_state.clone()),
+    ));
+
+    // Start status polling task ONCE (outside of HttpServer::new)
+    let ws_state_status = ws_state.clone();
+    let llama_process_status = llama_process.clone();
+    let llama_server_state_status = llama_server_state.clone();
+    actix_rt::spawn(async move {
+        use tokio::time::{interval, Duration};
+        let mut interval = interval(Duration::from_secs(2));
+
+        loop {
+            interval.tick().await;
+
+            let process_handle: ProcessHandle = llama_process_status.clone();
+            let state_handle: ServerStateHandle = llama_server_state_status.clone();
+
+            let is_active = {
+                let mut process_guard = process_handle.lock().unwrap();
+                if let Some(ref mut child) = *process_guard {
+                    match child.try_wait() {
+                        Ok(Some(_)) => {
+                            drop(process_guard);
+                            let mut p = process_handle.lock().unwrap();
+                            *p = None;
+                            false
+                        }
+                        Ok(None) => true,
+                        Err(_) => false,
+                    }
+                } else {
+                    false
+                }
+            };
+
+            let state_guard = state_handle.lock().unwrap();
+            let is_ready = state_guard.is_ready;
+            drop(state_guard);
+
+            // Check port
+            let port_check = tokio::net::TcpStream::connect("127.0.0.1:8080")
+                .await
+                .is_ok();
+
+            let active = is_active && (is_ready || port_check);
+
+            ws_state_status.broadcast_status(active, 8080);
+        }
+    });
+
     // Set up the actix server
     let llama_process_data = llama_process.clone();
     let llama_config_data = llama_config.clone();
     let llama_logs_data = llama_logs.clone();
     let llama_server_state_data = llama_server_state.clone();
+    let ws_state_data = ws_state.clone();
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
         let auth_routes: Vec<String> = vec!["/auth/*".to_string()]; // Routes that require authentication
-
-        // Create WebSocket state
-        let ws_state = Arc::new(WebSocketState::new(
-            web::Data::new(llama_logs_data.clone()),
-            web::Data::new(llama_process_data.clone()),
-            web::Data::new(llama_server_state_data.clone()),
-        ));
-
-        // Start status polling task
-        let ws_state_status = ws_state.clone();
-        let llama_process_status = llama_process_data.clone();
-        let llama_server_state_status = llama_server_state_data.clone();
-        actix_rt::spawn(async move {
-            use tokio::time::{interval, Duration};
-            let mut interval = interval(Duration::from_secs(2));
-
-            loop {
-                interval.tick().await;
-
-                let process_handle: ProcessHandle = llama_process_status.clone();
-                let state_handle: ServerStateHandle = llama_server_state_status.clone();
-
-                let is_active = {
-                    let mut process_guard = process_handle.lock().unwrap();
-                    if let Some(ref mut child) = *process_guard {
-                        match child.try_wait() {
-                            Ok(Some(_)) => {
-                                drop(process_guard);
-                                let mut p = process_handle.lock().unwrap();
-                                *p = None;
-                                false
-                            }
-                            Ok(None) => true,
-                            Err(_) => false,
-                        }
-                    } else {
-                        false
-                    }
-                };
-
-                let state_guard = state_handle.lock().unwrap();
-                let is_ready = state_guard.is_ready;
-                drop(state_guard);
-
-                // Check port
-                let port_check = tokio::net::TcpStream::connect("127.0.0.1:8080")
-                    .await
-                    .is_ok();
-
-                let active = is_active && (is_ready || port_check);
-
-                ws_state_status.broadcast_status(active, 8080);
-            }
-        });
 
         // The services and wrappers are loaded from the last to first
         // Ensure all the wrappers are after routes and handlers
@@ -121,7 +122,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(llama_config_data.clone()))
             .app_data(web::Data::new(llama_logs_data.clone()))
             .app_data(web::Data::new(llama_server_state_data.clone()))
-            .app_data(web::Data::new(ws_state))
+            .app_data(web::Data::new(ws_state_data.clone()))
             .wrap(cors)
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(post_login))
