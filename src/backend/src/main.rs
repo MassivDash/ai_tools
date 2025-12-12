@@ -21,7 +21,10 @@ use crate::api::llama_server::get_status::get_llama_server_status;
 use crate::api::llama_server::post_config::post_update_config;
 use crate::api::llama_server::post_start::post_start_llama_server;
 use crate::api::llama_server::post_stop::post_stop_llama_server;
-use crate::api::llama_server::types::{Config, LogBuffer, ServerState, ServerStateHandle};
+use crate::api::llama_server::types::{
+    Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
+};
+use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketServer};
 use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
 use crate::auth::auth_middleware::Authentication;
@@ -29,6 +32,7 @@ use crate::cors::get_cors_options::get_cors_options;
 use crate::session::flash_messages::set_up_flash_messages;
 use crate::ssr_routes::login::login_form;
 use crate::ssr_routes::post_login::post_login;
+use actix::Actor;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
@@ -44,13 +48,66 @@ async fn main() -> std::io::Result<()> {
     let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let llama_config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
     let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
-    let llama_server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: false }));
+    let llama_server_state: ServerStateHandle =
+        Arc::new(Mutex::new(ServerState { is_ready: false }));
+
+    // Start WebSocket server actor
+    let ws_server = WebSocketServer::default().start();
+
+    // Start status polling task
+    let ws_server_status = ws_server.clone();
+    let llama_process_status = llama_process.clone();
+    let llama_server_state_status = llama_server_state.clone();
+    actix_rt::spawn(async move {
+        use crate::api::llama_server::websocket::BroadcastStatus;
+        use tokio::time::{interval, Duration};
+        let mut interval = interval(Duration::from_secs(2));
+
+        loop {
+            interval.tick().await;
+
+            let process_handle: ProcessHandle = llama_process_status.clone();
+            let state_handle: ServerStateHandle = llama_server_state_status.clone();
+
+            let is_active = {
+                let mut process_guard = process_handle.lock().unwrap();
+                if let Some(ref mut child) = *process_guard {
+                    match child.try_wait() {
+                        Ok(Some(_)) => {
+                            drop(process_guard);
+                            let mut p = process_handle.lock().unwrap();
+                            *p = None;
+                            false
+                        }
+                        Ok(None) => true,
+                        Err(_) => false,
+                    }
+                } else {
+                    false
+                }
+            };
+
+            let state_guard = state_handle.lock().unwrap();
+            let is_ready = state_guard.is_ready;
+            drop(state_guard);
+
+            // Check port
+            let port_check = tokio::net::TcpStream::connect("127.0.0.1:8080")
+                .await
+                .is_ok();
+
+            let active = is_active && (is_ready || port_check);
+
+            ws_server_status.do_send(BroadcastStatus { active, port: 8080 });
+        }
+    });
 
     // Set up the actix server
     let llama_process_data = llama_process.clone();
     let llama_config_data = llama_config.clone();
     let llama_logs_data = llama_logs.clone();
     let llama_server_state_data = llama_server_state.clone();
+    let ws_server_data = ws_server.clone();
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -63,9 +120,15 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(llama_config_data.clone()))
             .app_data(web::Data::new(llama_logs_data.clone()))
             .app_data(web::Data::new(llama_server_state_data.clone()))
+            .app_data(web::Data::new(ws_server_data.clone()))
             .wrap(cors)
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(post_login))
+            .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
+            .route(
+                "/api/llama-server/status/ws",
+                web::get().to(status_websocket),
+            )
             .service(convert_url_to_markdown)
             .service(get_llama_server_status)
             .service(get_llama_models)

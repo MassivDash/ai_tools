@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { onMount, onDestroy } from 'svelte'
 
   interface LogLine {
@@ -8,31 +7,81 @@
     source: 'stdout' | 'stderr'
   }
 
-  interface LogsResponse {
-    logs: LogLine[]
-  }
+  type WebSocketMessage =
+    | { type: 'log'; log: LogLine }
+    | { type: 'logs_batch'; logs: LogLine[] }
 
   let logs: LogLine[] = []
   let loading = false
   let error = ''
-  let logInterval: ReturnType<typeof setInterval> | null = null
+  let ws: WebSocket | null = null
   let terminalRef: HTMLDivElement
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
-  const loadLogs = async () => {
+  const getWebSocketUrl = (): string => {
+    const baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
+    const wsBase = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    return `${wsProtocol}://${wsBase}/api/llama-server/logs/ws`
+  }
+
+  const connectWebSocket = () => {
     try {
-      const response = await axiosBackendInstance.get<LogsResponse>(
-        'llama-server/logs'
-      )
-      logs = response.data.logs
-      // Auto-scroll to bottom
-      if (terminalRef) {
-        setTimeout(() => {
-          terminalRef.scrollTop = terminalRef.scrollHeight
-        }, 10)
+      const wsUrl = getWebSocketUrl()
+      console.log('🔌 Connecting to logs WebSocket:', wsUrl)
+      ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        console.log('✅ Logs WebSocket connected')
+        error = ''
+        loading = false
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data)
+
+          if (message.type === 'log') {
+            logs = [...logs, message.log]
+            // Auto-scroll to bottom
+            if (terminalRef) {
+              setTimeout(() => {
+                terminalRef.scrollTop = terminalRef.scrollHeight
+              }, 10)
+            }
+          } else if (message.type === 'logs_batch') {
+            logs = message.logs
+            // Auto-scroll to bottom
+            if (terminalRef) {
+              setTimeout(() => {
+                terminalRef.scrollTop = terminalRef.scrollHeight
+              }, 10)
+            }
+          }
+        } catch (err) {
+          console.error('❌ Failed to parse WebSocket message:', err)
+        }
+      }
+
+      ws.onerror = (err) => {
+        console.error('❌ Logs WebSocket error:', err)
+        error = 'WebSocket connection error'
+      }
+
+      ws.onclose = () => {
+        console.log('🔌 Logs WebSocket closed, reconnecting...')
+        ws = null
+        // Reconnect after 2 seconds
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout)
+        }
+        reconnectTimeout = setTimeout(() => {
+          connectWebSocket()
+        }, 2000)
       }
     } catch (err: any) {
-      console.error('❌ Failed to load logs:', err)
-      error = err.response?.data?.error || err.message || 'Failed to load logs'
+      console.error('❌ Failed to connect WebSocket:', err)
+      error = err.message || 'Failed to connect to logs stream'
     }
   }
 
@@ -42,16 +91,17 @@
   }
 
   onMount(() => {
-    loadLogs()
-    // Poll for logs every 500ms
-    logInterval = setInterval(() => {
-      loadLogs()
-    }, 500)
+    loading = true
+    connectWebSocket()
   })
 
   onDestroy(() => {
-    if (logInterval) {
-      clearInterval(logInterval)
+    if (ws) {
+      ws.close()
+      ws = null
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
     }
   })
 </script>
@@ -59,9 +109,15 @@
 <div class="terminal-container">
   <div class="terminal-header">
     <h4>Server Output</h4>
-    <button class="refresh-button" onclick={loadLogs} title="Refresh logs">
-      🔄
-    </button>
+    <div class="header-status">
+      {#if ws && ws.readyState === WebSocket.OPEN}
+        <span class="status-indicator connected" title="Connected">🟢</span>
+      {:else}
+        <span class="status-indicator disconnected" title="Disconnected"
+          >🔴</span
+        >
+      {/if}
+    </div>
   </div>
   <div class="terminal-content" bind:this={terminalRef}>
     {#if logs.length === 0}
@@ -69,7 +125,9 @@
     {:else}
       {#each logs as logEntry}
         <div class="log-line {logEntry.source}">
-          <span class="log-timestamp">{formatTimestamp(logEntry.timestamp)}</span>
+          <span class="log-timestamp"
+            >{formatTimestamp(logEntry.timestamp)}</span
+          >
           <span class="log-source">[{logEntry.source}]</span>
           <span class="log-text">{logEntry.line}</span>
         </div>
@@ -104,19 +162,28 @@
     font-weight: 600;
   }
 
-  .refresh-button {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+  .header-status {
+    display: flex;
+    align-items: center;
   }
 
-  .refresh-button:hover {
-    background-color: #444;
+  .status-indicator {
+    font-size: 0.75rem;
+    margin-right: 0.5rem;
+  }
+
+  .status-indicator.connected {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
   }
 
   .terminal-content {
@@ -187,4 +254,3 @@
     background: #555;
   }
 </style>
-

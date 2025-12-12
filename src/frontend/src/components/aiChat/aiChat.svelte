@@ -32,7 +32,7 @@
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
   let loading = false
   let error = ''
-  let statusCheckInterval: ReturnType<typeof setInterval> | null = null
+  let statusWs: WebSocket | null = null
   let showConfig = false
   let showTerminal = false
   let isStarting = false
@@ -42,33 +42,70 @@
   let newCtxSize = 10240
   let loadingModels = false
   let savingConfig = false
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
-  const checkServerStatus = async () => {
+  type StatusWebSocketMessage = {
+    type: 'status'
+    active: boolean
+    port: number
+  }
+
+  const getWebSocketUrl = (): string => {
+    const baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
+    const wsBase = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    return `${wsProtocol}://${wsBase}/api/llama-server/status/ws`
+  }
+
+  const connectStatusWebSocket = () => {
     try {
-      const response = await axiosBackendInstance.get<LlamaServerStatus>(
-        'llama-server/status'
-      )
-      const wasActive = serverStatus.active
-      serverStatus = response.data
-      console.log('🔄 Server status checked:', serverStatus)
+      const wsUrl = getWebSocketUrl()
+      console.log('🔌 Connecting to status WebSocket:', wsUrl)
+      statusWs = new WebSocket(wsUrl)
 
-      // If server just became active, stop the fast polling
-      if (serverStatus.active && !wasActive && isStarting) {
-        isStarting = false
-        // Restart with normal polling interval
-        if (statusCheckInterval) {
-          clearInterval(statusCheckInterval)
+      statusWs.onopen = () => {
+        console.log('✅ Status WebSocket connected')
+        error = ''
+      }
+
+      statusWs.onmessage = (event) => {
+        try {
+          const message: StatusWebSocketMessage = JSON.parse(event.data)
+
+          if (message.type === 'status') {
+            const wasActive = serverStatus.active
+            serverStatus = { active: message.active, port: message.port }
+            console.log('🔄 Server status updated:', serverStatus)
+
+            // If server just became active, stop the starting flag
+            if (serverStatus.active && !wasActive && isStarting) {
+              isStarting = false
+            }
+          }
+        } catch (err) {
+          console.error('❌ Failed to parse status WebSocket message:', err)
         }
-        statusCheckInterval = setInterval(() => {
-          checkServerStatus()
-        }, 5000)
+      }
+
+      statusWs.onerror = (err) => {
+        console.error('❌ Status WebSocket error:', err)
+        error = 'WebSocket connection error'
+      }
+
+      statusWs.onclose = () => {
+        console.log('🔌 Status WebSocket closed, reconnecting...')
+        statusWs = null
+        // Reconnect after 2 seconds
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout)
+        }
+        reconnectTimeout = setTimeout(() => {
+          connectStatusWebSocket()
+        }, 2000)
       }
     } catch (err: any) {
-      console.error('❌ Failed to check server status:', err)
-      error =
-        err.response?.data?.error ||
-        err.message ||
-        'Failed to check server status'
+      console.error('❌ Failed to connect status WebSocket:', err)
+      error = err.message || 'Failed to connect to status stream'
     }
   }
 
@@ -171,15 +208,8 @@
         )
       console.log('✅ Start response:', response.data)
       if (response.data.success) {
-        // Start fast polling to detect when server is ready
-        if (statusCheckInterval) {
-          clearInterval(statusCheckInterval)
-        }
-        statusCheckInterval = setInterval(() => {
-          checkServerStatus()
-        }, 1000) // Poll every second while starting
-        // Also check immediately
-        checkServerStatus()
+        // Status will be updated via WebSocket
+        isStarting = true
       } else {
         error = response.data.message
         isStarting = false
@@ -220,17 +250,17 @@
   }
 
   onMount(() => {
-    // Check status on mount
-    checkServerStatus()
-    // Poll for status updates every 5 seconds
-    statusCheckInterval = setInterval(() => {
-      checkServerStatus()
-    }, 5000)
+    // Connect to status WebSocket
+    connectStatusWebSocket()
   })
 
   onDestroy(() => {
-    if (statusCheckInterval) {
-      clearInterval(statusCheckInterval)
+    if (statusWs) {
+      statusWs.close()
+      statusWs = null
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
     }
   })
 </script>
