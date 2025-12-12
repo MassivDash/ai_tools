@@ -5,6 +5,10 @@
   import LlamaConfig from './llamaConfig.svelte'
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
+  import TerminalIcon from '../ui/icons/TerminalIcon.svelte'
+  import VmConnectIcon from '../ui/icons/VmConnectIcon.svelte'
+  import StartIcon from '../ui/icons/StartIcon.svelte'
+  import StopCircleIcon from '../ui/icons/StopCircleIcon.svelte'
 
   interface LlamaServerStatus {
     active: boolean
@@ -104,19 +108,41 @@
   <div class="chat-header">
     <h3>Llama.cpp Server</h3>
     <div class="header-actions">
-      <Button variant="info" onclick={() => (showConfig = !showConfig)}>
-        ⚙️ Config
+      <Button
+        variant="info"
+        class="button-icon-only"
+        onclick={() => (showConfig = !showConfig)}
+        title="Config"
+      >
+        <VmConnectIcon width="32" height="32" />
       </Button>
-      <Button variant="info" onclick={() => (showTerminal = !showTerminal)}>
-        {showTerminal ? '📺 Hide Terminal' : '💻 Show Terminal'}
+      <Button
+        variant="info"
+        class="button-icon-only"
+        onclick={() => (showTerminal = !showTerminal)}
+        title={showTerminal ? 'Hide Terminal' : 'Show Terminal'}
+      >
+        <TerminalIcon width="32" height="32" />
       </Button>
       {#if serverStatus.active}
-        <Button variant="danger" onclick={stopServer} disabled={loading}>
-          {loading ? 'Stopping...' : 'Stop Server'}
+        <Button
+          variant="danger"
+          class="button-icon-only"
+          onclick={stopServer}
+          disabled={loading}
+          title={loading ? 'Stopping...' : 'Stop Server'}
+        >
+          <StopCircleIcon width="32" height="32" />
         </Button>
       {:else}
-        <Button variant="success" onclick={startServer} disabled={loading}>
-          {loading ? 'Starting...' : 'Start Server'}
+        <Button
+          variant="success"
+          class="button-icon-only"
+          onclick={startServer}
+          disabled={loading}
+          title={loading ? 'Starting...' : 'Start Server'}
+        >
+          <StartIcon width="32" height="32" />
         </Button>
       {/if}
     </div>
@@ -197,6 +223,20 @@
   .header-actions {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
+  }
+
+  .header-actions :global(.button-icon-only) {
+    padding: 0.75rem !important;
+    min-width: 3rem !important;
+    min-height: 3rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .header-actions :global(.button-icon-only) :global(svg) {
+    flex-shrink: 0;
   }
 
   .error {

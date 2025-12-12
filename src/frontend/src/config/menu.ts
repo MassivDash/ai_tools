@@ -3,6 +3,7 @@ export interface MenuItem {
   href: string
   external?: boolean
   id?: string
+  icon?: string
 }
 
 export interface MenuConfig {
@@ -29,22 +30,26 @@ export const menuConfig: MenuConfig = {
     {
       label: 'Home',
       href: '/',
-      id: 'home-link'
+      id: 'home-link',
+      icon: 'codicon:copilot'
     },
     {
       label: 'Tools',
       href: '/tools',
-      id: 'tools-link'
+      id: 'tools-link',
+      icon: 'codicon:tools'
     },
     {
       label: 'Vector Database',
       href: '/rag',
-      id: 'rag-link'
+      id: 'rag-link',
+      icon: 'codicon:database'
     },
     {
       label: 'Agent Creator',
       href: '/agent-creator',
-      id: 'footer-agent-link'
+      id: 'footer-agent-link',
+      icon: 'codicon:agent'
     }
   ],
   footer: [

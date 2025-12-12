@@ -1,6 +1,7 @@
 ---
 import { menuConfig } from '@config/menu'
 import ThemeSelector from './ThemeSelector.svelte'
+import { Icon } from 'astro-icon/components'
 
 const mainMenuItems = menuConfig.main
 ---
@@ -56,13 +57,16 @@ const mainMenuItems = menuConfig.main
 
     <!-- Desktop navigation -->
     <ul class='desktop-nav'>
-      {mainMenuItems.map((item) => (
-      <li>
-          <a href={item.href} class='nav-link' id={item.id || undefined}>
-            {item.label}
-          </a>
-      </li>
-      ))}
+      {
+        mainMenuItems.map((item) => (
+          <li>
+            <a href={item.href} class='nav-link' id={item.id || undefined}>
+              {item.icon && <Icon name={item.icon} width='20' height='20' />}
+              <span>{item.label}</span>
+            </a>
+          </li>
+        ))
+      }
       <li class='theme-selector-item'>
         <ThemeSelector client:load />
       </li>
@@ -78,13 +82,16 @@ const mainMenuItems = menuConfig.main
     <!-- Mobile menu -->
     <div id='mobile-menu' class='mobile-menu'>
       <ul>
-        {mainMenuItems.map((item) => (
-        <li>
-            <a href={item.href} class='nav-link' id={item.id || undefined}>
-              {item.label}
-            </a>
-        </li>
-        ))}
+        {
+          mainMenuItems.map((item) => (
+            <li>
+              <a href={item.href} class='nav-link' id={item.id || undefined}>
+                {item.icon && <Icon name={item.icon} width='20' height='20' />}
+                <span>{item.label}</span>
+              </a>
+            </li>
+          ))
+        }
         <li class='theme-selector-item mobile-theme-selector'>
           <ThemeSelector client:load />
         </li>
@@ -101,7 +108,9 @@ const mainMenuItems = menuConfig.main
     position: sticky;
     top: 0;
     z-index: 100;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .nav-container {
@@ -159,6 +168,9 @@ const mainMenuItems = menuConfig.main
     padding: 0.5rem 0;
     transition: color 0.2s;
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .nav-link:hover {
@@ -226,7 +238,9 @@ const mainMenuItems = menuConfig.main
     height: 100vh;
     background: var(--bg-primary, #fff);
     box-shadow: -2px 0 10px var(--shadow, rgba(0, 0, 0, 0.1));
-    transition: right 0.3s ease-in-out, background-color 0.3s ease;
+    transition:
+      right 0.3s ease-in-out,
+      background-color 0.3s ease;
     z-index: 1000;
     overflow-y: auto;
     padding-top: 4rem;
@@ -250,7 +264,9 @@ const mainMenuItems = menuConfig.main
   }
 
   .mobile-menu .nav-link {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     padding: 1rem 2rem;
     color: var(--text-primary, #333);
     font-size: 1.1rem;
