@@ -34,24 +34,27 @@ import Layout from '../layouts/Layout.astro'
   h1 {
     font-size: 2.5rem;
     margin-bottom: 1rem;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
     text-align: center;
+    transition: color 0.3s ease;
   }
 
   .rag-content {
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--bg-primary, white);
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 8px;
     padding: 2rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .description {
     font-size: 1.1rem;
     line-height: 1.6;
-    color: #333;
+    color: var(--text-primary, #333);
     margin-bottom: 2rem;
     text-align: center;
+    transition: color 0.3s ease;
   }
 
   .placeholder-section {
@@ -61,7 +64,8 @@ import Layout from '../layouts/Layout.astro'
     justify-content: center;
     min-height: 300px;
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #666);
+    transition: color 0.3s ease;
   }
 
   .placeholder-section p {
@@ -71,8 +75,9 @@ import Layout from '../layouts/Layout.astro'
 
   .placeholder-section .hint {
     font-size: 0.9rem;
-    color: #999;
+    color: var(--text-tertiary, #999);
     max-width: 600px;
+    transition: color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {

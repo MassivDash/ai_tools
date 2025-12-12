@@ -1,7 +1,7 @@
 ---
-import { ClientRouter } from 'astro:transitions'
 import Navbar from '../components/navbar/Navbar.astro'
 import Footer from '../components/Footer.astro'
+import '../styles/global.css'
 
 interface Props {
   title: string
@@ -25,10 +25,29 @@ const { title } = Astro.props
       href='https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
       rel='stylesheet'
     />
-    <ClientRouter />
+    <script is:inline>
+      // Set theme immediately to prevent flash - runs on every navigation
+      const storedTheme = localStorage.getItem('theme')
+      let shouldBeDark = false
+
+      if (storedTheme === 'dark') {
+        shouldBeDark = true
+      } else if (storedTheme === 'light') {
+        shouldBeDark = false
+      } else {
+        // 'system' or no preference - check system preference
+        shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      }
+
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
   </head>
   <body>
-    <Navbar transition:persist />
+    <Navbar />
     <slot />
     <Footer />
     <style is:global>
@@ -36,19 +55,62 @@ const { title } = Astro.props
         font-family: system-ui, sans-serif;
       }
 
-      body {
-        margin: 0;
-        padding-top: 10px;
-        width: 100%;
-        background: linear-gradient(
+      /* Light theme (default) */
+      :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-tertiary: #f9f9f9;
+        --text-primary: #100f0f;
+        --text-secondary: #666;
+        --text-tertiary: #999;
+        --border-color: #e0e0e0;
+        --border-color-hover: #ccc;
+        --shadow: rgba(0, 0, 0, 0.1);
+        --accent-color: #b12424;
+        --accent-hover: #8f1d1d;
+        --gradient-bg: linear-gradient(
           90deg,
           #f6f6f663,
           #eeeeeec9,
           #f4f4f4,
           #fefefe
         );
+      }
+
+      /* Dark theme */
+      html.dark {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #2d2d2d;
+        --bg-tertiary: #252525;
+        --text-primary: #ffffff;
+        --text-secondary: #d4d4d4;
+        --text-tertiary: #858585;
+        --border-color: #444;
+        --border-color-hover: #666;
+        --shadow: rgba(0, 0, 0, 0.3);
+        --accent-color: #f44336;
+        --accent-hover: #da190b;
+        --gradient-bg: linear-gradient(
+          90deg,
+          #2d2d2d,
+          #252525,
+          #2a2a2a,
+          #1e1e1e
+        );
+      }
+
+      body {
+        margin: 0;
+        padding-top: 10px;
+        width: 100%;
+        background: var(--gradient-bg);
         scroll-behavior: smooth;
         overflow-x: hidden;
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
       }
 
       code {
@@ -62,6 +124,65 @@ const { title } = Astro.props
           Courier New,
           monospace,
           Pacifico;
+      }
+
+      /* Theme-aware component styles */
+      html.dark nav {
+        background-color: var(--bg-secondary);
+        border-bottom-color: var(--border-color);
+      }
+
+      html.dark .nav-link {
+        color: var(--text-secondary);
+      }
+
+      html.dark .nav-link:hover {
+        color: var(--accent-color);
+      }
+
+      html.dark .nav-link.active {
+        color: var(--accent-color);
+      }
+
+      html.dark .logo-link {
+        color: var(--text-primary);
+      }
+
+      html.dark .logo-link:hover {
+        color: var(--accent-color);
+      }
+
+      html.dark .mobile-menu {
+        background: var(--bg-secondary);
+      }
+
+      html.dark .mobile-menu .nav-link {
+        color: var(--text-primary);
+      }
+
+      html.dark .mobile-menu .nav-link:hover {
+        background-color: var(--bg-tertiary);
+      }
+
+      html.dark .mobile-menu .nav-link.active {
+        background-color: var(--bg-tertiary);
+      }
+
+      html.dark .hamburger span {
+        background: var(--text-primary);
+      }
+
+      html.dark footer {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      html.dark footer a {
+        color: var(--text-secondary);
+      }
+
+      html.dark footer a:hover {
+        color: var(--text-primary);
       }
     </style>
   </body>

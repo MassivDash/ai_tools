@@ -174,7 +174,8 @@
     display: flex;
     flex-direction: column;
     min-height: 80vh;
-    background-color: #fff;
+    background-color: var(--bg-primary, #fff);
+    transition: background-color 0.3s ease;
   }
 
   .chat-header {
@@ -182,13 +183,15 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border-color, #f0f0f0);
+    transition: border-color 0.3s ease;
   }
 
   .chat-header h3 {
     margin: 0;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
     font-size: 1.5rem;
+    transition: color 0.3s ease;
   }
 
   .header-actions {
@@ -199,11 +202,15 @@
   .error {
     padding: 0.75rem;
     margin: 0 1rem;
-    background-color: #fee;
-    border: 1px solid #fcc;
+    background-color: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     font-size: 0.9rem;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .content-area {
@@ -218,10 +225,12 @@
   .terminal-sidebar {
     width: 70%;
     height: 100%;
-    border-right: 1px solid #ddd;
+    border-right: 1px solid var(--border-color, #ddd);
     background-color: #1e1e1e;
     transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
+    transition:
+      transform 0.3s ease-in-out,
+      border-color 0.3s ease;
     z-index: 10;
     display: flex;
     flex-direction: column;
@@ -229,7 +238,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
   }
 
   .terminal-sidebar.visible {
@@ -284,9 +293,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #666;
+    color: var(--text-secondary, #666);
     text-align: center;
     min-height: 80vh;
+    transition: color 0.3s ease;
   }
 
   .empty-state p {
@@ -295,12 +305,14 @@
 
   .empty-state .hint {
     font-size: 0.9rem;
-    color: #999;
+    color: var(--text-tertiary, #999);
+    transition: color 0.3s ease;
   }
 
   .empty-state .hint-small {
     font-size: 0.8rem;
-    color: #aaa;
+    color: var(--text-tertiary, #aaa);
+    transition: color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {

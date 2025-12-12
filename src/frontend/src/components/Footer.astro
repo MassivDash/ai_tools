@@ -65,12 +65,15 @@ const footerLinks = menuConfig.footerLinks
 
 <style>
   footer {
-    background-color: rgb(44 44 44);
-    color: white;
+    background-color: var(--bg-tertiary, rgb(44 44 44));
+    color: var(--text-primary, white);
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 10px;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .footer {
@@ -87,10 +90,12 @@ const footerLinks = menuConfig.footerLinks
   }
 
   a {
-    color: white;
+    color: var(--text-secondary, white);
     text-decoration: none;
+    transition: color 0.2s ease;
     &:hover {
       text-decoration: underline;
+      color: var(--text-primary, white);
     }
   }
 
@@ -101,14 +106,16 @@ const footerLinks = menuConfig.footerLinks
     justify-content: center;
     align-items: center;
     gap: 50px;
-    background-color: whitesmoke;
+    background-color: var(--bg-secondary, whitesmoke);
+    transition: background-color 0.3s ease;
 
     a {
-      color: rgba(6, 6, 6, 0.854);
+      color: var(--text-primary, rgba(6, 6, 6, 0.854));
+      transition: color 0.2s ease;
     }
 
-    &:hover {
-      color: rgb(6, 6, 6);
+    &:hover a {
+      color: var(--text-primary, rgb(6, 6, 6));
     }
   }
 </style>

@@ -1,0 +1,15 @@
+/* Global dark theme styles */
+html.dark {
+  background-color: #1e1e1e;
+  color: #fff;
+}
+
+/* Dark theme link colors */
+.dark a {
+  color: #ff9776;
+}
+
+.dark a:hover {
+  color: #ffb399;
+}
+

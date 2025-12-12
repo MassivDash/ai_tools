@@ -37,7 +37,7 @@ export const menuConfig: MenuConfig = {
       id: 'tools-link'
     },
     {
-      label: '/Vector Database',
+      label: 'Vector Database',
       href: '/rag',
       id: 'rag-link'
     },

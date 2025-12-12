@@ -278,13 +278,15 @@
   h3 {
     margin-top: 0;
     margin-bottom: 1rem;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
+    transition: color 0.3s ease;
   }
 
   h4 {
     margin-top: 1rem;
     margin-bottom: 0.5rem;
-    color: #333;
+    color: var(--text-primary, #333);
+    transition: color 0.3s ease;
   }
 
   .input-container {
@@ -298,24 +300,27 @@
     flex: 1;
     min-width: 200px;
     padding: 0.75rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     font-size: 1rem;
+    background-color: var(--bg-primary, white);
+    color: var(--text-primary, #333);
+    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
   }
 
   .url-input:focus {
     outline: none;
-    border-color: #b12424;
+    border-color: var(--accent-color, #b12424);
   }
 
   .url-input:disabled {
-    background-color: #f5f5f5;
+    background-color: var(--bg-secondary, #f5f5f5);
     cursor: not-allowed;
   }
 
   .convert-button {
     padding: 0.75rem 1.5rem;
-    background-color: #b12424;
+    background-color: var(--accent-color, #b12424);
     color: white;
     border: none;
     border-radius: 4px;
@@ -325,21 +330,22 @@
   }
 
   .convert-button:hover:not(:disabled) {
-    background-color: #8a1c1c;
+    background-color: var(--accent-hover, #8a1c1c);
   }
 
   .convert-button:disabled {
-    background-color: #ccc;
+    background-color: var(--text-tertiary, #ccc);
     cursor: not-allowed;
   }
 
   .error {
     padding: 0.75rem;
-    background-color: #fee;
-    border: 1px solid #fcc;
+    background-color: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     margin-bottom: 1rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .url-info {
@@ -397,8 +403,8 @@
   }
 
   .markdown-output {
-    background-color: #f5f5f5;
-    border: 1px solid #ddd;
+    background-color: var(--bg-secondary, #f5f5f5);
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     padding: 1rem;
     overflow-x: auto;
@@ -411,6 +417,8 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
+    color: var(--text-primary, #333);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .markdown-output code {
@@ -464,45 +472,48 @@
 
   .advanced-section {
     margin-bottom: 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     overflow: hidden;
+    transition: border-color 0.3s ease;
   }
 
   .advanced-toggle {
     width: 100%;
     padding: 0.75rem;
-    background-color: #f5f5f5;
+    background-color: var(--bg-secondary, #f5f5f5);
     border: none;
     text-align: left;
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 500;
-    color: #333;
+    color: var(--text-primary, #333);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, color 0.3s ease;
   }
 
   .advanced-toggle:hover {
-    background-color: #e8e8e8;
+    background-color: var(--bg-tertiary, #e8e8e8);
   }
 
   .toggle-icon {
     font-size: 0.8rem;
-    color: #666;
+    color: var(--text-secondary, #666);
     width: 1rem;
     display: inline-block;
+    transition: color 0.3s ease;
   }
 
   .advanced-options {
     padding: 1rem;
-    background-color: #fafafa;
-    border-top: 1px solid #ddd;
+    background-color: var(--bg-secondary, #fafafa);
+    border-top: 1px solid var(--border-color, #ddd);
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .checkbox-label {
@@ -520,8 +531,9 @@
   }
 
   .checkbox-label span {
-    color: #333;
+    color: var(--text-primary, #333);
     font-size: 0.95rem;
+    transition: color 0.3s ease;
   }
 
   .preprocessing-options {
@@ -548,16 +560,18 @@
 
   .preset-select {
     padding: 0.5rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     font-size: 0.9rem;
-    background-color: white;
+    background-color: var(--bg-primary, white);
+    color: var(--text-primary, #333);
     cursor: pointer;
     max-width: 200px;
+    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
   }
 
   .preset-select:focus {
     outline: none;
-    border-color: #b12424;
+    border-color: var(--accent-color, #b12424);
   }
 </style>

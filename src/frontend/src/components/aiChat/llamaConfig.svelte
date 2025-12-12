@@ -213,10 +213,10 @@
   .config-panel {
     width: 70%;
     height: 100%;
-    background-color: #fff;
-    border-left: 1px solid #ddd;
+    background-color: var(--bg-primary, #fff);
+    border-left: 1px solid var(--border-color, #ddd);
     transform: translateX(100%);
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s ease-in-out, background-color 0.3s ease, border-color 0.3s ease;
     z-index: 10;
     display: flex;
     flex-direction: column;
@@ -224,7 +224,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    box-shadow: -2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
   }
 
   .config-panel.visible {
@@ -236,15 +236,17 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-    background-color: #f9f9f9;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background-color: var(--bg-secondary, #f9f9f9);
+    transition: border-color 0.3s ease, background-color 0.3s ease;
   }
 
   .config-header h4 {
     margin: 0;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
     font-size: 1.2rem;
     font-weight: 600;
+    transition: color 0.3s ease;
   }
 
   .close-button {
@@ -252,7 +254,7 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: #666;
+    color: var(--text-secondary, #666);
     padding: 0;
     width: 2rem;
     height: 2rem;
@@ -260,12 +262,12 @@
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, color 0.3s ease;
   }
 
   .close-button:hover {
-    background-color: #e0e0e0;
-    color: #100f0f;
+    background-color: var(--bg-tertiary, #e0e0e0);
+    color: var(--text-primary, #100f0f);
   }
 
   .config-content {
@@ -279,8 +281,9 @@
     justify-content: flex-end;
     gap: 0.5rem;
     padding: 1rem;
-    border-top: 1px solid #e0e0e0;
-    background-color: #f9f9f9;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    background-color: var(--bg-secondary, #f9f9f9);
+    transition: border-color 0.3s ease, background-color 0.3s ease;
   }
 
   .config-section {
@@ -291,35 +294,40 @@
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary, #333);
+    transition: color 0.3s ease;
   }
 
   .loading-models {
     padding: 1rem;
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #666);
+    transition: color 0.3s ease;
   }
 
   .no-models {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #666);
+    transition: color 0.3s ease;
   }
 
   .no-models .hint-small {
     font-size: 0.85rem;
-    color: #999;
+    color: var(--text-tertiary, #999);
     margin-top: 0.5rem;
+    transition: color 0.3s ease;
   }
 
   .error {
     padding: 0.75rem;
     margin-bottom: 1rem;
-    background-color: #fee;
-    border: 1px solid #fcc;
+    background-color: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     font-size: 0.9rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {

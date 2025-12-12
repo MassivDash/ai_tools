@@ -100,13 +100,15 @@
   .tools-header h2 {
     font-size: 2.5rem;
     margin: 0 0 0.5rem 0;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
+    transition: color 0.3s ease;
   }
 
   .subtitle {
     font-size: 1.1rem;
-    color: #666;
+    color: var(--text-secondary, #666);
     margin: 0;
+    transition: color 0.3s ease;
   }
 
   .tools-grid {
@@ -117,8 +119,8 @@
   }
 
   .tool-card {
-    background: white;
-    border: 2px solid #e0e0e0;
+    background: var(--bg-primary, white);
+    border: 2px solid var(--border-color, #e0e0e0);
     border-radius: 12px;
     padding: 2rem;
     cursor: pointer;
@@ -131,7 +133,7 @@
   }
 
   .tool-card:hover {
-    border-color: #b12424;
+    border-color: var(--accent-color, #b12424);
     transform: translateY(-4px);
     box-shadow: 0 8px 16px rgba(177, 36, 36, 0.2);
   }
@@ -148,22 +150,25 @@
   .tool-name {
     margin: 0;
     font-size: 1.5rem;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
+    transition: color 0.3s ease;
   }
 
   .tool-description {
     margin: 0;
-    color: #666;
+    color: var(--text-secondary, #666);
     font-size: 0.95rem;
     line-height: 1.5;
+    transition: color 0.3s ease;
   }
 
   .tool-container {
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--bg-primary, white);
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 8px;
     padding: 2rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .tool-header {
@@ -172,14 +177,15 @@
     gap: 1rem;
     margin-bottom: 2rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border-color, #f0f0f0);
+    transition: border-color 0.3s ease;
   }
 
   .back-button {
     padding: 0.5rem 1rem;
-    background-color: #f5f5f5;
-    color: #666;
-    border: 1px solid #ddd;
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--text-secondary, #666);
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     font-size: 0.9rem;
     cursor: pointer;
@@ -187,14 +193,15 @@
   }
 
   .back-button:hover {
-    background-color: #e8e8e8;
-    color: #333;
+    background-color: var(--bg-tertiary, #e8e8e8);
+    color: var(--text-primary, #333);
   }
 
   .tool-header h3 {
     margin: 0;
     font-size: 1.8rem;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
+    transition: color 0.3s ease;
   }
 
   .tool-content {
@@ -208,7 +215,8 @@
     justify-content: center;
     min-height: 400px;
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #666);
+    transition: color 0.3s ease;
   }
 
   .placeholder-tool p {
@@ -218,8 +226,9 @@
 
   .placeholder-tool .hint {
     font-size: 0.9rem;
-    color: #999;
+    color: var(--text-tertiary, #999);
     max-width: 500px;
+    transition: color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {
