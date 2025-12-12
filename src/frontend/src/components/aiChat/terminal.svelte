@@ -15,6 +15,7 @@
   let loading = false
   let error = ''
   let ws: WebSocket | null = null
+  let isConnected = false
   let terminalRef: HTMLDivElement
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -44,6 +45,7 @@
 
       ws.onopen = () => {
         console.log('✅ Logs WebSocket connected')
+        isConnected = true
         error = ''
         loading = false
       }
@@ -76,6 +78,7 @@
 
       ws.onerror = (err) => {
         console.error('❌ Logs WebSocket error:', err)
+        isConnected = false
         error = 'WebSocket connection error'
       }
 
@@ -85,6 +88,7 @@
           reason: event.reason,
           wasClean: event.wasClean
         })
+        isConnected = false
         ws = null
         // Reconnect after 2 seconds
         if (reconnectTimeout) {
@@ -125,7 +129,7 @@
   <div class="terminal-header">
     <h4>Server Output</h4>
     <div class="header-status">
-      {#if ws && ws.readyState === WebSocket.OPEN}
+      {#if isConnected}
         <span class="status-indicator connected" title="Connected">🟢</span>
       {:else}
         <span class="status-indicator disconnected" title="Disconnected"
