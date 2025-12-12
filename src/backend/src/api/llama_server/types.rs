@@ -8,6 +8,17 @@ pub type ProcessHandle = Arc<Mutex<Option<Child>>>;
 pub struct Config {
     pub hf_model: String,
     pub ctx_size: u32,
+    // Advanced options
+    pub threads: Option<i32>,
+    pub threads_batch: Option<i32>,
+    pub predict: Option<i32>,
+    pub batch_size: Option<u32>,
+    pub ubatch_size: Option<u32>,
+    pub flash_attn: Option<bool>,
+    pub mlock: Option<bool>,
+    pub no_mmap: Option<bool>,
+    pub gpu_layers: Option<u32>,
+    pub model: Option<String>,
 }
 
 impl Default for Config {
@@ -15,6 +26,16 @@ impl Default for Config {
         Self {
             hf_model: "unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL".to_string(),
             ctx_size: 10240,
+            threads: None,
+            threads_batch: None,
+            predict: None,
+            batch_size: None,
+            ubatch_size: None,
+            flash_attn: None,
+            mlock: None,
+            no_mmap: None,
+            gpu_layers: None,
+            model: None,
         }
     }
 }

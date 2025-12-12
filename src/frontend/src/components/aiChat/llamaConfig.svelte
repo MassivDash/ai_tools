@@ -2,6 +2,8 @@
   import Input from '../ui/Input.svelte'
   import Button from '../ui/Button.svelte'
   import SearchableList from '../ui/SearchableList.svelte'
+  import Accordion from '../ui/Accordion.svelte'
+  import HelpIcon from '../ui/HelpIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 
   export let isOpen: boolean = false
@@ -18,6 +20,16 @@
   interface ConfigResponse {
     hf_model: string
     ctx_size: number
+    threads?: number | null
+    threads_batch?: number | null
+    predict?: number | null
+    batch_size?: number | null
+    ubatch_size?: number | null
+    flash_attn?: boolean | null
+    mlock?: boolean | null
+    no_mmap?: boolean | null
+    gpu_layers?: number | null
+    model?: string | null
   }
 
   interface LlamaServerResponse {
@@ -29,6 +41,17 @@
   let config: ConfigResponse = { hf_model: '', ctx_size: 10240 }
   let newHfModel = ''
   let newCtxSize = 10240
+  // Advanced options
+  let newThreads: number | '' = ''
+  let newThreadsBatch: number | '' = ''
+  let newPredict: number | '' = ''
+  let newBatchSize: number | '' = ''
+  let newUbatchSize: number | '' = ''
+  let newFlashAttn: boolean = false
+  let newMlock: boolean = false
+  let newNoMmap: boolean = false
+  let newGpuLayers: number | '' = ''
+  let newModel: string = ''
   let loadingModels = false
   let savingConfig = false
   let error = ''
@@ -53,6 +76,16 @@
       config = response.data
       newHfModel = config.hf_model
       newCtxSize = config.ctx_size
+      newThreads = config.threads ?? ''
+      newThreadsBatch = config.threads_batch ?? ''
+      newPredict = config.predict ?? ''
+      newBatchSize = config.batch_size ?? ''
+      newUbatchSize = config.ubatch_size ?? ''
+      newFlashAttn = config.flash_attn ?? false
+      newMlock = config.mlock ?? false
+      newNoMmap = config.no_mmap ?? false
+      newGpuLayers = config.gpu_layers ?? ''
+      newModel = config.model ?? ''
       console.log('📋 Config loaded:', config)
     } catch (err: any) {
       console.error('❌ Failed to load config:', err)
@@ -89,12 +122,26 @@
     savingConfig = true
     error = ''
     try {
+      const payload: any = {
+        hf_model: newHfModel.trim() || undefined,
+        ctx_size: newCtxSize > 0 ? newCtxSize : undefined,
+      }
+      
+      // Advanced options - only include if set
+      if (newThreads !== '') payload.threads = newThreads
+      if (newThreadsBatch !== '') payload.threads_batch = newThreadsBatch
+      if (newPredict !== '') payload.predict = newPredict
+      if (newBatchSize !== '') payload.batch_size = newBatchSize
+      if (newUbatchSize !== '') payload.ubatch_size = newUbatchSize
+      if (newFlashAttn) payload.flash_attn = newFlashAttn
+      if (newMlock) payload.mlock = newMlock
+      if (newNoMmap) payload.no_mmap = newNoMmap
+      if (newGpuLayers !== '') payload.gpu_layers = newGpuLayers
+      if (newModel.trim()) payload.model = newModel.trim()
+
       const response = await axiosBackendInstance.post<LlamaServerResponse>(
         'llama-server/config',
-        {
-          hf_model: newHfModel.trim() || undefined,
-          ctx_size: newCtxSize > 0 ? newCtxSize : undefined
-        }
+        payload
       )
       console.log('✅ Config saved:', response.data)
       if (response.data.success) {
@@ -147,28 +194,22 @@
       <div class="error">{error}</div>
     {/if}
 
+    <!-- Model Name First -->
     <div class="config-section">
+      <div class="label-with-help">
+        <label for="hf-model" class="custom-label">HuggingFace Model</label>
+        <HelpIcon text="Enter a HuggingFace model identifier. llama.cpp will download it if needed." />
+      </div>
       <Input
         id="hf-model"
-        label="HuggingFace Model"
+        label=""
         type="text"
         bind:value={newHfModel}
         placeholder="e.g., unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL"
-        hint="Enter a HuggingFace model identifier. llama.cpp will download it if needed."
       />
     </div>
 
-    <div class="config-section">
-      <Input
-        id="ctx-size"
-        label="Context Size"
-        type="number"
-        bind:value={newCtxSize}
-        min="1"
-        hint="Maximum context window size for the model."
-      />
-    </div>
-
+    <!-- Model List -->
     <div class="config-section">
       <div class="section-label">Local GGUF Models:</div>
       {#if loadingModels}
@@ -196,6 +237,166 @@
         </div>
       {/if}
     </div>
+
+    <!-- Basic Options -->
+    <div class="config-section">
+      <div class="label-with-help">
+        <label for="ctx-size" class="custom-label">Context Size</label>
+        <HelpIcon text="Size of the prompt context. In other words, the amount of tokens that the LLM can remember at once. Increasing the context size also increases the memory requirements for the LLM. Every model has a context size limit, when this argument is set to 0, llama.cpp tries to use it." />
+      </div>
+      <Input
+        id="ctx-size"
+        label=""
+        type="number"
+        bind:value={newCtxSize}
+        min="1"
+      />
+    </div>
+
+    <!-- Advanced Options Accordion -->
+    <Accordion title="Advanced Options">
+      <div class="advanced-options">
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="threads" class="custom-label">Threads</label>
+            <HelpIcon text="Amount of CPU threads used by LLM. Default value is -1, which tells llama.cpp to detect the amount of cores in the system. This behavior is probably good enough for most of people, so unless you have exotic hardware setup and you know what you're doing - leave it on default." />
+          </div>
+          <Input
+            id="threads"
+            label=""
+            type="number"
+            bind:value={newThreads}
+            placeholder="-1 (auto-detect)"
+          />
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="threads-batch" class="custom-label">Threads Batch</label>
+            <HelpIcon text="Amount of CPU threads used for batch processing. Default value is -1, which tells llama.cpp to detect the amount of cores in the system." />
+          </div>
+          <Input
+            id="threads-batch"
+            label=""
+            type="number"
+            bind:value={newThreadsBatch}
+            placeholder="-1 (auto-detect)"
+          />
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="predict" class="custom-label">Predict (N Predict)</label>
+            <HelpIcon text="Number of tokens to predict. When LLM generates text, it stops either after generating end-of-message token (when it decides that the generated sentence is over), or after hitting this limit. Default is -1, which makes the LLM generate text ad infinitum. If we want to limit it to context size, we can set it to -2." />
+          </div>
+          <Input
+            id="predict"
+            label=""
+            type="number"
+            bind:value={newPredict}
+            placeholder="-1 (unlimited)"
+          />
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="batch-size" class="custom-label">Batch Size</label>
+            <HelpIcon text="Amount of tokens fed to the LLM in single processing step. Optimal value of this argument depends on your hardware, model, and context size - i encourage experimentation, but defaults are probably good enough for start." />
+          </div>
+          <Input
+            id="batch-size"
+            label=""
+            type="number"
+            bind:value={newBatchSize}
+            min="1"
+          />
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="ubatch-size" class="custom-label">UBatch Size</label>
+            <HelpIcon text="Amount of tokens fed to the LLM in single processing step (unified batch). Optimal value of this argument depends on your hardware, model, and context size - i encourage experimentation, but defaults are probably good enough for start." />
+          </div>
+          <Input
+            id="ubatch-size"
+            label=""
+            type="number"
+            bind:value={newUbatchSize}
+            min="1"
+          />
+        </div>
+
+        <div class="checkbox-with-help">
+          <div class="checkbox-wrapper">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                bind:checked={newFlashAttn}
+                class="checkbox-input"
+              />
+              <span>Flash Attention</span>
+            </label>
+            <HelpIcon text="Flash attention is an optimization that's supported by most recent models. Enabling it should improve the generation performance for some models. llama.cpp will simply throw a warning when a model that doesn't support flash attention is loaded, so i keep it on at all times without any issues." />
+          </div>
+        </div>
+
+        <div class="checkbox-with-help">
+          <div class="checkbox-wrapper">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                bind:checked={newMlock}
+                class="checkbox-input"
+              />
+              <span>MLock</span>
+            </label>
+            <HelpIcon text="This option is called exactly like Linux function that it uses underneath. On Windows, it uses VirtualLock. If you have enough virtual memory (RAM or VRAM) to load the whole model into, you can use this parameter to prevent OS from swapping it to the hard drive. Enabling it can increase the performance of text generation, but may slow everything else down in return if you hit the virtual memory limit of your machine." />
+          </div>
+        </div>
+
+        <div class="checkbox-with-help">
+          <div class="checkbox-wrapper">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                bind:checked={newNoMmap}
+                class="checkbox-input"
+              />
+              <span>No MMAP</span>
+            </label>
+            <HelpIcon text="By default, llama.cpp will map the model to memory (using mmap on Linux and CreateFileMappingA on Windows). Using this switch will disable this behavior." />
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="gpu-layers" class="custom-label">GPU Layers</label>
+            <HelpIcon text="If GPU offloading is available, this parameter will set the maximum amount of LLM layers to offload to GPU. Number and size of layers is dependent on the used model. Usually, if we want to load the whole model to GPU, we can set this parameter to some unreasonably large number like 999. For partial offloading, you must experiment yourself. llama.cpp must be built with GPU support, otherwise this option will have no effect. If you have multiple GPUs, you may also want to look at --split-mode and --main-gpu arguments." />
+          </div>
+          <Input
+            id="gpu-layers"
+            label=""
+            type="number"
+            bind:value={newGpuLayers}
+            min="0"
+          />
+        </div>
+
+        <div class="config-section">
+          <div class="label-with-help">
+            <label for="model" class="custom-label">Model Path</label>
+            <HelpIcon text="Path to the GGUF model file. This is an alternative to using HuggingFace model identifier." />
+          </div>
+          <Input
+            id="model"
+            label=""
+            type="text"
+            bind:value={newModel}
+            placeholder="Path to GGUF model file"
+          />
+        </div>
+      </div>
+    </Accordion>
   </div>
   <div class="config-footer">
     <Button variant="secondary" on:click={onClose}>Cancel</Button>
@@ -328,6 +529,61 @@
     color: var(--accent-color, #c33);
     font-size: 0.9rem;
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+
+  .label-with-help {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+
+  .custom-label {
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    font-size: 1rem;
+    transition: color 0.3s ease;
+  }
+
+  .advanced-options {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .advanced-options .config-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .checkbox-with-help {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+
+  .checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    transition: color 0.3s ease;
+  }
+
+  .checkbox-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    accent-color: var(--accent-color, #2196f3);
   }
 
   @media screen and (max-width: 768px) {
