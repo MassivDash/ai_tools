@@ -279,31 +279,30 @@
     <div class="error">{error}</div>
   {/if}
 
-  <div class="content-area">
-    {#if serverStatus.active}
-      <div class="iframe-container">
-        <iframe
-          src="http://localhost:8080"
-          class="llama-iframe"
-          title="Llama.cpp WebUI"
-        ></iframe>
-      </div>
-    {:else}
-      <div class="empty-state">
-        <p>🦙 Llama.cpp Server is not running</p>
-        <p class="hint">
-          Click "Start Server" to launch the llama.cpp server and access the web
-          UI
-        </p>
-        <p class="hint-small">Server will be available at localhost:8080</p>
-      </div>
-    {/if}
-
-    {#if showTerminal}
-      <div class="terminal-wrapper">
-        <Terminal />
-      </div>
-    {/if}
+  <div class="content-area" class:has-terminal={showTerminal}>
+    <div class="terminal-sidebar" class:visible={showTerminal}>
+      <Terminal />
+    </div>
+    <div class="main-content" class:with-terminal={showTerminal}>
+      {#if serverStatus.active}
+        <div class="iframe-container">
+          <iframe
+            src="http://localhost:8080"
+            class="llama-iframe"
+            title="Llama.cpp WebUI"
+          ></iframe>
+        </div>
+      {:else}
+        <div class="empty-state">
+          <p>🦙 Llama.cpp Server is not running</p>
+          <p class="hint">
+            Click "Start Server" to launch the llama.cpp server and access the
+            web UI
+          </p>
+          <p class="hint-small">Server will be available at localhost:8080</p>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -515,15 +514,51 @@
   .content-area {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     min-height: 80vh;
-    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .terminal-sidebar {
+    width: 70%;
+    height: 100%;
+    border-right: 1px solid #ddd;
+    background-color: #1e1e1e;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .terminal-sidebar.visible {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    transition: margin-left 0.3s ease-in-out;
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .main-content.with-terminal {
+    margin-left: 70%;
   }
 
   .iframe-container {
     flex: 1;
     width: 100%;
-    min-height: 60vh;
+    min-height: 80vh;
     overflow: hidden;
     border: none;
   }
@@ -531,17 +566,9 @@
   .llama-iframe {
     width: 100%;
     height: 100%;
-    min-height: 60vh;
+    min-height: 80vh;
     border: none;
     display: block;
-  }
-
-  .terminal-wrapper {
-    height: 300px;
-    min-height: 300px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    overflow: hidden;
   }
 
   .empty-state {
@@ -808,6 +835,16 @@
 
     .llama-iframe {
       min-height: 70vh;
+    }
+
+    .terminal-sidebar {
+      width: 100%;
+      min-width: 100%;
+      max-width: 100%;
+    }
+
+    .main-content.with-terminal {
+      margin-left: 0;
     }
   }
 </style>
