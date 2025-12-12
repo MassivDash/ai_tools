@@ -95,99 +95,80 @@ fn scan_directory_for_gguf(dir: &PathBuf, models: &mut Vec<ModelInfo>) -> std::i
 fn parse_gguf_to_hf_format(filename: &str) -> Option<String> {
     // Remove .gguf extension
     let name_without_ext = filename.strip_suffix(".gguf")?;
-    
-    // Split by underscores
+
+    // Common quantization patterns (ordered from longest to shortest for matching)
+    let quant_patterns = [
+        "Q6_K_XL", "Q3_K_L", "Q3_K_M", "Q3_K_S", "Q4_K_L", "Q4_K_M", "Q4_K_S", "Q5_K_L", "Q5_K_M",
+        "Q5_K_S", "Q6_K", "Q2_K", "Q8_0", "F16", "F32",
+    ];
+
+    // Try to find quantization pattern in the filename
+    // Look for patterns from longest to shortest
+    let mut quant: Option<String> = None;
+    let mut quant_start_pos: Option<usize> = None;
+
+    for pattern in &quant_patterns {
+        // Check if the pattern appears in the filename (might have dash or underscore before it)
+        // Pattern could be: -Q6_K_XL or _Q6_K_XL or Q6_K_XL
+        let pattern_with_dash = format!("-{}", pattern);
+        let pattern_with_underscore = format!("_{}", pattern);
+
+        if let Some(pos) = name_without_ext.rfind(&pattern_with_dash) {
+            quant = Some(pattern.to_string());
+            quant_start_pos = Some(pos);
+            break;
+        } else if let Some(pos) = name_without_ext.rfind(&pattern_with_underscore) {
+            quant = Some(pattern.to_string());
+            quant_start_pos = Some(pos);
+            break;
+        } else if name_without_ext.ends_with(pattern) {
+            quant = Some(pattern.to_string());
+            quant_start_pos = Some(name_without_ext.len() - pattern.len());
+            break;
+        }
+    }
+
+    // Split by underscores to get parts
     let parts: Vec<&str> = name_without_ext.split('_').collect();
-    
-    if parts.len() < 3 {
-        // Not enough parts to parse
+
+    if parts.len() < 2 {
         return None;
     }
-    
-    // Common quantization patterns (ordered from longest to shortest)
-    let quant_patterns = [
-        "Q3_K_L", "Q3_K_M", "Q3_K_S", "Q4_K_L", "Q4_K_M", "Q4_K_S",
-        "Q5_K_L", "Q5_K_M", "Q5_K_S", "Q6_K_XL", "Q6_K", "Q2_K", "Q8_0", "F16", "F32",
-    ];
-    
-    // Try to find quantization by checking last 1-3 parts
-    let mut quant: Option<String> = None;
-    let mut model_parts_end = parts.len();
-    
-    // Check last 3 parts combined (for patterns like Q6_K_XL)
-    if parts.len() >= 3 {
-        let last_three = format!("{}_{}_{}", 
-            parts[parts.len() - 3], 
-            parts[parts.len() - 2], 
-            parts[parts.len() - 1]);
-        for pattern in &quant_patterns {
-            if last_three.starts_with(pattern) || last_three == *pattern {
-                quant = Some(last_three);
-                model_parts_end = parts.len() - 3;
-                break;
-            }
-        }
-    }
-    
-    // Check last 2 parts combined (for patterns like Q3_K_M)
-    if quant.is_none() && parts.len() >= 2 {
-        let last_two = format!("{}_{}", parts[parts.len() - 2], parts[parts.len() - 1]);
-        for pattern in &quant_patterns {
-            if last_two.starts_with(pattern) || last_two == *pattern {
-                quant = Some(last_two);
-                model_parts_end = parts.len() - 2;
-                break;
-            }
-        }
-    }
-    
-    // Check last part alone (for patterns like Q8_0, F16, F32)
-    if quant.is_none() {
-        if let Some(last_part) = parts.last() {
-            for pattern in &quant_patterns {
-                if last_part.starts_with(pattern) || last_part == pattern {
-                    quant = Some(last_part.to_string());
-                    model_parts_end = parts.len() - 1;
-                    break;
-                }
-            }
-        }
-    }
-    
+
     // First part is typically the user/org
     let user = parts[0];
-    
+
     // Model name is typically the second part, but might include more
     // We'll try to find where the model name ends and quantization begins
     // Common pattern: user_model_base_model_variant_quant
     // We want: user/model_base:quant
-    
-    // If we found quantization, model is typically just the second part
-    // Pattern: user_model_base_model_variant_quant
-    // We want: user/model_base:quant (ignore variant)
+
+    // If we found quantization, include it in the result
     if let Some(quant_str) = &quant {
-        if model_parts_end > 1 {
+        if parts.len() >= 2 {
             // Use second part as model name (first part is user)
             let model_name = parts[1];
-            
+
             // Reconstruct as user/model:quant
-            return Some(format!("{}:{}", format!("{}/{}", user, model_name), quant_str));
+            let result = format!("{}:{}", format!("{}/{}", user, model_name), quant_str);
+            println!(
+                "🔍 Parsed GGUF: {} -> {} (quant found: {})",
+                filename, result, quant_str
+            );
+            return Some(result);
         }
     }
-    
-    // Fallback: if we can't parse, try a simple heuristic
-    // Assume format: user_model_..._quant
+
+    // Fallback: if we can't find quantization, try a simple heuristic
+    // Assume format: user_model_...
     if parts.len() >= 2 {
         // Try to use first two parts as user/model
         let model_name = parts[1];
-        if let Some(quant_str) = &quant {
-            return Some(format!("{}:{}", format!("{}/{}", user, model_name), quant_str));
-        } else {
-            // No quant found, just return user/model
-            return Some(format!("{}/{}", user, model_name));
-        }
+        let result = format!("{}/{}", user, model_name);
+        println!("🔍 Parsed GGUF (no quant): {} -> {}", filename, result);
+        return Some(result);
     }
-    
+
     None
 }
 
@@ -197,7 +178,8 @@ mod tests {
 
     #[test]
     fn test_parse_gguf_filename() {
-        let filename = "unsloth_DeepSeek-R1-0528-Qwen3-8B-GGUF_DeepSeek-R1-0528-Qwen3-8B-UD-Q6_K_XL.gguf";
+        let filename =
+            "unsloth_DeepSeek-R1-0528-Qwen3-8B-GGUF_DeepSeek-R1-0528-Qwen3-8B-UD-Q6_K_XL.gguf";
         let result = parse_gguf_to_hf_format(filename);
         assert_eq!(
             result,
