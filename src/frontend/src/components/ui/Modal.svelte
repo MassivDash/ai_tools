@@ -82,14 +82,15 @@
   }
 
   .modal-content {
-    background-color: white;
+    background-color: var(--bg-primary, white);
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px var(--shadow, rgba(0, 0, 0, 0.3));
     max-width: 700px;
     width: 100%;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease;
   }
 
   .modal-header {
@@ -97,13 +98,15 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--border-color, #ddd);
+    transition: border-color 0.3s ease;
   }
 
   .modal-header h3 {
     margin: 0;
-    color: #100f0f;
+    color: var(--text-primary, #100f0f);
     font-size: 1.25rem;
+    transition: color 0.3s ease;
   }
 
   .close-button {
@@ -111,7 +114,7 @@
     border: none;
     font-size: 2rem;
     cursor: pointer;
-    color: #666;
+    color: var(--text-secondary, #666);
     line-height: 1;
     padding: 0;
     width: 2rem;
@@ -119,17 +122,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s;
+    transition: color 0.2s, background-color 0.2s;
+    border-radius: 4px;
   }
 
   .close-button:hover {
-    color: #333;
+    color: var(--text-primary, #333);
+    background-color: var(--bg-secondary, rgba(0, 0, 0, 0.05));
   }
 
   .modal-body {
     padding: 1.5rem;
     overflow-y: auto;
     flex: 1;
+    color: var(--text-primary, #333);
+    transition: color 0.3s ease;
   }
 
   .modal-footer {
@@ -137,7 +144,8 @@
     justify-content: flex-end;
     gap: 0.5rem;
     padding: 1.5rem;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--border-color, #ddd);
+    transition: border-color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {

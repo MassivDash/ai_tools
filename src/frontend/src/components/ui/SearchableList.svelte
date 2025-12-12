@@ -87,15 +87,18 @@
     width: 100%;
     padding: 0.5rem;
     padding-right: 2rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     font-size: 0.9rem;
     box-sizing: border-box;
+    background-color: var(--bg-primary, white);
+    color: var(--text-primary, #333);
+    transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
   }
 
   .search-input:focus {
     outline: none;
-    border-color: #2196f3;
+    border-color: var(--accent-color, #2196f3);
   }
 
   .clear-search {
@@ -107,23 +110,28 @@
     border: none;
     font-size: 1.2rem;
     cursor: pointer;
-    color: #999;
+    color: var(--text-tertiary, #999);
     padding: 0;
     width: 1.5rem;
     height: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: color 0.2s;
+    border-radius: 4px;
   }
 
   .clear-search:hover {
-    color: #333;
+    color: var(--text-primary, #333);
+    background-color: var(--bg-secondary, rgba(0, 0, 0, 0.05));
   }
 
   .list-container {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     overflow-y: auto;
+    background-color: var(--bg-primary, white);
+    transition: border-color 0.3s ease, background-color 0.3s ease;
   }
 
   .list {
@@ -135,20 +143,21 @@
     width: 100%;
     padding: 1rem;
     border: none;
-    border-bottom: 1px solid #f0f0f0;
-    background: white;
+    border-bottom: 1px solid var(--border-color, #f0f0f0);
+    background: var(--bg-primary, white);
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, border-color 0.3s ease;
+    color: var(--text-primary, #333);
   }
 
   .list-item:hover {
-    background-color: #f5f5f5;
+    background-color: var(--bg-secondary, #f5f5f5);
   }
 
   .list-item.selected {
-    background-color: #e3f2fd;
-    border-left: 3px solid #2196f3;
+    background-color: rgba(33, 150, 243, 0.1);
+    border-left: 3px solid var(--accent-color, #2196f3);
   }
 
   .list-item:last-child {
@@ -157,23 +166,26 @@
 
   .item-label {
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary, #333);
     margin-bottom: 0.25rem;
+    transition: color 0.3s ease;
   }
 
   .item-subtext {
     font-size: 0.85rem;
-    color: #666;
+    color: var(--text-secondary, #666);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: color 0.3s ease;
   }
 
   .empty-message {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #666);
     font-style: italic;
+    transition: color 0.3s ease;
   }
 </style>
 

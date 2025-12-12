@@ -1,19 +1,14 @@
 <script lang="ts">
-  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' = 'primary'
+  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' =
+    'primary'
   export let disabled: boolean = false
   export let type: 'button' | 'submit' | 'reset' = 'button'
   export let size: 'small' | 'medium' | 'large' = 'medium'
-  
+
   $: className = `button button-${variant} button-${size}`
 </script>
 
-<button
-  {type}
-  {disabled}
-  class={className}
-  on:click
-  {...$$restProps}
->
+<button {type} {disabled} class={className} on:click {...$$restProps}>
   <slot />
 </button>
 
@@ -54,12 +49,16 @@
   }
 
   .button-secondary {
-    background-color: #f5f5f5;
-    color: #666;
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--text-secondary, #666);
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .button-secondary:hover:not(:disabled) {
-    background-color: #e8e8e8;
+    background-color: var(--bg-tertiary, #e8e8e8);
+    color: var(--text-primary, #333);
   }
 
   .button-success {
@@ -90,9 +89,12 @@
   }
 
   .button:disabled {
-    background-color: #ccc;
+    background-color: var(--text-tertiary, #ccc);
+    color: var(--text-secondary, #666);
     cursor: not-allowed;
     opacity: 0.6;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 </style>
-
