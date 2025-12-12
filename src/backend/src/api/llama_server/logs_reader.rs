@@ -1,8 +1,8 @@
 use crate::api::llama_server::types::{LogBuffer, LogEntry, LogSource, ServerStateHandle};
-use crate::api::llama_server::websocket::{BroadcastLog, WebSocketServer};
-use actix::Addr;
+use crate::api::llama_server::websocket::WebSocketState;
 use std::io::{BufRead, BufReader};
 use std::process::{ChildStderr, ChildStdout};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn spawn_log_reader(
@@ -10,18 +10,18 @@ pub fn spawn_log_reader(
     stderr: Option<ChildStderr>,
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
-    ws_server: Option<Addr<WebSocketServer>>,
+    ws_state: Option<Arc<WebSocketState>>,
 ) {
     if let Some(stdout_handle) = stdout {
         let log_buffer_clone = log_buffer.clone();
         let server_state_clone = server_state.clone();
-        let ws_server_clone = ws_server.clone();
+        let ws_state_clone = ws_state.clone();
         std::thread::spawn(move || {
             read_stdout_stream(
                 stdout_handle,
                 log_buffer_clone,
                 server_state_clone,
-                ws_server_clone,
+                ws_state_clone,
             );
         });
     }
@@ -29,13 +29,13 @@ pub fn spawn_log_reader(
     if let Some(stderr_handle) = stderr {
         let log_buffer_clone = log_buffer.clone();
         let server_state_clone = server_state.clone();
-        let ws_server_clone = ws_server.clone();
+        let ws_state_clone = ws_state.clone();
         std::thread::spawn(move || {
             read_stderr_stream(
                 stderr_handle,
                 log_buffer_clone,
                 server_state_clone,
-                ws_server_clone,
+                ws_state_clone,
             );
         });
     }
@@ -45,7 +45,7 @@ fn read_stdout_stream(
     stream: ChildStdout,
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
-    ws_server: Option<Addr<WebSocketServer>>,
+    ws_state: Option<Arc<WebSocketState>>,
 ) {
     let reader = BufReader::new(stream);
     let lines = reader.lines();
@@ -58,7 +58,7 @@ fn read_stdout_stream(
                     log_buffer.clone(),
                     server_state.clone(),
                     LogSource::Stdout,
-                    ws_server.clone(),
+                    ws_state.clone(),
                 );
             }
             Err(e) => {
@@ -73,7 +73,7 @@ fn read_stderr_stream(
     stream: ChildStderr,
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
-    ws_server: Option<Addr<WebSocketServer>>,
+    ws_state: Option<Arc<WebSocketState>>,
 ) {
     let reader = BufReader::new(stream);
     let lines = reader.lines();
@@ -86,7 +86,7 @@ fn read_stderr_stream(
                     log_buffer.clone(),
                     server_state.clone(),
                     LogSource::Stderr,
-                    ws_server.clone(),
+                    ws_state.clone(),
                 );
             }
             Err(e) => {
@@ -102,7 +102,7 @@ fn process_log_line(
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
     source: LogSource,
-    ws_server: Option<Addr<WebSocketServer>>,
+    ws_state: Option<Arc<WebSocketState>>,
 ) {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -125,7 +125,7 @@ fn process_log_line(
     }
 
     // Broadcast log via WebSocket
-    if let Some(ref server) = ws_server {
+    if let Some(ref state) = ws_state {
         use crate::api::llama_server::websocket::LogLine;
         let log_line = LogLine {
             timestamp: log_entry.timestamp,
@@ -135,7 +135,7 @@ fn process_log_line(
                 LogSource::Stderr => "stderr".to_string(),
             },
         };
-        server.do_send(BroadcastLog { log: log_line });
+        state.broadcast_log(log_line);
     }
 
     // Check if server is ready

@@ -51,10 +51,21 @@
   }
 
   const getWebSocketUrl = (): string => {
-    const baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    let baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    // Remove /api suffix if present (PUBLIC_API_URL includes /api)
+    baseUrl = baseUrl.replace(/\/api\/?$/, '')
+    // Remove trailing slash
+    baseUrl = baseUrl.replace(/\/$/, '')
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
-    const wsBase = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    return `${wsProtocol}://${wsBase}/api/llama-server/status/ws`
+    const wsBase = baseUrl.replace(/^https?:\/\//, '')
+    const wsUrl = `${wsProtocol}://${wsBase}/api/llama-server/status/ws`
+    console.log(
+      '🔗 Constructed WebSocket URL:',
+      wsUrl,
+      'from base:',
+      import.meta.env.PUBLIC_API_URL
+    )
+    return wsUrl
   }
 
   const connectStatusWebSocket = () => {
@@ -92,8 +103,12 @@
         error = 'WebSocket connection error'
       }
 
-      statusWs.onclose = () => {
-        console.log('🔌 Status WebSocket closed, reconnecting...')
+      statusWs.onclose = (event) => {
+        console.log('🔌 Status WebSocket closed, reconnecting...', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        })
         statusWs = null
         // Reconnect after 2 seconds
         if (reconnectTimeout) {

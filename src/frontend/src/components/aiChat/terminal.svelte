@@ -19,10 +19,21 @@
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
   const getWebSocketUrl = (): string => {
-    const baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    let baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    // Remove /api suffix if present (PUBLIC_API_URL includes /api)
+    baseUrl = baseUrl.replace(/\/api\/?$/, '')
+    // Remove trailing slash
+    baseUrl = baseUrl.replace(/\/$/, '')
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
-    const wsBase = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    return `${wsProtocol}://${wsBase}/api/llama-server/logs/ws`
+    const wsBase = baseUrl.replace(/^https?:\/\//, '')
+    const wsUrl = `${wsProtocol}://${wsBase}/api/llama-server/logs/ws`
+    console.log(
+      '🔗 Constructed WebSocket URL:',
+      wsUrl,
+      'from base:',
+      import.meta.env.PUBLIC_API_URL
+    )
+    return wsUrl
   }
 
   const connectWebSocket = () => {
@@ -68,8 +79,12 @@
         error = 'WebSocket connection error'
       }
 
-      ws.onclose = () => {
-        console.log('🔌 Logs WebSocket closed, reconnecting...')
+      ws.onclose = (event) => {
+        console.log('🔌 Logs WebSocket closed, reconnecting...', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        })
         ws = null
         // Reconnect after 2 seconds
         if (reconnectTimeout) {

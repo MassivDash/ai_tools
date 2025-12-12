@@ -6,8 +6,7 @@ use std::sync::Mutex;
 
 use crate::api::llama_server::logs_reader::spawn_log_reader;
 use crate::api::llama_server::types::{Config, LogBuffer, ProcessHandle, ServerStateHandle};
-use crate::api::llama_server::websocket::WebSocketServer;
-use actix::Addr;
+use crate::api::llama_server::websocket::WebSocketState;
 
 #[derive(Serialize, Debug)]
 pub struct LlamaServerResponse {
@@ -21,7 +20,7 @@ pub async fn post_start_llama_server(
     config: web::Data<Arc<Mutex<Config>>>,
     log_buffer: web::Data<LogBuffer>,
     server_state: web::Data<ServerStateHandle>,
-    ws_server: web::Data<Addr<WebSocketServer>>,
+    ws_state: web::Data<Arc<WebSocketState>>,
 ) -> ActixResult<HttpResponse> {
     let mut process_guard = process.lock().unwrap();
 
@@ -85,7 +84,7 @@ pub async fn post_start_llama_server(
                     stderr,
                     log_buffer.get_ref().clone(),
                     server_state.get_ref().clone(),
-                    Some(ws_server.get_ref().clone()),
+                    Some(ws_state.get_ref().clone()),
                 );
             }
             
