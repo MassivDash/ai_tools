@@ -15,12 +15,16 @@
 ///
 /// Set the cookie domain
 /// --cookie_domain=spaceout.pl
+///
+/// Set the ChromaDB address
+/// --chroma_address=http://localhost:8000
 pub struct Args {
     pub host: String,
     pub port: String,
     pub env: String,
     pub cors_url: String,
     pub cookie_domain: Option<String>,
+    pub chroma_address: Option<String>,
 }
 
 pub fn collect_args(args: Vec<String>) -> Args {
@@ -29,6 +33,7 @@ pub fn collect_args(args: Vec<String>) -> Args {
     let mut port = 8080;
     let mut cors_url = "astrox.spaceout.pl";
     let mut cookie_domain: Option<String> = None;
+    let mut chroma_address: Option<String> = None;
 
     for arg in &args {
         if arg.starts_with("--env=") {
@@ -65,6 +70,13 @@ pub fn collect_args(args: Vec<String>) -> Args {
                 cookie_domain = Some(split[1].to_string());
             }
         }
+
+        if arg.starts_with("--chroma_address=") {
+            let split: Vec<&str> = arg.split('=').collect();
+            if split.len() == 2 && !split[1].is_empty() {
+                chroma_address = Some(split[1].to_string());
+            }
+        }
     }
 
     Args {
@@ -73,6 +85,7 @@ pub fn collect_args(args: Vec<String>) -> Args {
         env: env.to_string(),
         cors_url: cors_url.to_string(),
         cookie_domain,
+        chroma_address,
     }
 }
 #[cfg(test)]

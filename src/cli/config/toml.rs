@@ -50,6 +50,7 @@ pub fn create_toml_file(file_name: String) -> Result<Config, ()> {
         cors_url,
         prod_astro_build: true,
         cookie_domain: None, // Set to None for dev environment by default
+        chroma_address: Some("http://localhost:8000".to_string()),
         public_keys: {
             let public_api_url = "http://localhost:8080/api".to_string();
             PublicKeys { public_api_url }
@@ -102,6 +103,7 @@ mod tests {
             cors_url: "https://astrox.spaceout.pl".to_string(),
             prod_astro_build: true,
             cookie_domain: None,
+            chroma_address: Some("http://localhost:8000".to_string()),
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
                 PublicKeys { public_api_url }

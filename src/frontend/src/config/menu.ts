@@ -41,8 +41,8 @@ export const menuConfig: MenuConfig = {
     },
     {
       label: 'Vector Database',
-      href: '/rag',
-      id: 'rag-link',
+      href: '/database',
+      id: 'database-link',
       icon: 'codicon:database'
     },
     {
@@ -65,7 +65,7 @@ export const menuConfig: MenuConfig = {
     },
     {
       label: 'Vector Database',
-      href: '/rag',
+      href: '/database',
       id: 'footer-rag-link'
     },
     {

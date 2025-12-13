@@ -105,7 +105,6 @@ fn parse_gguf_to_hf_format(filename: &str) -> Option<String> {
     // Try to find quantization pattern in the filename
     // Look for patterns from longest to shortest
     let mut quant: Option<String> = None;
-    let mut quant_start_pos: Option<usize> = None;
 
     for pattern in &quant_patterns {
         // Check if the pattern appears in the filename (might have dash or underscore before it)
@@ -113,17 +112,14 @@ fn parse_gguf_to_hf_format(filename: &str) -> Option<String> {
         let pattern_with_dash = format!("-{}", pattern);
         let pattern_with_underscore = format!("_{}", pattern);
 
-        if let Some(pos) = name_without_ext.rfind(&pattern_with_dash) {
+        if name_without_ext.rfind(&pattern_with_dash).is_some() {
             quant = Some(pattern.to_string());
-            quant_start_pos = Some(pos);
             break;
-        } else if let Some(pos) = name_without_ext.rfind(&pattern_with_underscore) {
+        } else if name_without_ext.rfind(&pattern_with_underscore).is_some() {
             quant = Some(pattern.to_string());
-            quant_start_pos = Some(pos);
             break;
         } else if name_without_ext.ends_with(pattern) {
             quant = Some(pattern.to_string());
-            quant_start_pos = Some(name_without_ext.len() - pattern.len());
             break;
         }
     }

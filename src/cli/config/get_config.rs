@@ -12,6 +12,7 @@ pub struct Config {
     pub cors_url: String,
     pub prod_astro_build: bool,
     pub cookie_domain: Option<String>,
+    pub chroma_address: Option<String>,
     pub public_keys: PublicKeys,
 }
 
@@ -34,6 +35,7 @@ pub fn get_config(args: &Vec<String>) -> Config {
         astro_port: Some(astro_port),
         cors_url,
         cookie_domain: None, // Default to None for dev environment
+        chroma_address: Some("http://localhost:8000".to_string()),
         public_keys: PublicKeys {
             public_api_url: "http://localhost:8080/api".to_string(),
         },

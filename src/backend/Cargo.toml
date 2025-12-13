@@ -10,6 +10,7 @@ actix-web = "4"
 actix-rt = "2"
 actix-files = "0.6.6"
 actix-cors = "0.7.0"
+actix-multipart = "0.6"
 actix-utils = "3.0.1"
 futures-util = "0.3.30"
 actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
@@ -31,3 +32,4 @@ zip = "0.6"
 tokio = { version = "1", features = ["net", "time", "rt", "macros"] }
 actix-ws = "0.3.0"
 uuid = { version = "1.15.1", features = ["v4"] }
+chroma = "0.9.0"

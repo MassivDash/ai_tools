@@ -1,0 +1,17 @@
+{
+  "name": "chromadb",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "chroma run"
+  },
+  "dependencies": {
+    "@chroma-core/default-embed": "^0.1.9",
+    "chromadb": "^3.1.7"
+  }
+}

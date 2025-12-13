@@ -78,6 +78,15 @@ pub fn collect_config_args(config: Config, args: &Vec<String>) -> Config {
                 Some(domain)
             };
         }
+
+        if arg.starts_with("--chroma-address=") {
+            let address = split_and_collect(arg);
+            config.chroma_address = if address.is_empty() {
+                None
+            } else {
+                Some(address)
+            };
+        }
     }
 
     config
@@ -116,6 +125,7 @@ mod tests {
             prod_astro_build: false,
             cors_url: "".to_string(),
             cookie_domain: None,
+            chroma_address: None,
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
                 PublicKeys { public_api_url }
@@ -140,6 +150,7 @@ mod tests {
             cors_url: "http://localhost:8080".to_string(),
             prod_astro_build: true,
             cookie_domain: None,
+            chroma_address: None,
             public_keys: {
                 let public_api_url = "https://custom.api/api".to_string();
                 PublicKeys { public_api_url }

@@ -14,6 +14,13 @@ mod markdown_utils;
 mod session;
 mod ssr_routes;
 
+use crate::api::chromadb::collections::create_collection::create_collection;
+use crate::api::chromadb::collections::delete_collection::delete_collection;
+use crate::api::chromadb::collections::get_collection::get_collection;
+use crate::api::chromadb::collections::get_collections::get_collections;
+use crate::api::chromadb::documents::upload::upload_documents;
+use crate::api::chromadb::health::get_chromadb_health;
+use crate::api::chromadb::query::search_collection;
 use crate::api::llama_server::get_config::get_llama_config;
 use crate::api::llama_server::get_logs::get_llama_logs;
 use crate::api::llama_server::get_models::get_llama_models;
@@ -42,6 +49,10 @@ async fn main() -> std::io::Result<()> {
     let port = args.port.parse::<u16>().unwrap();
     let cors_url = args.cors_url;
     let cookie_domain = args.cookie_domain;
+    
+    // Get chroma_address from args or use default
+    let chroma_address = args.chroma_address.unwrap_or_else(|| "http://localhost:8000".to_string());
+    println!("🔗 ChromaDB address: {}", chroma_address);
 
     // Shared state for llama server process
     let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
@@ -110,6 +121,7 @@ async fn main() -> std::io::Result<()> {
     let llama_logs_data = llama_logs.clone();
     let llama_server_state_data = llama_server_state.clone();
     let ws_state_data = ws_state.clone();
+    let chroma_address_data = web::Data::new(chroma_address.clone());
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -123,6 +135,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(llama_logs_data.clone()))
             .app_data(web::Data::new(llama_server_state_data.clone()))
             .app_data(web::Data::new(ws_state_data.clone()))
+            .app_data(chroma_address_data.clone())
             .wrap(cors)
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(post_login))
@@ -139,6 +152,13 @@ async fn main() -> std::io::Result<()> {
             .service(post_start_llama_server)
             .service(post_stop_llama_server)
             .service(post_update_config)
+            .service(get_chromadb_health)
+            .service(get_collections)
+            .service(create_collection)
+            .service(get_collection)
+            .service(delete_collection)
+            .service(search_collection)
+            .service(upload_documents)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)

@@ -47,6 +47,21 @@ pub fn do_front_log(string: &str) {
     spacer();
 }
 
+pub fn do_chromadb_log(string: &str) {
+    spacer();
+    execute!(
+        stdout(),
+        SetForegroundColor(Color::White),
+        SetBackgroundColor(Color::DarkBlue),
+        Print("| ChromaDB  |"),
+        ResetColor,
+        Print(" "),
+        Print(string),
+    )
+    .unwrap();
+    spacer();
+}
+
 pub fn do_splash() {
     spacer();
     execute!(
