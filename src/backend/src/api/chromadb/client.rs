@@ -6,6 +6,8 @@ use chroma::{
     ChromaHttpClient,
 };
 use std::collections::HashMap;
+use std::process::{Command, Stdio};
+use tokio::time::{sleep, Duration};
 
 pub struct ChromaDBClient {
     client: ChromaHttpClient,
@@ -203,24 +205,135 @@ impl ChromaDBClient {
             request.documents.len()
         );
 
-        // Use default Ollama host and model
-        let embedding_fn = OllamaEmbeddingFunction::new("http://localhost:11434", "nomic-embed-text")
-            .await
-            .context("Failed to initialize Ollama embedding function. Make sure Ollama is running on http://localhost:11434.")?;
+        // Spawn Ollama server for embedding generation
+        println!("🚀 Starting Ollama server for embedding generation...");
+        let mut ollama_process_handle = tokio::task::spawn_blocking(|| {
+            Command::new("ollama")
+                .arg("serve")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+        })
+        .await
+        .context("Failed to spawn blocking task for Ollama")?
+        .context("Failed to spawn Ollama server. Make sure 'ollama' is installed and in PATH.")?;
 
-        // Convert Vec<String> to Vec<&str> for embed_strs method
-        let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
-        let embeddings: Vec<Vec<f32>> = embedding_fn
-            .embed_strs(&document_refs)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to generate embeddings: {}", e))
-            .context("Failed to generate embeddings from documents")?;
+        // Wait for Ollama to be ready (check if port 11434 is accessible)
+        println!("⏳ Waiting for Ollama server to be ready...");
+        let mut retries = 30; // Wait up to 30 seconds
+        let mut ollama_ready = false;
+        while retries > 0 {
+            if let Ok(_) = tokio::net::TcpStream::connect("127.0.0.1:11434").await {
+                ollama_ready = true;
+                break;
+            }
+            sleep(Duration::from_millis(1000)).await;
+            retries -= 1;
+        }
+
+        if !ollama_ready {
+            let _ = tokio::task::spawn_blocking(move || {
+                let _ = ollama_process_handle.kill();
+                let _ = ollama_process_handle.wait();
+            })
+            .await;
+            return Err(anyhow::anyhow!("Ollama server failed to start within 30 seconds. Make sure Ollama is properly installed."));
+        }
+
+        println!("✅ Ollama server is ready");
+
+        // Give Ollama a moment to fully initialize after port is open
+        sleep(Duration::from_millis(500)).await;
+
+        // Check if model is available, pull if needed
+        let model_name = "nomic-embed-text";
+        println!("🔍 Checking if model '{}' is available...", model_name);
+
+        // Try to pull the model if it's not available (this will be a no-op if already present)
+        let model_name_clone = model_name.to_string();
+        match tokio::task::spawn_blocking(move || {
+            Command::new("ollama")
+                .arg("pull")
+                .arg(&model_name_clone)
+                .output()
+        })
+        .await
+        {
+            Ok(Ok(output)) => {
+                if output.status.success() {
+                    println!("✅ Model '{}' is available", model_name);
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    println!("⚠️ Warning: Model pull may have failed: {}", stderr);
+                    // Continue anyway - model might already be available
+                }
+            }
+            Ok(Err(e)) => {
+                println!("⚠️ Warning: Failed to execute ollama pull: {}", e);
+                // Continue anyway - model might already be available
+            }
+            Err(e) => {
+                println!("⚠️ Warning: Failed to spawn model pull task: {}", e);
+                // Continue anyway - model might already be available
+            }
+        }
+
+        // Generate embeddings
+        let embeddings = {
+            // Use default Ollama host and model
+            println!(
+                "🔧 Initializing Ollama embedding function with model '{}'...",
+                model_name
+            );
+            let embedding_fn_result =
+                OllamaEmbeddingFunction::new("http://localhost:11434", model_name).await;
+
+            let embedding_fn = match embedding_fn_result {
+                Ok(fn_) => fn_,
+                Err(e) => {
+                    let error_msg = format!("Failed to initialize Ollama embedding function: {:?}. Make sure the model '{}' is available. You may need to run 'ollama pull {}' first.", e, model_name, model_name);
+                    println!("❌ {}", error_msg);
+                    return Err(anyhow::anyhow!(error_msg));
+                }
+            };
+
+            // Convert Vec<String> to Vec<&str> for embed_strs method
+            let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
+            embedding_fn
+                .embed_strs(&document_refs)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to generate embeddings: {}", e))
+                .context("Failed to generate embeddings from documents")?
+        };
 
         println!(
             "✅ Generated {} embeddings (dimension: {})",
             embeddings.len(),
             embeddings.first().map(|e| e.len()).unwrap_or(0)
         );
+
+        // Kill Ollama server after embeddings are generated
+        println!("🛑 Stopping Ollama server...");
+        let kill_result = tokio::task::spawn_blocking(move || match ollama_process_handle.kill() {
+            Ok(_) => {
+                let _ = ollama_process_handle.wait();
+                Ok(())
+            }
+            Err(e) => Err(e),
+        })
+        .await;
+
+        match kill_result {
+            Ok(Ok(_)) => {
+                println!("✅ Ollama server stopped successfully");
+            }
+            Ok(Err(e)) => {
+                println!("⚠️ Warning: Failed to stop Ollama server: {}", e);
+            }
+            Err(e) => {
+                println!("⚠️ Warning: Failed to wait for Ollama kill task: {}", e);
+            }
+        }
 
         // Convert documents to Option<Vec<Option<String>>>
         let documents: Option<Vec<Option<String>>> =
