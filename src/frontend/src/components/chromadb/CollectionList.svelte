@@ -26,8 +26,18 @@
         collections.set(response.data.data)
         console.log('✅ Loaded collections:', response.data.data)
 
-        // Auto-select the first collection if none is selected and collections exist
+        // Update selectedCollection with latest data if it's still selected
         selectedCollection.update((current) => {
+          if (current) {
+            // Find the updated collection by id or name
+            const updated = response.data.data?.find(
+              (c) => c.id === current.id || c.name === current.name
+            )
+            if (updated) {
+              return updated
+            }
+          }
+          // Auto-select the first collection if none is selected and collections exist
           if (!current && response.data.data && response.data.data.length > 0) {
             const firstCollection = response.data.data[0]
             if (firstCollection && firstCollection.name) {

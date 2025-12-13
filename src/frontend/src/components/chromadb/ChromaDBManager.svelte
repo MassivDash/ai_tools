@@ -37,9 +37,19 @@
   }
 
 
-  const handleDocumentUploaded = () => {
+  const handleDocumentUploaded = async () => {
     if (collectionListRef) {
-      collectionListRef.refresh()
+      await collectionListRef.refresh()
+      // Update the selected collection with the latest count from the collections store
+      selectedCollection.update((current) => {
+        if (current) {
+          const updated = $collections.find((c) => c.id === current.id || c.name === current.name)
+          if (updated) {
+            return updated
+          }
+        }
+        return current
+      })
     }
   }
 
