@@ -33,15 +33,17 @@
   ]
 </script>
 
-<Select
-  id="theme-selector"
-  value={currentTheme}
-  options={themeOptions}
-  on:change={handleThemeChange}
-/>
+<div class="theme-selector-wrapper">
+  <Select
+    id="theme-selector"
+    value={currentTheme}
+    options={themeOptions}
+    on:change={handleThemeChange}
+  />
+</div>
 
 <style>
-  :global(#theme-selector) {
+  .theme-selector-wrapper :global(#theme-selector) {
     min-width: 140px;
   }
 </style>

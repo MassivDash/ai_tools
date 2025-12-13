@@ -2,14 +2,17 @@
   interface Props {
     title: string
     open?: boolean
+    children?: import('svelte').Snippet
   }
 
-  let { title, open = false }: Props = $props()
+  let { title, open = false, children }: Props = $props()
   let isOpen = $state(open)
 
   // Sync external open prop changes to internal state
   $effect(() => {
-    isOpen = open
+    if (open !== isOpen) {
+      isOpen = open
+    }
   })
 
   const toggle = () => {
@@ -18,13 +21,15 @@
 </script>
 
 <div class="accordion">
-  <button class="accordion-header" on:click={toggle} aria-expanded={isOpen}>
+  <button class="accordion-header" onclick={toggle} aria-expanded={isOpen}>
     <span class="accordion-title">{title}</span>
     <span class="accordion-icon" class:open={isOpen}>▼</span>
   </button>
   {#if isOpen}
     <div class="accordion-content">
-      <slot />
+      {#if children}
+        {@render children()}
+      {/if}
     </div>
   {/if}
 </div>
