@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { UploadDocumentRequest, ProcessingStatus } from '../../types/chromadb.ts'
+  import type { ChromaDBResponse, ProcessingStatus } from '../../types/chromadb.ts'
   import Button from '../ui/Button.svelte'
 
   export let selectedCollection: string | null = null
@@ -97,7 +97,7 @@
         formData.append('files', file)
       })
 
-      const response = await axiosBackendInstance.post<{ success: boolean; message?: string; error?: string }>(
+      const response = await axiosBackendInstance.post<ChromaDBResponse<void>>(
         'chromadb/documents/upload',
         formData,
         {

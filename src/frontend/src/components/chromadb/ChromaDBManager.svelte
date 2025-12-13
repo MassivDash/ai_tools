@@ -3,7 +3,8 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type {
     ChromaDBHealthResponse,
-    ChromaDBResponse
+    ChromaDBResponse,
+    ChromaDBCollection
   } from '../../types/chromadb.ts'
   import CollectionList from './CollectionList.svelte'
   import DocumentUpload from './DocumentUpload.svelte'
@@ -36,7 +37,7 @@
     }
   }
 
-  const handleCollectionSelected = (event: CustomEvent<{ name: string }>) => {
+  const handleCollectionSelected = (event: CustomEvent<ChromaDBCollection>) => {
     selectedCollection = event.detail.name
   }
 
@@ -83,7 +84,7 @@
     <div class="left-panel">
       <CollectionList
         bind:this={collectionListRef}
-        on:select={(e) => handleCollectionSelected(e.detail.name)}
+        on:select={(e) => handleCollectionSelected(e.detail)}
       />
     </div>
 
