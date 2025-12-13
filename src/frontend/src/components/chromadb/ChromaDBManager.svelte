@@ -1,11 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ChromaDBHealthResponse, ChromaDBResponse } from '../../types/chromadb.ts'
+  import type {
+    ChromaDBHealthResponse,
+    ChromaDBResponse
+  } from '../../types/chromadb.ts'
   import CollectionList from './CollectionList.svelte'
-  import CreateCollection from './CreateCollection.svelte'
   import DocumentUpload from './DocumentUpload.svelte'
   import QueryInterface from './QueryInterface.svelte'
+  import IconButton from '../ui/IconButton.svelte'
+  import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
   let selectedCollection: string | null = null
@@ -14,9 +18,10 @@
   const checkHealth = async () => {
     try {
       console.log('🏥 Checking ChromaDB health...')
-      const response = await axiosBackendInstance.get<ChromaDBResponse<ChromaDBHealthResponse>>(
-        'chromadb/health'
-      )
+      const response =
+        await axiosBackendInstance.get<
+          ChromaDBResponse<ChromaDBHealthResponse>
+        >('chromadb/health')
       if (response.data.success && response.data.data) {
         healthStatus = response.data.data
         console.log('✅ ChromaDB health:', healthStatus)
@@ -28,12 +33,6 @@
         version: 'unknown',
         chromadb: { connected: false }
       }
-    }
-  }
-
-  const handleCollectionCreated = () => {
-    if (collectionListRef) {
-      collectionListRef.refresh()
     }
   }
 
@@ -55,35 +54,54 @@
 <div class="chromadb-manager">
   <div class="status-bar">
     <div class="health-status">
-      <span class="status-indicator" class:healthy={healthStatus?.chromadb.connected} class:unhealthy={!healthStatus?.chromadb.connected}>
+      <span
+        class="status-indicator"
+        class:healthy={healthStatus?.chromadb.connected}
+        class:unhealthy={!healthStatus?.chromadb.connected}
+      >
         {healthStatus?.chromadb.connected ? '🟢' : '🔴'}
       </span>
       <span class="status-text">
-        {healthStatus?.chromadb.connected ? 'ChromaDB Connected' : 'ChromaDB Disconnected'}
+        {healthStatus?.chromadb.connected
+          ? 'ChromaDB Connected'
+          : 'ChromaDB Disconnected'}
       </span>
       {#if healthStatus}
         <span class="version">v{healthStatus.version}</span>
       {/if}
     </div>
-    <button class="refresh-btn" onclick={checkHealth}>🔄 Refresh</button>
+    <IconButton
+      variant="info"
+      onclick={checkHealth}
+      title="Refresh Health Status"
+    >
+      <RefreshIcon width="24" height="24" />
+    </IconButton>
   </div>
 
   <div class="manager-content">
     <div class="left-panel">
-      <CreateCollection on:created={handleCollectionCreated} />
-      <CollectionList bind:this={collectionListRef} on:select={(e) => handleCollectionSelected(e.detail.name)} />
+      <CollectionList
+        bind:this={collectionListRef}
+        on:select={(e) => handleCollectionSelected(e.detail.name)}
+      />
     </div>
 
     <div class="right-panel">
       {#if selectedCollection}
         <div class="selected-collection">
           <h2>Collection: {selectedCollection}</h2>
-          <DocumentUpload {selectedCollection} on:uploaded={handleDocumentUploaded} />
+          <DocumentUpload
+            {selectedCollection}
+            on:uploaded={handleDocumentUploaded}
+          />
           <QueryInterface {selectedCollection} />
         </div>
       {:else}
         <div class="no-selection">
-          <p>👈 Select a collection from the left to upload documents or search</p>
+          <p>
+            👈 Select a collection from the left to upload documents or search
+          </p>
         </div>
       {/if}
     </div>
@@ -102,10 +120,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .health-status {
@@ -120,29 +141,19 @@
 
   .status-text {
     font-weight: 600;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .version {
     font-size: 0.85rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
-    background: var(--bg-secondary, #f5f5f5);
+    background: var(--bg-secondary);
     border-radius: 4px;
-  }
-
-  .refresh-btn {
-    background: var(--bg-secondary, #f5f5f5);
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-
-  .refresh-btn:hover {
-    background: var(--bg-tertiary, #e8e8e8);
+    transition:
+      color 0.3s ease,
+      background-color 0.3s ease;
   }
 
   .manager-content {
@@ -166,18 +177,25 @@
 
   .selected-collection h2 {
     margin: 0;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
     padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border-color, #ddd);
+    border-bottom: 2px solid var(--border-color);
+    transition:
+      color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .no-selection {
     padding: 3rem;
     text-align: center;
-    color: var(--text-secondary, #666);
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   @media screen and (max-width: 1024px) {
@@ -186,4 +204,3 @@
     }
   }
 </style>
-

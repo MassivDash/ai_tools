@@ -61,18 +61,18 @@
 
 <style>
   .collection-card {
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.5rem;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px var(--shadow, rgba(0, 0, 0, 0.1));
+    transition: all 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+    box-shadow: 0 2px 4px var(--shadow);
   }
 
   .collection-card:hover {
-    border-color: var(--border-hover, #999);
-    box-shadow: 0 4px 8px var(--shadow, rgba(0, 0, 0, 0.15));
+    border-color: var(--border-color-hover);
+    box-shadow: 0 4px 8px var(--shadow);
     transform: translateY(-2px);
   }
 
@@ -86,21 +86,26 @@
   .card-header h3 {
     margin: 0;
     font-size: 1.2rem;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .delete-btn {
-    background: none;
-    border: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
     cursor: pointer;
     font-size: 1.2rem;
     padding: 0.25rem 0.5rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+    opacity: 0.8;
+    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease;
+    color: var(--text-primary);
   }
 
   .delete-btn:hover {
     opacity: 1;
+    background: var(--bg-tertiary);
+    border-color: var(--border-color-hover);
   }
 
   .card-body {
@@ -116,17 +121,20 @@
 
   .label {
     font-weight: 600;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 
   .value {
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .metadata {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid var(--border-color, #ddd);
+    border-top: 1px solid var(--border-color);
+    transition: border-color 0.3s ease;
   }
 
   .metadata-items {
@@ -138,7 +146,8 @@
 
   .metadata-item {
     font-size: 0.9rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 </style>
 

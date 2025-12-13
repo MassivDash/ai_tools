@@ -1,8 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ChromaDBResponse, ChromaDBCollection, CreateCollectionRequest } from '../../types/chromadb.ts'
+  import type {
+    ChromaDBResponse,
+    ChromaDBCollection,
+    CreateCollectionRequest
+  } from '../../types/chromadb.ts'
   import Button from '../ui/Button.svelte'
+  import IconButton from '../ui/IconButton.svelte'
+  import PlusIcon from '../ui/icons/PlusIcon.svelte'
+  import XIcon from '../ui/icons/XIcon.svelte'
   import Input from '../ui/Input.svelte'
 
   const dispatch = createEventDispatcher()
@@ -49,10 +56,9 @@
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined
       }
 
-      const response = await axiosBackendInstance.post<ChromaDBResponse<ChromaDBCollection>>(
-        'chromadb/collections',
-        request
-      )
+      const response = await axiosBackendInstance.post<
+        ChromaDBResponse<ChromaDBCollection>
+      >('chromadb/collections', request)
 
       if (response.data.success && response.data.data) {
         console.log('✅ Collection created:', response.data.data)
@@ -66,7 +72,10 @@
       }
     } catch (err: any) {
       console.error('❌ Error creating collection:', err)
-      error = err.response?.data?.error || err.message || 'Failed to create collection'
+      error =
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to create collection'
     } finally {
       loading = false
     }
@@ -74,9 +83,17 @@
 </script>
 
 <div class="create-collection">
-  <Button onclick={toggleForm}>
-    {showForm ? '❌ Cancel' : '➕ Create Collection'}
-  </Button>
+  <IconButton
+    variant="info"
+    onclick={toggleForm}
+    title={showForm ? 'Cancel' : 'Create Collection'}
+  >
+    {#if showForm}
+      <XIcon width="24" height="24" />
+    {:else}
+      <PlusIcon width="24" height="24" />
+    {/if}
+  </IconButton>
 
   {#if showForm}
     <div class="form-container">
@@ -98,9 +115,9 @@
 
       <div class="form-group">
         <div class="metadata-header">
-          <label>Metadata (Optional)</label>
+          <span class="metadata-label">Metadata (Optional)</span>
           <Button onclick={addMetadataField} type="button" variant="secondary">
-            ➕ Add Field
+            <PlusIcon width="24" height="24" /> Add Field
           </Button>
         </div>
 
@@ -122,7 +139,7 @@
                 />
                 <Input
                   placeholder="Value"
-                  value={value}
+                  {value}
                   oninput={(e) => {
                     metadata[key] = e.target.value
                     metadata = { ...metadata }
@@ -144,8 +161,12 @@
       </div>
 
       <div class="form-actions">
-        <Button onclick={createCollection} disabled={loading || !collectionName.trim()}>
-          {loading ? 'Creating...' : '✅ Create Collection'}
+        <Button
+          onclick={createCollection}
+          disabled={loading || !collectionName.trim()}
+          variant="success"
+        >
+          {loading ? 'Creating...' : 'Create Collection'}
         </Button>
         <Button onclick={toggleForm} variant="secondary" disabled={loading}>
           Cancel
@@ -157,16 +178,24 @@
 
 <style>
   .create-collection {
-    margin-bottom: 2rem;
+    position: relative;
   }
 
   .form-container {
-    margin-top: 1rem;
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
     padding: 1.5rem;
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    box-shadow: 0 4px 12px var(--shadow);
+    z-index: 10;
+    min-width: 400px;
+    max-width: 500px;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .form-container h3 {
@@ -176,11 +205,15 @@
 
   .error-message {
     padding: 0.75rem;
-    background: #fee;
-    border: 1px solid #fcc;
+    background: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     margin-bottom: 1rem;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .form-group {
@@ -191,7 +224,8 @@
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .metadata-header {
@@ -199,6 +233,12 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
+  }
+
+  .metadata-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .metadata-fields {
@@ -218,23 +258,31 @@
   }
 
   .remove-btn {
-    background: none;
-    border: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
     cursor: pointer;
     font-size: 1.2rem;
     padding: 0.5rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+    opacity: 0.8;
+    transition:
+      opacity 0.2s,
+      background-color 0.3s ease,
+      border-color 0.3s ease;
+    color: var(--text-primary);
   }
 
   .remove-btn:hover {
     opacity: 1;
+    background: var(--bg-tertiary);
+    border-color: var(--border-color-hover);
   }
 
   .hint {
     font-size: 0.9rem;
-    color: var(--text-tertiary, #999);
+    color: var(--text-tertiary);
     font-style: italic;
+    transition: color 0.3s ease;
   }
 
   .form-actions {
@@ -243,5 +291,3 @@
     margin-top: 1.5rem;
   }
 </style>
-
-

@@ -3,7 +3,9 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ChromaDBCollection, ChromaDBResponse } from '../../types/chromadb.ts'
   import CollectionCard from './CollectionCard.svelte'
-  import Button from '../ui/Button.svelte'
+  import CreateCollection from './CreateCollection.svelte'
+  import IconButton from '../ui/IconButton.svelte'
+  import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
 
   const dispatch = createEventDispatcher()
 
@@ -62,6 +64,10 @@
     }
   }
 
+  const handleCollectionCreated = () => {
+    loadCollections() // Reload list when collection is created
+  }
+
   onMount(() => {
     loadCollections()
   })
@@ -73,9 +79,12 @@
 <div class="collection-list">
   <div class="header">
     <h2>Collections</h2>
-    <Button onclick={loadCollections} disabled={loading}>
-      {loading ? 'Loading...' : '🔄 Refresh'}
-    </Button>
+    <div class="header-actions">
+      <CreateCollection on:created={handleCollectionCreated} />
+      <IconButton variant="info" onclick={loadCollections} disabled={loading} title={loading ? 'Loading...' : 'Refresh Collections'}>
+        <RefreshIcon width="24" height="24" />
+      </IconButton>
+    </div>
   </div>
 
   {#if error}
@@ -117,34 +126,45 @@
   .header h2 {
     margin: 0;
     font-size: 1.5rem;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
   }
 
   .error-message {
     padding: 1rem;
-    background: #fee;
-    border: 1px solid #fcc;
+    background: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     margin-bottom: 1rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .loading {
     text-align: center;
     padding: 2rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 
   .empty-state {
     text-align: center;
     padding: 3rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 
   .empty-state .hint {
     font-size: 0.9rem;
-    color: var(--text-tertiary, #999);
+    color: var(--text-tertiary);
     margin-top: 0.5rem;
+    transition: color 0.3s ease;
   }
 
   .collections-grid {

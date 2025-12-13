@@ -212,8 +212,8 @@
             </div>
           {/each}
         </div>
-        <Button onclick={uploadDocuments} disabled={uploading || !selectedCollection}>
-          {uploading ? 'Uploading...' : `📤 Upload ${files.length} file${files.length > 1 ? 's' : ''}`}
+        <Button onclick={uploadDocuments} disabled={uploading || !selectedCollection} variant="success">
+          {uploading ? 'Uploading...' : `Upload ${files.length} file${files.length > 1 ? 's' : ''}`}
         </Button>
       </div>
     {/if}
@@ -346,17 +346,21 @@
   }
 
   .remove-file-btn {
-    background: none;
-    border: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
     cursor: pointer;
     font-size: 1.2rem;
     padding: 0.25rem 0.5rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+    opacity: 0.8;
+    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease;
+    color: var(--text-primary);
   }
 
   .remove-file-btn:hover {
     opacity: 1;
+    background: var(--bg-tertiary);
+    border-color: var(--border-color-hover);
   }
 
   .error-message {

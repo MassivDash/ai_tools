@@ -94,8 +94,8 @@
         />
       </div>
 
-      <Button onclick={performQuery} disabled={loading || !queryText.trim() || !selectedCollection}>
-        {loading ? 'Searching...' : '🔍 Search'}
+      <Button onclick={performQuery} disabled={loading || !queryText.trim() || !selectedCollection} variant="primary">
+        {loading ? 'Searching...' : 'Search'}
       </Button>
     </div>
 
@@ -150,15 +150,17 @@
 
   .query-interface h3 {
     margin: 0 0 1rem 0;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .warning {
     padding: 1rem;
-    background: #fff3cd;
-    border: 1px solid #ffc107;
+    background: rgba(255, 243, 205, 0.3);
+    border: 1px solid rgba(255, 193, 7, 0.5);
     border-radius: 4px;
-    color: #856404;
+    color: var(--text-secondary);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .query-form {
@@ -176,29 +178,33 @@
 
   .form-group label {
     font-weight: 600;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .error-message {
     padding: 1rem;
-    background: #fee;
-    border: 1px solid #fcc;
+    background: rgba(255, 200, 200, 0.2);
+    border: 1px solid rgba(255, 100, 100, 0.5);
     border-radius: 4px;
-    color: #c33;
+    color: var(--accent-color, #c33);
     margin-bottom: 1rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .results {
     margin-top: 1.5rem;
     padding: 1rem;
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .results h4 {
     margin: 0 0 1rem 0;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .results-list {
@@ -209,9 +215,10 @@
 
   .result-item {
     padding: 1rem;
-    background: var(--bg-secondary, #f5f5f5);
+    background: var(--bg-secondary);
     border-radius: 4px;
     border-left: 3px solid #4a90e2;
+    transition: background-color 0.3s ease;
   }
 
   .result-header {
@@ -220,17 +227,20 @@
     align-items: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border-color, #ddd);
+    border-bottom: 1px solid var(--border-color);
+    transition: border-color 0.3s ease;
   }
 
   .result-id {
     font-weight: 600;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .result-distance {
     font-size: 0.9rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 
   .result-document,
@@ -242,29 +252,33 @@
   .result-metadata strong {
     display: block;
     margin-bottom: 0.5rem;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .result-document p {
     margin: 0;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     line-height: 1.6;
     white-space: pre-wrap;
+    transition: color 0.3s ease;
   }
 
   .result-metadata pre {
     margin: 0;
     padding: 0.5rem;
-    background: var(--bg-primary, white);
+    background: var(--bg-primary);
     border-radius: 4px;
     font-size: 0.85rem;
     overflow-x: auto;
+    transition: background-color 0.3s ease;
   }
 
   .no-results {
     text-align: center;
     padding: 2rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
   }
 </style>
 
