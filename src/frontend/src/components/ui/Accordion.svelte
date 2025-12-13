@@ -6,13 +6,11 @@
   }
 
   let { title, open = false, children }: Props = $props()
-  let isOpen = $state(open)
+  let isOpen = $state(false)
 
   // Sync external open prop changes to internal state
   $effect(() => {
-    if (open !== isOpen) {
-      isOpen = open
-    }
+    isOpen = open
   })
 
   const toggle = () => {

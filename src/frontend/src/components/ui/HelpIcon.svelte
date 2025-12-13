@@ -15,7 +15,7 @@
   }
 </script>
 
-<div class="help-icon-wrapper" on:mouseenter={handleMouseEnter} on:mouseleave={handleMouseLeave}>
+<div class="help-icon-wrapper" role="button" tabindex="0" onmouseenter={handleMouseEnter} onmouseleave={handleMouseLeave}>
   <span class="help-icon" aria-label="Help">?</span>
   {#if showTooltip && text}
     <div class="tooltip">{text}</div>
