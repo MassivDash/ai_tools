@@ -5,10 +5,11 @@ use crate::cli::utils::terminal::{
     dev_info, do_chromadb_log, do_front_log, do_server_log, step, success, warning,
 };
 use ctrlc::set_handler;
-use std::io::Read;
+use std::io::{BufRead, BufReader};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -97,28 +98,42 @@ pub fn start_development(config: Config) {
         .spawn()
         .expect("Failed to start ChromaDB server");
 
-    // Wait for ChromaDB server to be ready
-    let mut buffer_chromadb = [0; 1024];
-    let mut stdout_chromadb = chromadb_server.stdout.take().unwrap();
-    loop {
-        let n = stdout_chromadb.read(&mut buffer_chromadb).unwrap();
-        if n == 0 {
-            break;
-        }
-        let s = String::from_utf8_lossy(&buffer_chromadb[..n]);
+    // Wait for ChromaDB server to be ready and set up continuous reading
+    let stdout_chromadb = chromadb_server.stdout.take().unwrap();
+    let chromadb_ready = Arc::new(AtomicBool::new(false));
+    let chromadb_ready_clone = chromadb_ready.clone();
+    let chromadb_port_clone = chromadb_port;
 
-        do_chromadb_log(&s);
+    // Spawn thread to read ChromaDB logs continuously
+    let chromadb_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout_chromadb);
+        for line_result in reader.lines() {
+            match line_result {
+                Ok(line) => {
+                    if !line.trim().is_empty() {
+                        do_chromadb_log(&format!("{}\n", line));
 
-        // ChromaDB typically outputs "Running Chroma" or "Uvicorn running" when ready
-        // Also check for port binding messages
-        if s.contains("Running Chroma")
-            || s.contains("Chroma is running")
-            || s.contains("Uvicorn running")
-            || s.contains(format!(":{}", chromadb_port).as_str())
-        {
-            success("ChromaDB server is ready");
-            break;
+                        // Check if ChromaDB is ready
+                        if !chromadb_ready_clone.load(Ordering::SeqCst) {
+                            if line.contains("Running Chroma")
+                                || line.contains("Chroma is running")
+                                || line.contains("Uvicorn running")
+                                || line.contains(format!(":{}", chromadb_port_clone).as_str())
+                            {
+                                chromadb_ready_clone.store(true, Ordering::SeqCst);
+                                success("ChromaDB server is ready");
+                            }
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
         }
+    });
+
+    // Wait for ChromaDB to be ready before starting backend
+    while !chromadb_ready.load(Ordering::SeqCst) {
+        sleep(Duration::from_millis(100));
     }
 
     // Crate the host env for astro to call the actix backend server
@@ -149,23 +164,40 @@ pub fn start_development(config: Config) {
         .spawn()
         .expect("Failed to start backend development server");
 
-    // Wait for the backend development server to start
+    // Wait for the backend development server to start and set up continuous reading
+    let stdout_rust = cargo_watch.stdout.take().unwrap();
+    let rust_ready = Arc::new(AtomicBool::new(false));
+    let rust_ready_clone = rust_ready.clone();
+    let host_clone = config.host.clone();
+    let port_clone = port;
 
-    let mut buffer_rust = [0; 1024];
-    let mut stdout_rust = cargo_watch.stdout.take().unwrap();
-    loop {
-        let n = stdout_rust.read(&mut buffer_rust).unwrap();
-        if n == 0 {
-            break;
-        }
-        let s = String::from_utf8_lossy(&buffer_rust[..n]);
+    // Spawn thread to read Rust backend logs continuously
+    let rust_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout_rust);
+        for line_result in reader.lines() {
+            match line_result {
+                Ok(line) => {
+                    if !line.trim().is_empty() {
+                        do_server_log(&format!("{}\n", line));
 
-        do_server_log(&s);
-        if s.contains("Actix server has started 🚀") {
-            dev_info(&config.host, &port);
-            success("Actix server is running, starting the frontend development server");
-            break;
+                        // Check if Actix server is ready
+                        if !rust_ready_clone.load(Ordering::SeqCst) {
+                            if line.contains("Actix server has started 🚀") {
+                                rust_ready_clone.store(true, Ordering::SeqCst);
+                                dev_info(&host_clone, &port_clone);
+                                success("Actix server is running, starting the frontend development server");
+                            }
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
         }
+    });
+
+    // Wait for Rust backend to be ready before starting frontend
+    while !rust_ready.load(Ordering::SeqCst) {
+        sleep(Duration::from_millis(100));
     }
 
     // Start the frontend development server
@@ -183,76 +215,58 @@ pub fn start_development(config: Config) {
         .expect("Failed to start frontend development server");
 
     // Watch the std output of astro bundle if std will have "ready" then open the browser to the development server
+    let stdout_node = node_watch.stdout.take().unwrap();
+    let astro_ready = Arc::new(AtomicBool::new(false));
+    let astro_ready_clone = astro_ready.clone();
+    let astro_port_clone = astro_port;
 
-    let mut buffer_node = [0; 1024];
-    let mut stdout_node = node_watch.stdout.take().unwrap();
-    loop {
-        let n = stdout_node.read(&mut buffer_node).unwrap();
-        if n == 0 {
-            break;
-        }
-        let s = String::from_utf8_lossy(&buffer_node[..n]);
+    // Spawn thread to read Astro frontend logs continuously
+    let astro_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout_node);
+        for line_result in reader.lines() {
+            match line_result {
+                Ok(line) => {
+                    if !line.trim().is_empty() {
+                        do_front_log(&format!("{}\n", line));
 
-        do_front_log(&s);
+                        // Check if Astro is ready and open browser
+                        if !astro_ready_clone.load(Ordering::SeqCst) {
+                            if line.contains("ready") {
+                                astro_ready_clone.store(true, Ordering::SeqCst);
+                                success("Astro is ready, opening the browser");
 
-        if s.contains("ready") {
-            success("Astro is ready, opening the browser");
+                                let browser = Command::new("open")
+                                    .arg(format!("http://localhost:{}", astro_port_clone))
+                                    .spawn();
 
-            let browser = Command::new("open")
-                .arg(format!("http://localhost:{}", astro_port))
-                .spawn();
-
-            match browser {
-                Ok(_) => break,
-                Err(err) => {
-                    println!("Failed to execute command: {}", err);
-                    println!("Are You a Ci Secret Agent ?");
-
-                    // Handle the error here
+                                if let Err(err) = browser {
+                                    println!("Failed to execute command: {}", err);
+                                    println!("Are You a Ci Secret Agent ?");
+                                }
+                            }
+                        }
+                    }
                 }
+                Err(_) => break,
             }
-
-            break;
         }
-    }
+    });
 
-    // We want to transmit the stdout_node, stdout_rust, and stdout_chromadb as long as watchers are present
-    // Use a simple approach: read from each in sequence with small delays
+    // Main loop: keep the process alive and monitor all three services
+    // All log reading is handled by the spawned threads above
     loop {
-        // Read from ChromaDB
-        match stdout_chromadb.read(&mut buffer_chromadb) {
-            Ok(n) if n > 0 => {
-                let s = String::from_utf8_lossy(&buffer_chromadb[..n]);
-                do_chromadb_log(&s);
-            }
-            _ => {}
-        }
-
-        // Read from Rust backend
-        match stdout_rust.read(&mut buffer_rust) {
-            Ok(n) if n > 0 => {
-                let s = String::from_utf8_lossy(&buffer_rust[..n]);
-                do_server_log(&s);
-            }
-            _ => {}
-        }
-
-        // Read from Astro frontend
-        match stdout_node.read(&mut buffer_node) {
-            Ok(n) if n > 0 => {
-                let s = String::from_utf8_lossy(&buffer_node[..n]);
-                do_front_log(&s);
-            }
-            _ => {}
-        }
-
-        // Small delay to prevent busy waiting
-        sleep(Duration::from_millis(50));
+        sleep(Duration::from_millis(100));
 
         // Check if all processes have exited
         if chromadb_server.try_wait().is_ok()
             && cargo_watch.try_wait().is_ok()
             && node_watch.try_wait().is_ok()
+        {
+            break;
+        }
+
+        // Check if threads have finished (streams closed)
+        if chromadb_handle.is_finished() && rust_handle.is_finished() && astro_handle.is_finished()
         {
             break;
         }
