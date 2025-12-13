@@ -29,9 +29,17 @@
     )
 
     if (validFiles.length !== newFiles.length) {
-      error = 'Some files were skipped. Only PDF, Markdown, and text files are supported.'
+      error = ''
+      status = {
+        status: 'error',
+        progress: 0,
+        message: 'Some files were skipped. Only PDF, Markdown, and text files are supported.',
+        processed_files: 0,
+        total_files: 0
+      }
     } else {
       error = ''
+      status = null
     }
 
     files = [...files, ...validFiles]
@@ -43,12 +51,26 @@
 
   const uploadDocuments = async () => {
     if (!selectedCollection) {
-      error = 'Please select a collection first'
+      error = ''
+      status = {
+        status: 'error',
+        progress: 0,
+        message: 'Please select a collection first',
+        processed_files: 0,
+        total_files: 0
+      }
       return
     }
 
     if (files.length === 0) {
-      error = 'Please select at least one file'
+      error = ''
+      status = {
+        status: 'error',
+        progress: 0,
+        message: 'Please select at least one file',
+        processed_files: 0,
+        total_files: 0
+      }
       return
     }
 
@@ -104,22 +126,22 @@
         // Clear files after successful upload
         files = []
       } else {
-        error = response.data.error || 'Failed to upload documents'
+        error = ''
         status = {
           status: 'error',
           progress: 0,
-          message: error,
+          message: response.data.error || 'Failed to upload documents',
           processed_files: 0,
           total_files: files.length
         }
       }
     } catch (err: any) {
       console.error('❌ Error uploading documents:', err)
-      error = err.response?.data?.error || err.message || 'Failed to upload documents'
+      error = ''
       status = {
         status: 'error',
         progress: 0,
-        message: error,
+        message: err.response?.data?.error || err.message || 'Failed to upload documents',
         processed_files: 0,
         total_files: files.length
       }
@@ -174,10 +196,6 @@
           {uploading ? 'Uploading...' : `Upload ${files.length} file${files.length > 1 ? 's' : ''}`}
         </Button>
       </div>
-    {/if}
-
-    {#if error}
-      <div class="error-message">❌ {error}</div>
     {/if}
 
     {#if status}
@@ -287,15 +305,6 @@
     background: var(--bg-tertiary);
     border-color: var(--border-color-hover);
     color: var(--accent-color, #c33);
-  }
-
-  .error-message {
-    padding: 1rem;
-    background: #fee;
-    border: 1px solid #fcc;
-    border-radius: 4px;
-    color: #c33;
-    margin-top: 1rem;
   }
 
   .status {

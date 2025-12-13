@@ -1,6 +1,7 @@
 use crate::api::chromadb::types::{AddDocumentsRequest, Collection, QueryRequest, QueryResponse};
 use anyhow::{Context, Result};
 use chroma::{
+    embed::{ollama::OllamaEmbeddingFunction, EmbeddingFunction},
     types::{IncludeList, Metadata, MetadataValue, Where},
     ChromaHttpClient,
 };
@@ -14,7 +15,10 @@ impl ChromaDBClient {
     pub fn new(endpoint: &str) -> Result<Self> {
         // Create ChromaHttpClient with the provided endpoint
         // The chroma crate's from_env() reads CHROMA_ENDPOINT, but we set it explicitly
-        std::env::set_var("CHROMA_ENDPOINT", endpoint);
+        // Note: set_var is safe here as we're setting it before creating the client
+        unsafe {
+            std::env::set_var("CHROMA_ENDPOINT", endpoint);
+        }
         let client = ChromaHttpClient::from_env()
             .context(format!("Failed to create ChromaDB client with endpoint: {}. Make sure ChromaDB server is running.", endpoint))?;
 
@@ -84,8 +88,11 @@ impl ChromaDBClient {
         name: &str,
         metadata: Option<HashMap<String, String>>,
     ) -> Result<Collection> {
-        println!("🔧 ChromaDBClient::create_collection called with name: '{}', metadata: {:?}", name, metadata);
-        
+        println!(
+            "🔧 ChromaDBClient::create_collection called with name: '{}', metadata: {:?}",
+            name, metadata
+        );
+
         // Convert HashMap<String, String> to Metadata
         let metadata_map: Option<Metadata> = metadata.map(|m| {
             m.into_iter()
@@ -93,15 +100,21 @@ impl ChromaDBClient {
                 .collect()
         });
 
-        println!("🔧 Calling chroma client.create_collection with name: '{}', metadata_map: {:?}", name, metadata_map);
-        
+        println!(
+            "🔧 Calling chroma client.create_collection with name: '{}', metadata_map: {:?}",
+            name, metadata_map
+        );
+
         let collection = self
             .client
             .create_collection(name, None, metadata_map) // name, schema: None, metadata
             .await
             .with_context(|| format!("Failed to create collection '{}'. Check if collection already exists or if ChromaDB server is accessible.", name))?;
-        
-        println!("✅ ChromaDB collection created successfully: {}", collection.name());
+
+        println!(
+            "✅ ChromaDB collection created successfully: {}",
+            collection.name()
+        );
 
         Ok(Collection {
             id: collection.id().to_string(),
@@ -170,8 +183,6 @@ impl ChromaDBClient {
             .context("Collection not found")?;
 
         // Convert metadatas to ChromaDB format
-        // Note: ChromaDB requires embeddings, but we can pass empty vec and let it generate
-        // For now, we'll need to generate embeddings or pass empty
         let metadatas: Option<Vec<Option<Metadata>>> = request.metadatas.map(|m| {
             m.into_iter()
                 .map(|meta| {
@@ -184,25 +195,48 @@ impl ChromaDBClient {
                 .collect()
         });
 
+        // ChromaDB standard approach: Generate embeddings from documents using embedding function
+        // Use Ollama embedding function (default: http://localhost:11434, model: nomic-embed-text)
+        // This is the standard ChromaDB way to handle embeddings when uploading documents
+        println!(
+            "🔧 Generating embeddings for {} documents using Ollama embedding function",
+            request.documents.len()
+        );
+
+        // Use default Ollama host and model
+        let embedding_fn = OllamaEmbeddingFunction::new("http://localhost:11434", "nomic-embed-text")
+            .await
+            .context("Failed to initialize Ollama embedding function. Make sure Ollama is running on http://localhost:11434.")?;
+
+        // Convert Vec<String> to Vec<&str> for embed_strs method
+        let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
+        let embeddings: Vec<Vec<f32>> = embedding_fn
+            .embed_strs(&document_refs)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to generate embeddings: {}", e))
+            .context("Failed to generate embeddings from documents")?;
+
+        println!(
+            "✅ Generated {} embeddings (dimension: {})",
+            embeddings.len(),
+            embeddings.first().map(|e| e.len()).unwrap_or(0)
+        );
+
         // Convert documents to Option<Vec<Option<String>>>
         let documents: Option<Vec<Option<String>>> =
             Some(request.documents.into_iter().map(Some).collect());
 
-        // For now, we need embeddings. We'll pass empty and ChromaDB should generate them
-        // But the API requires embeddings, so we need to handle this differently
-        // Let's use empty embeddings for now - this might need embedding generation
-        let empty_embeddings: Vec<Vec<f32>> = vec![];
-
+        // Use ChromaDB's standard add method with generated embeddings
         collection
             .add(
                 request.ids,
-                empty_embeddings, // embeddings - required by API
+                embeddings, // Generated embeddings from documents
                 documents,
                 None, // uris
                 metadatas,
             )
             .await
-            .context("Failed to add documents. Note: Embeddings are required. You may need to generate them first.")?;
+            .context("Failed to add documents to ChromaDB")?;
 
         Ok(())
     }
