@@ -84,6 +84,8 @@ impl ChromaDBClient {
         name: &str,
         metadata: Option<HashMap<String, String>>,
     ) -> Result<Collection> {
+        println!("🔧 ChromaDBClient::create_collection called with name: '{}', metadata: {:?}", name, metadata);
+        
         // Convert HashMap<String, String> to Metadata
         let metadata_map: Option<Metadata> = metadata.map(|m| {
             m.into_iter()
@@ -91,11 +93,15 @@ impl ChromaDBClient {
                 .collect()
         });
 
+        println!("🔧 Calling chroma client.create_collection with name: '{}', metadata_map: {:?}", name, metadata_map);
+        
         let collection = self
             .client
             .create_collection(name, None, metadata_map) // name, schema: None, metadata
             .await
-            .context("Failed to create collection")?;
+            .with_context(|| format!("Failed to create collection '{}'. Check if collection already exists or if ChromaDB server is accessible.", name))?;
+        
+        println!("✅ ChromaDB collection created successfully: {}", collection.name());
 
         Ok(Collection {
             id: collection.id().to_string(),
