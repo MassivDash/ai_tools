@@ -1,9 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import type { ChromaDBCollection } from '../../types/chromadb.ts'
-  import Button from '../ui/Button.svelte'
+  import XIcon from '../ui/icons/XIcon.svelte'
 
   export let collection: ChromaDBCollection
+  export let selected: boolean = false
 
   const dispatch = createEventDispatcher()
 
@@ -16,7 +17,7 @@
   }
 </script>
 
-<div class="collection-card" onclick={handleSelect}>
+<div class="collection-card" class:selected={selected} onclick={handleSelect}>
   <div class="card-header">
     <h3>{collection.name}</h3>
     <button
@@ -27,7 +28,7 @@
       }}
       title="Delete collection"
     >
-      🗑️
+      <XIcon width="18" height="18" />
     </button>
   </div>
 
@@ -62,7 +63,7 @@
 <style>
   .collection-card {
     background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     padding: 1.5rem;
     cursor: pointer;
@@ -74,6 +75,16 @@
     border-color: var(--border-color-hover);
     box-shadow: 0 4px 8px var(--shadow);
     transform: translateY(-2px);
+  }
+
+  .collection-card.selected {
+    border-color: var(--accent-color, #4a90e2);
+    background: var(--bg-secondary);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+  }
+
+  .collection-card.selected:hover {
+    border-color: var(--accent-color, #4a90e2);
   }
 
   .card-header {
@@ -95,10 +106,12 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
-    font-size: 1.2rem;
-    padding: 0.25rem 0.5rem;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0.8;
-    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease;
+    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     color: var(--text-primary);
   }
 
@@ -106,6 +119,7 @@
     opacity: 1;
     background: var(--bg-tertiary);
     border-color: var(--border-color-hover);
+    color: var(--accent-color, #c33);
   }
 
   .card-body {

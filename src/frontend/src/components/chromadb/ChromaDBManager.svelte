@@ -3,9 +3,9 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type {
     ChromaDBHealthResponse,
-    ChromaDBResponse,
-    ChromaDBCollection
+    ChromaDBResponse
   } from '../../types/chromadb.ts'
+  import { collections, selectedCollection } from '../../stores/chromadb.ts'
   import CollectionList from './CollectionList.svelte'
   import DocumentUpload from './DocumentUpload.svelte'
   import QueryInterface from './QueryInterface.svelte'
@@ -13,7 +13,6 @@
   import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
-  let selectedCollection: string | null = null
   let collectionListRef: CollectionList
 
   const checkHealth = async () => {
@@ -37,9 +36,6 @@
     }
   }
 
-  const handleCollectionSelected = (event: CustomEvent<ChromaDBCollection>) => {
-    selectedCollection = event.detail.name
-  }
 
   const handleDocumentUploaded = () => {
     if (collectionListRef) {
@@ -82,21 +78,24 @@
 
   <div class="manager-content">
     <div class="left-panel">
-      <CollectionList
-        bind:this={collectionListRef}
-        on:select={(e) => handleCollectionSelected(e.detail)}
-      />
+      <CollectionList bind:this={collectionListRef} />
     </div>
 
     <div class="right-panel">
-      {#if selectedCollection}
+      {#if $collections.length === 0}
+        <div class="no-selection">
+          <p>No collections, add collection to start</p>
+        </div>
+      {:else if $selectedCollection}
         <div class="selected-collection">
-          <h2>Collection: {selectedCollection}</h2>
+          <h2>Collection: {$selectedCollection.name}</h2>
           <DocumentUpload
-            {selectedCollection}
+            selectedCollection={$selectedCollection.name}
             on:uploaded={handleDocumentUploaded}
           />
-          <QueryInterface {selectedCollection} />
+          {#if $selectedCollection.count !== undefined && $selectedCollection.count > 0}
+            <QueryInterface selectedCollection={$selectedCollection.name} />
+          {/if}
         </div>
       {:else}
         <div class="no-selection">

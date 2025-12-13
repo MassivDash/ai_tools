@@ -1,18 +1,16 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type {
     ChromaDBResponse,
     ChromaDBCollection,
     CreateCollectionRequest
   } from '../../types/chromadb.ts'
+  import { collections, selectedCollection } from '../../stores/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import PlusIcon from '../ui/icons/PlusIcon.svelte'
   import XIcon from '../ui/icons/XIcon.svelte'
   import Input from '../ui/Input.svelte'
-
-  const dispatch = createEventDispatcher()
 
   let showForm = false
   let collectionName = ''
@@ -62,7 +60,10 @@
 
       if (response.data.success && response.data.data) {
         console.log('✅ Collection created:', response.data.data)
-        dispatch('created', response.data.data)
+        // Add to collections store
+        collections.update((cols) => [...cols, response.data.data!])
+        // Select the newly created collection
+        selectedCollection.set(response.data.data)
         // Reset form
         collectionName = ''
         metadata = {}
@@ -149,8 +150,9 @@
                   class="remove-btn"
                   onclick={() => removeMetadataField(key)}
                   type="button"
+                  title="Remove field"
                 >
-                  🗑️
+                  <XIcon width="18" height="18" />
                 </button>
               </div>
             {/each}
@@ -262,13 +264,16 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
-    font-size: 1.2rem;
-    padding: 0.5rem;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0.8;
     transition:
       opacity 0.2s,
       background-color 0.3s ease,
-      border-color 0.3s ease;
+      border-color 0.3s ease,
+      color 0.3s ease;
     color: var(--text-primary);
   }
 
@@ -276,6 +281,7 @@
     opacity: 1;
     background: var(--bg-tertiary);
     border-color: var(--border-color-hover);
+    color: var(--accent-color, #c33);
   }
 
   .hint {

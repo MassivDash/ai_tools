@@ -3,44 +3,18 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ChromaDBResponse, ProcessingStatus } from '../../types/chromadb.ts'
   import Button from '../ui/Button.svelte'
+  import Dropzone from '../ui/Dropzone.svelte'
+  import XIcon from '../ui/icons/XIcon.svelte'
 
   export let selectedCollection: string | null = null
 
   const dispatch = createEventDispatcher()
 
   let files: File[] = []
-  let dragActive = false
   let uploading = false
   let progress = 0
   let error = ''
   let status: ProcessingStatus | null = null
-
-  const handleDrag = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      dragActive = true
-    } else if (e.type === 'dragleave') {
-      dragActive = false
-    }
-  }
-
-  const handleDrop = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragActive = false
-
-    if (e.dataTransfer?.files) {
-      handleFiles(Array.from(e.dataTransfer.files))
-    }
-  }
-
-  const handleFileSelect = (e: Event) => {
-    const target = e.target as HTMLInputElement
-    if (target.files) {
-      handleFiles(Array.from(target.files))
-    }
-  }
 
   const handleFiles = (newFiles: File[]) => {
     // Filter for supported file types
@@ -56,10 +30,11 @@
 
     if (validFiles.length !== newFiles.length) {
       error = 'Some files were skipped. Only PDF, Markdown, and text files are supported.'
+    } else {
+      error = ''
     }
 
     files = [...files, ...validFiles]
-    error = ''
   }
 
   const removeFile = (index: number) => {
@@ -170,31 +145,14 @@
       ⚠️ Please select a collection first to upload documents
     </div>
   {:else}
-    <div
-      class="drop-zone"
-      class:active={dragActive}
-      ondragenter={handleDrag}
-      ondragover={handleDrag}
-      ondragleave={handleDrag}
-      ondrop={handleDrop}
-    >
-      <div class="drop-zone-content">
-        <p class="drop-icon">📄</p>
-        <p>Drag and drop files here, or</p>
-        <label for="file-input" class="file-input-label">
-          <Button type="button" variant="secondary">Browse Files</Button>
-          <input
-            id="file-input"
-            type="file"
-            multiple
-            accept=".pdf,.md,.mdx,.txt"
-            onchange={handleFileSelect}
-            style="display: none;"
-          />
-        </label>
-        <p class="hint">Supported: PDF, Markdown (.md, .mdx), Text (.txt)</p>
-      </div>
-    </div>
+    <Dropzone
+      accept=".pdf,.md,.mdx,.txt"
+      multiple={true}
+      disabled={uploading}
+      buttonText="Browse Files"
+      hint="Supported: PDF, Markdown (.md, .mdx), Text (.txt)"
+      on:files={(e) => handleFiles(e.detail)}
+    />
 
     {#if files.length > 0}
       <div class="files-list">
@@ -206,8 +164,8 @@
                 <span class="file-name">{file.name}</span>
                 <span class="file-size">{formatFileSize(file.size)}</span>
               </div>
-              <button class="remove-file-btn" onclick={() => removeFile(index)} type="button">
-                🗑️
+              <button class="remove-file-btn" onclick={() => removeFile(index)} type="button" title="Remove file">
+                <XIcon width="18" height="18" />
               </button>
             </div>
           {/each}
@@ -258,46 +216,11 @@
 
   .warning {
     padding: 1rem;
-    background: #fff3cd;
-    border: 1px solid #ffc107;
+    background: rgba(255, 243, 205, 0.3);
+    border: 1px solid rgba(255, 193, 7, 0.5);
     border-radius: 4px;
-    color: #856404;
-  }
-
-  .drop-zone {
-    border: 2px dashed var(--border-color, #ddd);
-    border-radius: 8px;
-    padding: 3rem 2rem;
-    text-align: center;
-    transition: all 0.2s ease;
-    background: var(--bg-primary, white);
-  }
-
-  .drop-zone.active {
-    border-color: #4a90e2;
-    background: #f0f7ff;
-  }
-
-  .drop-zone-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .drop-icon {
-    font-size: 3rem;
-    margin: 0;
-  }
-
-  .file-input-label {
-    cursor: pointer;
-  }
-
-  .hint {
-    font-size: 0.9rem;
-    color: var(--text-tertiary, #999);
-    margin: 0;
+    color: var(--text-secondary);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
 
   .files-list {
@@ -350,10 +273,12 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
-    font-size: 1.2rem;
-    padding: 0.25rem 0.5rem;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0.8;
-    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease;
+    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     color: var(--text-primary);
   }
 
@@ -361,6 +286,7 @@
     opacity: 1;
     background: var(--bg-tertiary);
     border-color: var(--border-color-hover);
+    color: var(--accent-color, #c33);
   }
 
   .error-message {
@@ -376,22 +302,25 @@
     margin-top: 1rem;
     padding: 1rem;
     border-radius: 8px;
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid var(--border-color);
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .status.processing {
-    background: #e3f2fd;
-    border-color: #2196f3;
+    background: rgba(33, 150, 243, 0.1);
+    border-color: rgba(33, 150, 243, 0.3);
   }
 
   .status.completed {
-    background: #e8f5e9;
-    border-color: #4caf50;
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.3);
   }
 
   .status.error {
-    background: #ffebee;
-    border-color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
   }
 
   .status-header {
@@ -407,28 +336,31 @@
 
   .status-message {
     font-weight: 500;
-    color: var(--text-primary, #100f0f);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
   .progress-bar {
     width: 100%;
     height: 8px;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--bg-secondary);
     border-radius: 4px;
     overflow: hidden;
     margin: 0.5rem 0;
+    transition: background-color 0.3s ease;
   }
 
   .progress-fill {
     height: 100%;
-    background: #2196f3;
-    transition: width 0.3s ease;
+    background: var(--accent-color, #4a90e2);
+    transition: width 0.3s ease, background-color 0.3s ease;
   }
 
   .progress-text {
     font-size: 0.9rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     text-align: center;
+    transition: color 0.3s ease;
   }
 </style>
 
