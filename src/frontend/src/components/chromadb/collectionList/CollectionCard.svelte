@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  import type { ChromaDBCollection } from '../../types/chromadb.ts'
-  import XIcon from '../ui/icons/XIcon.svelte'
+  import type { ChromaDBCollection } from '@types'
+  import XIcon from '@ui/icons/XIcon.svelte'
 
   export let collection: ChromaDBCollection
   export let selected: boolean = false

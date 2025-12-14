@@ -1,12 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    ChromaDBHealthResponse,
-    ChromaDBResponse
-  } from '../../types/chromadb.ts'
-  import { collections, selectedCollection } from '../../stores/chromadb.ts'
-  import CollectionList from './CollectionList.svelte'
+  import type { ChromaDBHealthResponse, ChromaDBResponse } from '@types'
+  import { collections, selectedCollection } from '@stores/chromadb.ts'
+  import CollectionList from './collectionList/CollectionList.svelte'
   import DocumentUpload from './DocumentUpload.svelte'
   import QueryInterface from './QueryInterface.svelte'
   import ChromaDBConfig from './ChromaDBConfig.svelte'
@@ -112,7 +109,6 @@
           <div class="selected-collection">
             <h2>Collection: {$selectedCollection.name}</h2>
             <DocumentUpload
-              key={$selectedCollection.name}
               selectedCollection={$selectedCollection.name}
               on:uploaded={handleDocumentUploaded}
             />
@@ -129,14 +125,14 @@
         {/if}
       </div>
     </div>
-    <ChromaDBConfig
-      isOpen={configPanelOpen}
-      onClose={() => (configPanelOpen = false)}
-      onSave={() => {
-        // Config saved, no action needed
-      }}
-    />
   </div>
+  <ChromaDBConfig
+    isOpen={configPanelOpen}
+    onClose={() => (configPanelOpen = false)}
+    onSave={() => {
+      // Config saved, no action needed
+    }}
+  />
 </div>
 
 <style>
@@ -147,6 +143,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    overflow: visible;
   }
 
   .status-bar {
@@ -202,12 +199,19 @@
     min-height: 60vh;
     overflow: hidden;
     width: 100%;
-    transition: margin-right 0.3s ease-in-out;
+    transition: margin-right 0.3s ease-in-out, transform 0.3s ease-in-out;
     margin-right: 0;
   }
 
   .content-area.has-config {
-    margin-right: 70%;
+    margin-right: 70vw;
+    transform: translateX(0);
+  }
+
+  @media (min-width: 1401px) {
+    .content-area.has-config {
+      margin-right: 980px;
+    }
   }
 
   .manager-content {
@@ -260,12 +264,14 @@
     }
 
     .content-area.has-config {
-      margin-right: 0;
+      margin-right: 0 !important;
     }
 
     :global(.config-panel) {
-      width: 100% !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
       top: 80px !important;
+      height: calc(100vh - 80px) !important;
     }
   }
 </style>

@@ -7,9 +7,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
 import CollectionList from './CollectionList.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-import { collections, selectedCollection } from '../../stores/chromadb'
+import { collections, selectedCollection } from '../../../stores/chromadb.ts'
 import { get } from 'svelte/store'
-import type { ChromaDBCollection } from '../../../types/chromadb.ts'
+import type { ChromaDBCollection } from '@types/chromadb.ts'
 
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({

@@ -5,9 +5,9 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
-import CreateCollection from './CreateCollection.svelte'
+import CreateCollection from '../CreateCollection.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-import type { ChromaDBCollection } from '../../../types/chromadb.ts'
+import type { ChromaDBCollection } from '@types/chromadb.ts'
 
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({
@@ -16,7 +16,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
 }
 

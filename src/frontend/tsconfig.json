@@ -17,7 +17,10 @@
       "@components/*": ["src/components/*"],
       "@layouts/*": ["src/layouts/*"],
       "@axios/*": ["src/axiosInstance/*"],
-      "@config/*": ["src/config/*"]
+      "@config/*": ["src/config/*"],
+      "@types/*": ["src/types/*"],
+      "@stores/*": ["src/stores/*"],
+      "@ui/*": ["src/components/ui/*"]
     },
     "types": ["vitest/jsdom"]
   }

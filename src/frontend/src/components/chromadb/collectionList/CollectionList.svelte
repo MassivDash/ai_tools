@@ -1,15 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    ChromaDBCollection,
-    ChromaDBResponse
-  } from '../../types/chromadb.ts'
-  import { collections, selectedCollection } from '../../stores/chromadb.ts'
+  import type { ChromaDBCollection, ChromaDBResponse } from '@types/chromadb.ts'
+  import { collections, selectedCollection } from '@stores/chromadb.ts'
   import CollectionCard from './CollectionCard.svelte'
   import CreateCollection from './CreateCollection.svelte'
-  import IconButton from '../ui/IconButton.svelte'
-  import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
+  import IconButton from '@ui/IconButton.svelte'
+  import RefreshIcon from '@ui/icons/RefreshIcon.svelte'
 
   let loading = false
   let error = ''

@@ -2,10 +2,7 @@ import { z } from 'zod'
 
 // ChromaDB Config Request Schema
 export const ChromaDBConfigRequestSchema = z.object({
-  embedding_model: z
-    .string()
-    .trim()
-    .min(1, 'Embedding model cannot be empty'),
+  embedding_model: z.string().trim().min(1, 'Embedding model cannot be empty'),
   query_model: z
     .string()
     .trim()
@@ -36,4 +33,3 @@ export const buildChromaDBConfigPayload = (values: {
 
   return payload
 }
-

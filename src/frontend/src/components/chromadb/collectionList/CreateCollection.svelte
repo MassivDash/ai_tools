@@ -4,14 +4,14 @@
     ChromaDBResponse,
     ChromaDBCollection,
     CreateCollectionRequest
-  } from '../../types/chromadb.ts'
-  import { collections, selectedCollection } from '../../stores/chromadb.ts'
-  import { CreateCollectionRequestSchema } from '../../validation/chromadb.ts'
-  import Button from '../ui/Button.svelte'
-  import IconButton from '../ui/IconButton.svelte'
-  import PlusIcon from '../ui/icons/PlusIcon.svelte'
-  import XIcon from '../ui/icons/XIcon.svelte'
-  import Input from '../ui/Input.svelte'
+  } from '@types'
+  import { collections, selectedCollection } from '@stores/chromadb.ts'
+  import { CreateCollectionRequestSchema } from '@validation/chromadb.ts'
+  import Button from '@ui/Button.svelte'
+  import IconButton from '@ui/IconButton.svelte'
+  import PlusIcon from '@ui/icons/PlusIcon.svelte'
+  import XIcon from '@ui/icons/XIcon.svelte'
+  import Input from '@ui/Input.svelte'
 
   let showForm = false
   let collectionName = ''

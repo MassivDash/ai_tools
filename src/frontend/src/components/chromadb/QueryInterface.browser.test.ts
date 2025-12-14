@@ -7,7 +7,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
 import QueryInterface from './QueryInterface.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-import type { QueryResponse } from '../../../types/chromadb.ts'
+import type { QueryResponse } from '@types/chromadb.ts'
 
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({
@@ -16,7 +16,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
 }
 

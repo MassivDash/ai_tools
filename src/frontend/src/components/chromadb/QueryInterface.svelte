@@ -1,11 +1,7 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    QueryRequest,
-    QueryResponse,
-    ChromaDBResponse
-  } from '../../types/chromadb.ts'
-  import { QueryRequestSchema } from '../../validation/chromadb.ts'
+  import type { QueryRequest, QueryResponse, ChromaDBResponse } from '@types'
+  import { QueryRequestSchema } from '@validation/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import Input from '../ui/Input.svelte'
 

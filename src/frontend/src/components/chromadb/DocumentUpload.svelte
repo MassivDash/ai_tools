@@ -1,17 +1,14 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    ChromaDBResponse,
-    ProcessingStatus
-  } from '../../types/chromadb.ts'
+  import type { ChromaDBResponse, ProcessingStatus } from '@types'
   import {
     DocumentUploadSchema,
     validateFileType
-  } from '../../validation/chromadb.ts'
-  import Button from '../ui/Button.svelte'
-  import Dropzone from '../ui/Dropzone.svelte'
-  import XIcon from '../ui/icons/XIcon.svelte'
+  } from '@validation/chromadb.ts'
+  import Button from '@ui/Button.svelte'
+  import Dropzone from '@ui/Dropzone.svelte'
+  import XIcon from '@ui/icons/XIcon.svelte'
 
   export let selectedCollection: string | null = null
 

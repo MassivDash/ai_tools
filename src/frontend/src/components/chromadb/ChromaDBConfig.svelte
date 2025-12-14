@@ -7,7 +7,7 @@
   import {
     ChromaDBConfigRequestSchema,
     buildChromaDBConfigPayload
-  } from '../../validation/chromadbConfig.ts'
+  } from '@validation/chromadbConfig.ts'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -30,7 +30,10 @@
   }
 
   let localModels: ModelInfo[] = []
-  let config: ConfigResponse = { embedding_model: 'nomic-embed-text', query_model: 'nomic-embed-text' }
+  let config: ConfigResponse = {
+    embedding_model: 'nomic-embed-text',
+    query_model: 'nomic-embed-text'
+  }
   let newEmbeddingModel = 'nomic-embed-text'
   // query_model is no longer used - queries always use embedding_model
   // Keeping variable for compatibility but not displaying in UI
@@ -41,9 +44,8 @@
 
   const loadConfig = async () => {
     try {
-      const response = await axiosBackendInstance.get<ConfigResponse>(
-        'chromadb/config'
-      )
+      const response =
+        await axiosBackendInstance.get<ConfigResponse>('chromadb/config')
       config = response.data
       newEmbeddingModel = config.embedding_model
       // query_model is no longer used in UI, but we keep it for API compatibility
@@ -78,7 +80,6 @@
   const handleEmbeddingModelSelect = (model: ModelInfo) => {
     newEmbeddingModel = model.name
   }
-
 
   const handleSave = async () => {
     savingConfig = true
@@ -163,7 +164,8 @@
     <!-- Embedding Model -->
     <div class="config-section">
       <div class="label-with-help">
-        <label for="embedding-model" class="custom-label">Embedding Model</label>
+        <label for="embedding-model" class="custom-label">Embedding Model</label
+        >
         <HelpIcon
           text="The Ollama model used to generate embeddings for documents when uploading to ChromaDB collections."
         />
@@ -202,11 +204,12 @@
       {:else}
         <div class="no-models">
           <p>No Ollama models found</p>
-          <p class="hint-small">Run 'ollama pull &lt;model&gt;' to download models</p>
+          <p class="hint-small">
+            Run 'ollama pull &lt;model&gt;' to download models
+          </p>
         </div>
       {/if}
     </div>
-
   </div>
   <div class="config-footer">
     <Button variant="secondary" onclick={onClose}>Cancel</Button>
@@ -222,8 +225,9 @@
 
 <style>
   .config-panel {
-    width: 70%;
-    height: 100%;
+    width: 70vw;
+    max-width: 980px;
+    height: calc(100vh - 80px);
     background-color: var(--bg-primary, #fff);
     border-left: 1px solid var(--border-color, #ddd);
     transform: translateX(100%);
@@ -231,14 +235,15 @@
       transform 0.3s ease-in-out,
       background-color 0.3s ease,
       border-color 0.3s ease;
-    z-index: 10;
+    z-index: 1002;
     display: flex;
     flex-direction: column;
-    position: absolute;
+    position: fixed;
     right: 0;
-    top: 0;
+    top: 80px;
     bottom: 0;
     box-shadow: -2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    overflow-y: auto;
   }
 
   .config-panel.visible {
@@ -371,10 +376,11 @@
 
   @media screen and (max-width: 768px) {
     .config-panel {
-      width: 100%;
-      min-width: 100%;
-      max-width: 100%;
+      width: 100vw;
+      min-width: 100vw;
+      max-width: 100vw;
+      top: 80px;
+      height: calc(100vh - 80px);
     }
   }
 </style>
-
