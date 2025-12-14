@@ -5,7 +5,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
-import AiChat from './aiChat.svelte'
+import LlamaServer from './llamaServer.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
 
@@ -102,8 +102,8 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-test('renders AI chat component', async () => {
-  render(AiChat as Component)
+test('renders Llama Server component', async () => {
+  render(LlamaServer as Component)
 
   await waitFor(
     () => {
@@ -114,7 +114,7 @@ test('renders AI chat component', async () => {
 })
 
 test('shows empty state when server is not active', async () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   await waitFor(
     () => {
@@ -126,13 +126,13 @@ test('shows empty state when server is not active', async () => {
 })
 
 test('connects to status WebSocket on mount', () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   expect(mockConnect).toHaveBeenCalledTimes(1)
 })
 
 test('disconnects from status WebSocket on unmount', () => {
-  const { unmount } = render(AiChat as Component)
+  const { unmount } = render(LlamaServer as Component)
 
   unmount()
 
@@ -144,7 +144,7 @@ test('starts server when start button is clicked', async () => {
     data: { success: true, message: 'Server started' }
   })
 
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   await waitFor(
     () => {
@@ -169,7 +169,7 @@ test('shows error when start fails', async () => {
     data: { success: false, message: 'Failed to start server' }
   })
 
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const startButton = screen.getByTitle('Start Server')
   fireEvent.click(startButton)
@@ -193,7 +193,7 @@ test('stops server when stop button is clicked', async () => {
 
   // Manually trigger status update by calling the callback
   // This is a workaround since we can't easily update component state
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   // The component doesn't show stop button unless serverStatus.active is true
   // Since we can't easily mock that, we'll test the stop function exists
@@ -202,7 +202,7 @@ test('stops server when stop button is clicked', async () => {
 })
 
 test('toggles config panel when config button is clicked', async () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const configButton = screen.getByTitle('Config')
   fireEvent.click(configButton)
@@ -231,7 +231,7 @@ test('toggles config panel when config button is clicked', async () => {
 })
 
 test('toggles terminal when terminal button is clicked', async () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const terminalButton = screen.getByTitle('Show Terminal')
   fireEvent.click(terminalButton)
@@ -260,7 +260,7 @@ test('shows terminal when server is starting', async () => {
     return new Promise(() => {}) // Never resolves
   })
 
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const startButton = screen.getByTitle('Start Server')
   fireEvent.click(startButton)
@@ -278,7 +278,7 @@ test('disables start button when loading', async () => {
     return new Promise(() => {}) // Never resolves
   })
 
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const startButton = screen.getByTitle('Start Server')
   fireEvent.click(startButton)
@@ -294,7 +294,7 @@ test('disables start button when loading', async () => {
 })
 
 test('displays empty state when server is inactive', () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   // When server is inactive, empty state is shown instead of iframe
   expect(screen.getByText(/Llama.cpp Server is not running/)).toBeTruthy()
@@ -309,7 +309,7 @@ test('displays empty state when server is inactive', () => {
 test('handles network errors gracefully', async () => {
   mockedAxios.post.mockRejectedValueOnce(new Error('Network error'))
 
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   const startButton = screen.getByTitle('Start Server')
   fireEvent.click(startButton)
@@ -325,7 +325,7 @@ test('handles network errors gracefully', async () => {
 })
 
 test('calls handleConfigSave when config is saved', async () => {
-  render(AiChat as Component)
+  render(LlamaServer as Component)
 
   // Open config
   const configButton = screen.getByTitle('Config')

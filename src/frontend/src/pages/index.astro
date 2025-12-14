@@ -1,10 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import AiChat from '../components/aiChat/aiChat.svelte'
+import LlamaServer from '../components/llamaServer/llamaServer.svelte'
 ---
 
 <Layout title='AI Tools - Chat Assistant'>
   <div transition:animate='fade'>
-    <AiChat client:load />
+    <LlamaServer client:load />
   </div>
 </Layout>

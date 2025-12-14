@@ -28,16 +28,16 @@ export interface MenuConfig {
 export const menuConfig: MenuConfig = {
   main: [
     {
-      label: 'Home',
+      label: 'Llama Server',
       href: '/',
       id: 'home-link',
       icon: 'codicon:copilot'
     },
     {
-      label: 'Tools',
-      href: '/tools',
-      id: 'tools-link',
-      icon: 'codicon:tools'
+      label: 'Agent Chat',
+      href: '/agent-creator',
+      id: 'footer-agent-link',
+      icon: 'codicon:agent'
     },
     {
       label: 'Vector Database',
@@ -46,22 +46,22 @@ export const menuConfig: MenuConfig = {
       icon: 'codicon:database'
     },
     {
-      label: 'Agent Creator',
-      href: '/agent-creator',
-      id: 'footer-agent-link',
-      icon: 'codicon:agent'
+      label: 'Tools',
+      href: '/tools',
+      id: 'tools-link',
+      icon: 'codicon:tools'
     }
   ],
   footer: [
     {
-      label: 'Home',
+      label: 'Llama Server',
       href: '/',
       id: 'footer-main-link'
     },
     {
-      label: 'Tools',
-      href: '/tools',
-      id: 'footer-tools-link'
+      label: 'Agent Chat',
+      href: '/agent-creator',
+      id: 'footer-agent-link'
     },
     {
       label: 'Vector Database',
@@ -69,9 +69,9 @@ export const menuConfig: MenuConfig = {
       id: 'footer-rag-link'
     },
     {
-      label: 'Agent Creator',
-      href: '/agent-creator',
-      id: 'footer-agent-link'
+      label: 'Tools',
+      href: '/tools',
+      id: 'footer-tools-link'
     }
   ],
   footerLinks: {

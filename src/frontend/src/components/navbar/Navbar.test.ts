@@ -16,8 +16,9 @@ test('Navbar renders correctly', async () => {
   })
   const result = await container.renderToString(Navbar)
 
-  expect(result).toContain('AI Tools')
-  expect(result).toContain('Home')
+  expect(result).toContain('Llama Server')
+  expect(result).toContain('Agent Chat')
+  expect(result).toContain('Vector Database')
   expect(result).toContain('Tools')
 })
 
