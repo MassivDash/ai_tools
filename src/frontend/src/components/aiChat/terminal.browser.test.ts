@@ -15,13 +15,13 @@ class MockWebSocket {
   static CLOSED = 3
 
   readyState = MockWebSocket.CONNECTING
-  onopen: ((event: Event) => void) | null = null
-  onmessage: ((event: MessageEvent) => void) | null = null
-  onerror: ((event: Event) => void) | null = null
-  onclose: ((event: CloseEvent) => void) | null = null
+  onopen: ((_event: Event) => void) | null = null
+  onmessage: ((_event: MessageEvent) => void) | null = null
+  onerror: ((_event: Event) => void) | null = null
+  onclose: ((_event: CloseEvent) => void) | null = null
   private _timeoutId: ReturnType<typeof setTimeout> | null = null
 
-  constructor(public url: string) {
+  constructor(public _url: string) {
     this._timeoutId = setTimeout(() => {
       this.readyState = MockWebSocket.OPEN
       if (this.onopen) {
