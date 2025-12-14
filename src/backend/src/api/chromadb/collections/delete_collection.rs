@@ -1,6 +1,6 @@
-use actix_web::{delete, web, HttpResponse, Result as ActixResult};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::ChromaDBResponse;
+use actix_web::{delete, web, HttpResponse, Result as ActixResult};
 
 #[delete("/api/chromadb/collections/{name}")]
 pub async fn delete_collection(
@@ -12,15 +12,17 @@ pub async fn delete_collection(
         Ok(c) => c,
         Err(e) => {
             println!("❌ Failed to create ChromaDB client: {}", e);
-            return Ok(HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<()> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }));
+            return Ok(
+                HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<()> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            );
         }
     };
-    
+
     match client.delete_collection(&name).await {
         Ok(_) => Ok(HttpResponse::Ok().json(ChromaDBResponse::<()> {
             success: true,
@@ -30,13 +32,14 @@ pub async fn delete_collection(
         })),
         Err(e) => {
             println!("❌ Failed to delete collection: {}", e);
-            Ok(HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }))
+            Ok(
+                HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            )
         }
     }
 }
-

@@ -49,9 +49,11 @@ async fn main() -> std::io::Result<()> {
     let port = args.port.parse::<u16>().unwrap();
     let cors_url = args.cors_url;
     let cookie_domain = args.cookie_domain;
-    
+
     // Get chroma_address from args or use default
-    let chroma_address = args.chroma_address.unwrap_or_else(|| "http://localhost:8000".to_string());
+    let chroma_address = args
+        .chroma_address
+        .unwrap_or_else(|| "http://localhost:8000".to_string());
     println!("🔗 ChromaDB address: {}", chroma_address);
 
     // Shared state for llama server process
@@ -100,9 +102,10 @@ async fn main() -> std::io::Result<()> {
                 }
             };
 
-            let state_guard = state_handle.lock().unwrap();
-            let is_ready = state_guard.is_ready;
-            drop(state_guard);
+            let is_ready = {
+                let state_guard = state_handle.lock().unwrap();
+                state_guard.is_ready
+            };
 
             // Check port
             let port_check = tokio::net::TcpStream::connect("127.0.0.1:8080")

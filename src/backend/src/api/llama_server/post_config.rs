@@ -55,7 +55,10 @@ pub async fn post_update_config(
 
     if let Some(threads_batch) = body.threads_batch {
         config_guard.threads_batch = Some(threads_batch);
-        println!("📝 Updated threads-batch to: {:?}", config_guard.threads_batch);
+        println!(
+            "📝 Updated threads-batch to: {:?}",
+            config_guard.threads_batch
+        );
     }
 
     if let Some(predict) = body.predict {
@@ -109,4 +112,3 @@ pub async fn post_update_config(
         message: "Configuration updated successfully".to_string(),
     }))
 }
-

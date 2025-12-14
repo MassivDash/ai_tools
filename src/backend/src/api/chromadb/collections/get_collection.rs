@@ -1,6 +1,6 @@
-use actix_web::{get, web, HttpResponse, Result as ActixResult};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::{ChromaDBResponse, Collection};
+use actix_web::{get, web, HttpResponse, Result as ActixResult};
 
 #[get("/api/chromadb/collections/{name}")]
 pub async fn get_collection(
@@ -12,15 +12,17 @@ pub async fn get_collection(
         Ok(c) => c,
         Err(e) => {
             println!("❌ Failed to create ChromaDB client: {}", e);
-            return Ok(HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Collection> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }));
+            return Ok(
+                HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Collection> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            );
         }
     };
-    
+
     match client.get_collection(&name).await {
         Ok(collection) => Ok(HttpResponse::Ok().json(ChromaDBResponse {
             success: true,
@@ -30,13 +32,14 @@ pub async fn get_collection(
         })),
         Err(e) => {
             println!("❌ Failed to get collection: {}", e);
-            Ok(HttpResponse::NotFound().json(ChromaDBResponse::<Collection> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }))
+            Ok(
+                HttpResponse::NotFound().json(ChromaDBResponse::<Collection> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            )
         }
     }
 }
-

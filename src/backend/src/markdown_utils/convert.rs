@@ -58,18 +58,19 @@ pub fn convert_html_to_markdown(
     };
 
     // Configure conversion options
-    let mut options = ConversionOptions::default();
-
-    // Strip script, style, img, iframe, and other non-content tags
-    options.strip_tags = vec![
-        "script".to_string(),
-        "style".to_string(),
-        "img".to_string(),
-        "iframe".to_string(),
-        "noscript".to_string(),
-        "object".to_string(),
-        "embed".to_string(),
-    ];
+    let mut options = ConversionOptions {
+        // Strip script, style, img, iframe, and other non-content tags
+        strip_tags: vec![
+            "script".to_string(),
+            "style".to_string(),
+            "img".to_string(),
+            "iframe".to_string(),
+            "noscript".to_string(),
+            "object".to_string(),
+            "embed".to_string(),
+        ],
+        ..Default::default()
+    };
 
     // Enable preprocessing if requested
     if config.enable_preprocessing {

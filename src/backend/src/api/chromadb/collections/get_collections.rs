@@ -1,6 +1,6 @@
-use actix_web::{get, web, HttpResponse, Result as ActixResult};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::ChromaDBResponse;
+use actix_web::{get, web, HttpResponse, Result as ActixResult};
 
 #[get("/api/chromadb/collections")]
 pub async fn get_collections(chroma_address: web::Data<String>) -> ActixResult<HttpResponse> {
@@ -8,15 +8,17 @@ pub async fn get_collections(chroma_address: web::Data<String>) -> ActixResult<H
         Ok(c) => c,
         Err(e) => {
             println!("❌ Failed to create ChromaDB client: {}", e);
-            return Ok(HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Vec<()>> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }));
+            return Ok(
+                HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Vec<()>> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            );
         }
     };
-    
+
     match client.list_collections().await {
         Ok(collections) => Ok(HttpResponse::Ok().json(ChromaDBResponse {
             success: true,
@@ -26,13 +28,14 @@ pub async fn get_collections(chroma_address: web::Data<String>) -> ActixResult<H
         })),
         Err(e) => {
             println!("❌ Failed to list collections: {}", e);
-            Ok(HttpResponse::InternalServerError().json(ChromaDBResponse::<Vec<()>> {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-                message: None,
-            }))
+            Ok(
+                HttpResponse::InternalServerError().json(ChromaDBResponse::<Vec<()>> {
+                    success: false,
+                    data: None,
+                    error: Some(e.to_string()),
+                    message: None,
+                }),
+            )
         }
     }
 }
-

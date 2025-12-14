@@ -66,7 +66,7 @@ fn scan_directory_for_gguf(dir: &PathBuf, models: &mut Vec<ModelInfo>) -> std::i
                             .to_string();
 
                         let metadata = fs::metadata(&path).ok();
-                        let size = metadata.and_then(|m| Some(m.len()));
+                        let size = metadata.map(|m| m.len());
 
                         // Try to convert file name to HuggingFace format
                         let hf_format = parse_gguf_to_hf_format(&file_name);
@@ -112,13 +112,10 @@ fn parse_gguf_to_hf_format(filename: &str) -> Option<String> {
         let pattern_with_dash = format!("-{}", pattern);
         let pattern_with_underscore = format!("_{}", pattern);
 
-        if name_without_ext.rfind(&pattern_with_dash).is_some() {
-            quant = Some(pattern.to_string());
-            break;
-        } else if name_without_ext.rfind(&pattern_with_underscore).is_some() {
-            quant = Some(pattern.to_string());
-            break;
-        } else if name_without_ext.ends_with(pattern) {
+        if name_without_ext.rfind(&pattern_with_dash).is_some()
+            || name_without_ext.rfind(&pattern_with_underscore).is_some()
+            || name_without_ext.ends_with(pattern)
+        {
             quant = Some(pattern.to_string());
             break;
         }
@@ -146,7 +143,7 @@ fn parse_gguf_to_hf_format(filename: &str) -> Option<String> {
             let model_name = parts[1];
 
             // Reconstruct as user/model:quant
-            let result = format!("{}:{}", format!("{}/{}", user, model_name), quant_str);
+            let result = format!("{}/{}:{}", user, model_name, quant_str);
             println!(
                 "🔍 Parsed GGUF: {} -> {} (quant found: {})",
                 filename, result, quant_str

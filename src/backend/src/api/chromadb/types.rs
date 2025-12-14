@@ -60,4 +60,3 @@ pub struct ChromaDBResponse<T> {
     pub error: Option<String>,
     pub message: Option<String>,
 }
-

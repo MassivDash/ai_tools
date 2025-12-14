@@ -14,36 +14,38 @@ pub async fn get_llama_server_status(
     process: web::Data<ProcessHandle>,
     server_state: web::Data<ServerStateHandle>,
 ) -> ActixResult<HttpResponse> {
-    let mut process_guard = process.lock().unwrap();
-    
     // Check if process is still running
-    let is_active = if let Some(ref mut child) = *process_guard {
-        match child.try_wait() {
-            Ok(Some(_)) => {
-                // Process has exited
-                drop(process_guard);
-                let mut p = process.lock().unwrap();
-                *p = None;
-                false
+    let is_active = {
+        let mut process_guard = process.lock().unwrap();
+        if let Some(ref mut child) = *process_guard {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    // Process has exited
+                    drop(process_guard);
+                    let mut p = process.lock().unwrap();
+                    *p = None;
+                    false
+                }
+                Ok(None) => {
+                    // Process is still running
+                    true
+                }
+                Err(_) => {
+                    // Error checking process
+                    false
+                }
             }
-            Ok(None) => {
-                // Process is still running
-                true
-            }
-            Err(_) => {
-                // Error checking process
-                false
-            }
+        } else {
+            false
         }
-    } else {
-        false
     };
 
     // Check server state (ready message detected)
-    let state_guard = server_state.lock().unwrap();
-    let is_ready = state_guard.is_ready;
-    drop(state_guard);
-    
+    let is_ready = {
+        let state_guard = server_state.lock().unwrap();
+        state_guard.is_ready
+    };
+
     // Also check if port 8080 is listening as a fallback
     let port_check = check_port_8080().await;
 
@@ -56,11 +58,10 @@ pub async fn get_llama_server_status(
 async fn check_port_8080() -> bool {
     use tokio::net::TcpStream;
     use tokio::time::{timeout, Duration};
-    
-    // Try to connect to localhost:8080 with a timeout
-    match timeout(Duration::from_millis(100), TcpStream::connect("127.0.0.1:8080")).await {
-        Ok(Ok(_)) => true,
-        _ => false,
-    }
-}
 
+    // Try to connect to localhost:8080 with a timeout
+    matches!(
+        timeout(Duration::from_millis(100), TcpStream::connect("127.0.0.1:8080")).await,
+        Ok(Ok(_))
+    )
+}

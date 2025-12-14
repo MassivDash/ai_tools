@@ -59,7 +59,15 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<InternalLin
                 format!("{}{}", origin, link_url)
             } else {
                 // Relative path - resolve against base URL
-                match base.join(link_url) {
+                // Ensure base URL ends with / for proper relative path resolution
+                let base_for_join = if base.path().ends_with('/') {
+                    base.clone()
+                } else {
+                    let mut base_clone = base.clone();
+                    base_clone.set_path(&format!("{}/", base.path()));
+                    base_clone
+                };
+                match base_for_join.join(link_url) {
                     Ok(joined_url) => joined_url.to_string(),
                     Err(_) => {
                         println!(

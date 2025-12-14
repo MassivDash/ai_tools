@@ -199,7 +199,7 @@ async fn create_zip_with_links(
                 parsed
                     .as_ref()
                     .and_then(|u| u.path_segments())
-                    .and_then(|segments| segments.last())
+                    .and_then(|mut segments| segments.next_back())
                     .unwrap_or("index")
                     .to_string()
             };

@@ -1,4 +1,4 @@
-use actix_web::{web, Error, HttpRequest, HttpResponse, web::Payload};
+use actix_web::{web, web::Payload, Error, HttpRequest, HttpResponse};
 use actix_ws::{Message, Session};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -52,13 +52,21 @@ impl WebSocketState {
     pub fn add_logs_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
         let mut clients = self.logs_clients.lock().unwrap();
         clients.insert(id.clone(), tx);
-        println!("✅ Logs WebSocket client connected: {} (total: {})", id, clients.len());
+        println!(
+            "✅ Logs WebSocket client connected: {} (total: {})",
+            id,
+            clients.len()
+        );
     }
 
     pub fn remove_logs_client(&self, id: &str) {
         let mut clients = self.logs_clients.lock().unwrap();
         clients.remove(id);
-        println!("🔌 Logs WebSocket client disconnected: {} (remaining: {})", id, clients.len());
+        println!(
+            "🔌 Logs WebSocket client disconnected: {} (remaining: {})",
+            id,
+            clients.len()
+        );
     }
 
     pub fn add_status_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
@@ -82,7 +90,10 @@ impl WebSocketState {
             }
         }
         if client_count > 0 {
-            println!("📤 Sent log to {}/{} WebSocket clients", sent_count, client_count);
+            println!(
+                "📤 Sent log to {}/{} WebSocket clients",
+                sent_count, client_count
+            );
         }
     }
 
@@ -139,7 +150,7 @@ pub async fn logs_ws(
     mut msg_stream: actix_ws::MessageStream,
 ) {
     use uuid::Uuid;
-    
+
     let client_id = Uuid::new_v4().to_string();
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 
@@ -150,9 +161,9 @@ pub async fn logs_ws(
     let mut session_sender = session.clone();
 
     // Send initial logs batch
-    {
+    let logs: Vec<LogLine> = {
         let buffer = state.log_buffer.lock().unwrap();
-        let logs: Vec<LogLine> = buffer
+        buffer
             .iter()
             .map(|entry| LogLine {
                 timestamp: entry.timestamp,
@@ -162,13 +173,12 @@ pub async fn logs_ws(
                     LogSource::Stderr => "stderr".to_string(),
                 },
             })
-            .collect();
-        drop(buffer);
+            .collect()
+    };
 
-        if !logs.is_empty() {
-            let message = serde_json::to_string(&WebSocketMessage::LogsBatch { logs }).unwrap();
-            let _ = session_sender.text(message).await;
-        }
+    if !logs.is_empty() {
+        let message = serde_json::to_string(&WebSocketMessage::LogsBatch { logs }).unwrap();
+        let _ = session_sender.text(message).await;
     }
     actix_rt::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -202,7 +212,7 @@ pub async fn status_ws(
     mut msg_stream: actix_ws::MessageStream,
 ) {
     use uuid::Uuid;
-    
+
     let client_id = Uuid::new_v4().to_string();
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 

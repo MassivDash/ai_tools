@@ -60,7 +60,10 @@ pub async fn post_start_llama_server(
     drop(config_guard);
 
     // Start the llama-server process
-    println!("🚀 Starting llama-server with model: {}, ctx_size: {}", hf_model, ctx_size);
+    println!(
+        "🚀 Starting llama-server with model: {}, ctx_size: {}",
+        hf_model, ctx_size
+    );
     let mut cmd = Command::new("llama-server");
     cmd.arg("-hf").arg(&hf_model);
     cmd.arg("--ctx-size").arg(&ctx_size);
@@ -70,7 +73,8 @@ pub async fn post_start_llama_server(
         cmd.arg("--threads").arg(threads_val.to_string());
     }
     if let Some(threads_batch_val) = threads_batch {
-        cmd.arg("--threads-batch").arg(threads_batch_val.to_string());
+        cmd.arg("--threads-batch")
+            .arg(threads_batch_val.to_string());
     }
     if let Some(predict_val) = predict {
         cmd.arg("--predict").arg(predict_val.to_string());
@@ -99,28 +103,24 @@ pub async fn post_start_llama_server(
         }
     }
 
-    match cmd
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
+    match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
             // Reset server state
             {
                 let mut state = server_state.lock().unwrap();
                 state.is_ready = false;
             }
-            
+
             // Clear log buffer
             {
                 let mut buffer = log_buffer.lock().unwrap();
                 buffer.clear();
             }
-            
+
             // Capture stdout and stderr
             let stdout = child.stdout.take();
             let stderr = child.stderr.take();
-            
+
             // Spawn log readers
             if stdout.is_some() || stderr.is_some() {
                 spawn_log_reader(
@@ -131,7 +131,7 @@ pub async fn post_start_llama_server(
                     Some(ws_state.get_ref().clone()),
                 );
             }
-            
+
             *process_guard = Some(child);
             println!("✅ Llama server started successfully");
             Ok(HttpResponse::Ok().json(LlamaServerResponse {
@@ -141,11 +141,12 @@ pub async fn post_start_llama_server(
         }
         Err(e) => {
             println!("❌ Failed to start llama server: {}", e);
-            Ok(HttpResponse::InternalServerError().json(LlamaServerResponse {
-                success: false,
-                message: format!("Failed to start llama server: {}", e),
-            }))
+            Ok(
+                HttpResponse::InternalServerError().json(LlamaServerResponse {
+                    success: false,
+                    message: format!("Failed to start llama server: {}", e),
+                }),
+            )
         }
     }
 }
-

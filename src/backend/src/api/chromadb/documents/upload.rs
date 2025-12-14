@@ -42,10 +42,7 @@ fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
         TOKENIZER.as_ref().ok_or_else(|| {
             // Create an error from a string message
             use std::io;
-            Box::new(io::Error::new(
-                io::ErrorKind::Other,
-                "Tokenizer initialization failed",
-            )) as tokenizers::tokenizer::Error
+            Box::new(io::Error::other("Tokenizer initialization failed")) as tokenizers::tokenizer::Error
         })
     }
 }
@@ -335,12 +332,10 @@ fn chunk_semantic_tokens(
                             Err(_) => test_sentence_chunk.len() / 4,
                         };
 
-                    if sentence_token_count > target_tokens {
-                        if !current_chunk.is_empty() {
-                            chunks.push(current_chunk.trim().to_string());
-                            // Start new chunk with overlap from previous chunk
-                            current_chunk = get_overlap_text(&chunks, tokenizer, overlap_tokens);
-                        }
+                    if sentence_token_count > target_tokens && !current_chunk.is_empty() {
+                        chunks.push(current_chunk.trim().to_string());
+                        // Start new chunk with overlap from previous chunk
+                        current_chunk = get_overlap_text(&chunks, tokenizer, overlap_tokens);
                     }
 
                     if !current_chunk.is_empty() {
@@ -511,25 +506,25 @@ fn chunk_semantic(text: &str, target_chunk_size: usize, overlap: usize) -> Vec<S
                         continue;
                     }
 
-                    if current_chunk.len() + sentence.len() + 2 > target_chunk_size {
-                        if !current_chunk.is_empty() {
-                            chunks.push(current_chunk.trim().to_string());
-                            // Start new chunk with overlap from previous chunk
-                            current_chunk = if overlap > 0 && !chunks.is_empty() {
-                                let last_chunk = &chunks[chunks.len() - 1];
-                                // Find safe UTF-8 boundary for overlap (go back 'overlap' characters)
-                                let char_count = last_chunk.chars().count();
-                                let chars_to_keep = overlap.min(char_count);
-                                let overlap_start = last_chunk
-                                    .char_indices()
-                                    .nth(char_count.saturating_sub(chars_to_keep))
-                                    .map(|(idx, _)| idx)
-                                    .unwrap_or(0);
-                                last_chunk[overlap_start..].to_string()
-                            } else {
-                                String::new()
-                            };
-                        }
+                    if current_chunk.len() + sentence.len() + 2 > target_chunk_size
+                        && !current_chunk.is_empty()
+                    {
+                        chunks.push(current_chunk.trim().to_string());
+                        // Start new chunk with overlap from previous chunk
+                        current_chunk = if overlap > 0 && !chunks.is_empty() {
+                            let last_chunk = &chunks[chunks.len() - 1];
+                            // Find safe UTF-8 boundary for overlap (go back 'overlap' characters)
+                            let char_count = last_chunk.chars().count();
+                            let chars_to_keep = overlap.min(char_count);
+                            let overlap_start = last_chunk
+                                .char_indices()
+                                .nth(char_count.saturating_sub(chars_to_keep))
+                                .map(|(idx, _)| idx)
+                                .unwrap_or(0);
+                            last_chunk[overlap_start..].to_string()
+                        } else {
+                            String::new()
+                        };
                     }
 
                     if !current_chunk.is_empty() {

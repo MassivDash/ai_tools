@@ -54,10 +54,8 @@ pub async fn create_collection(
         .map(|c| {
             if c.is_alphanumeric() || c == '_' || c == '-' {
                 c
-            } else if c.is_whitespace() {
-                '_'
             } else {
-                '_' // Replace other special chars with underscore
+                '_' // Replace spaces and other special chars with underscore
             }
         })
         .collect();
@@ -105,7 +103,7 @@ pub async fn create_collection(
     );
 
     match client
-        .create_collection(&sanitized_name, req.metadata.clone())
+        .create_collection(sanitized_name, req.metadata.clone())
         .await
     {
         Ok(collection) => {

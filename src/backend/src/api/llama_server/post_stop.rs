@@ -23,11 +23,11 @@ pub async fn post_stop_llama_server(
                 // Wait for the process to exit
                 let _ = child.wait();
                 *process_guard = None;
-                
+
                 // Reset server state
                 let mut state = server_state.lock().unwrap();
                 state.is_ready = false;
-                
+
                 println!("✅ Llama server stopped successfully");
                 Ok(HttpResponse::Ok().json(LlamaServerResponse {
                     success: true,
@@ -36,10 +36,12 @@ pub async fn post_stop_llama_server(
             }
             Err(e) => {
                 println!("❌ Failed to stop llama server: {}", e);
-                Ok(HttpResponse::InternalServerError().json(LlamaServerResponse {
-                    success: false,
-                    message: format!("Failed to stop llama server: {}", e),
-                }))
+                Ok(
+                    HttpResponse::InternalServerError().json(LlamaServerResponse {
+                        success: false,
+                        message: format!("Failed to stop llama server: {}", e),
+                    }),
+                )
             }
         }
     } else {
@@ -49,4 +51,3 @@ pub async fn post_stop_llama_server(
         }))
     }
 }
-

@@ -34,7 +34,7 @@ pub fn start_development(config: Config) {
 
     // Extract port from chroma_address if provided, otherwise use default 8000
     if let Some(ref chroma_addr) = config.chroma_address {
-        if let Some(port_str) = chroma_addr.split(':').last() {
+        if let Some(port_str) = chroma_addr.split(':').next_back() {
             if let Ok(parsed_port) = port_str.parse::<u16>() {
                 chromadb_port = parsed_port;
             }
@@ -114,15 +114,14 @@ pub fn start_development(config: Config) {
                         do_chromadb_log(&format!("{}\n", line));
 
                         // Check if ChromaDB is ready
-                        if !chromadb_ready_clone.load(Ordering::SeqCst) {
-                            if line.contains("Running Chroma")
+                        if !chromadb_ready_clone.load(Ordering::SeqCst)
+                            && (line.contains("Running Chroma")
                                 || line.contains("Chroma is running")
                                 || line.contains("Uvicorn running")
-                                || line.contains(format!(":{}", chromadb_port_clone).as_str())
-                            {
-                                chromadb_ready_clone.store(true, Ordering::SeqCst);
-                                success("ChromaDB server is ready");
-                            }
+                                || line.contains(format!(":{}", chromadb_port_clone).as_str()))
+                        {
+                            chromadb_ready_clone.store(true, Ordering::SeqCst);
+                            success("ChromaDB server is ready");
                         }
                     }
                 }
@@ -181,12 +180,14 @@ pub fn start_development(config: Config) {
                         do_server_log(&format!("{}\n", line));
 
                         // Check if Actix server is ready
-                        if !rust_ready_clone.load(Ordering::SeqCst) {
-                            if line.contains("Actix server has started 🚀") {
-                                rust_ready_clone.store(true, Ordering::SeqCst);
-                                dev_info(&host_clone, &port_clone);
-                                success("Actix server is running, starting the frontend development server");
-                            }
+                        if !rust_ready_clone.load(Ordering::SeqCst)
+                            && line.contains("Actix server has started 🚀")
+                        {
+                            rust_ready_clone.store(true, Ordering::SeqCst);
+                            dev_info(&host_clone, &port_clone);
+                            success(
+                                "Actix server is running, starting the frontend development server",
+                            );
                         }
                     }
                 }
@@ -230,19 +231,17 @@ pub fn start_development(config: Config) {
                         do_front_log(&format!("{}\n", line));
 
                         // Check if Astro is ready and open browser
-                        if !astro_ready_clone.load(Ordering::SeqCst) {
-                            if line.contains("ready") {
-                                astro_ready_clone.store(true, Ordering::SeqCst);
-                                success("Astro is ready, opening the browser");
+                        if !astro_ready_clone.load(Ordering::SeqCst) && line.contains("ready") {
+                            astro_ready_clone.store(true, Ordering::SeqCst);
+                            success("Astro is ready, opening the browser");
 
-                                let browser = Command::new("open")
-                                    .arg(format!("http://localhost:{}", astro_port_clone))
-                                    .spawn();
+                            let browser = Command::new("open")
+                                .arg(format!("http://localhost:{}", astro_port_clone))
+                                .spawn();
 
-                                if let Err(err) = browser {
-                                    println!("Failed to execute command: {}", err);
-                                    println!("Are You a Ci Secret Agent ?");
-                                }
+                            if let Err(err) = browser {
+                                println!("Failed to execute command: {}", err);
+                                println!("Are You a Ci Secret Agent ?");
                             }
                         }
                     }

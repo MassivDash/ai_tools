@@ -32,4 +32,3 @@ pub async fn get_llama_logs(log_buffer: web::Data<LogBuffer>) -> ActixResult<Htt
 
     Ok(HttpResponse::Ok().json(LogsResponse { logs }))
 }
-

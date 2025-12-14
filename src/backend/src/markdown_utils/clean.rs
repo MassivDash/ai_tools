@@ -7,9 +7,9 @@ pub fn strip_data_uri_images(markdown: &str) -> String {
     // Matches: ![alt text](data:image/...)
     // This will match data URIs for any image type (png, jpeg, svg, gif, etc.)
     let data_uri_image_regex = Regex::new(r"!\[([^\]]*)\]\(data:image/[^)]+\)").unwrap();
-    
+
     let cleaned = data_uri_image_regex.replace_all(markdown, "");
-    
+
     cleaned.to_string()
 }
 
@@ -17,19 +17,23 @@ pub fn strip_data_uri_images(markdown: &str) -> String {
 /// Removes duplicate brackets, empty links, and other artifacts
 pub fn clean_markdown_artifacts(markdown: &str) -> String {
     let mut cleaned = markdown.to_string();
-    
+
     // Remove multiple consecutive opening brackets (like [[[[[[[)
     let multiple_brackets_regex = Regex::new(r"\[{3,}").unwrap();
-    cleaned = multiple_brackets_regex.replace_all(&cleaned, "").to_string();
-    
+    cleaned = multiple_brackets_regex
+        .replace_all(&cleaned, "")
+        .to_string();
+
     // Remove multiple consecutive closing brackets
     let multiple_closing_brackets_regex = Regex::new(r"\]{3,}").unwrap();
-    cleaned = multiple_closing_brackets_regex.replace_all(&cleaned, "").to_string();
-    
+    cleaned = multiple_closing_brackets_regex
+        .replace_all(&cleaned, "")
+        .to_string();
+
     // Remove empty markdown links: [](url) or [text]()
     let empty_links_regex = Regex::new(r"\[\]\([^)]*\)|\[[^\]]*\]\(\)").unwrap();
     cleaned = empty_links_regex.replace_all(&cleaned, "").to_string();
-    
+
     // Remove links with duplicate text in alt (like "SVG ImageSVG Image")
     // Since Rust regex doesn't support backreferences, we'll use a different approach
     // Match links and check for duplicates manually
@@ -41,7 +45,7 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
             // Split by common separators and check for duplicates
             let words: Vec<&str> = text.split_whitespace().collect();
             let mut has_duplicate = false;
-            
+
             // Check if any word appears multiple times consecutively
             for i in 0..words.len().saturating_sub(1) {
                 if words[i] == words[i + 1] && words[i].len() > 1 {
@@ -49,7 +53,7 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
                     break;
                 }
             }
-            
+
             // Also check for patterns like "SVG ImageSVG Image" (no space between duplicates)
             if text.len() > 10 {
                 let mid = text.len() / 2;
@@ -59,13 +63,13 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
                     has_duplicate = true;
                 }
             }
-            
+
             // Check for navigation-related text
             let nav_keywords = ["SVG Image", "Navigate", "back to", "homepage"];
             if nav_keywords.iter().any(|&keyword| text.contains(keyword)) {
                 has_duplicate = true;
             }
-            
+
             if has_duplicate {
                 String::new()
             } else {
@@ -73,16 +77,18 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
             }
         })
         .to_string();
-    
+
     // Remove standalone brackets that don't form valid markdown
     // Matches: [text] without (url) or (url) without [text] on the same line
     let orphan_brackets_regex = Regex::new(r"(?m)^\[[^\]]+\]$|^\([^)]+\)$").unwrap();
     cleaned = orphan_brackets_regex.replace_all(&cleaned, "").to_string();
-    
+
     // Clean up multiple consecutive newlines (more than 2)
     let multiple_newlines_regex = Regex::new(r"\n{3,}").unwrap();
-    cleaned = multiple_newlines_regex.replace_all(&cleaned, "\n\n").to_string();
-    
+    cleaned = multiple_newlines_regex
+        .replace_all(&cleaned, "\n\n")
+        .to_string();
+
     // Remove lines that are just brackets, parentheses, or whitespace
     let empty_bracket_lines_regex = Regex::new(r"^\s*[\[\]()]+\s*$").unwrap();
     let lines: Vec<String> = cleaned
@@ -91,7 +97,7 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
         .map(|s| s.to_string())
         .collect();
     cleaned = lines.join("\n");
-    
+
     // Remove trailing/leading whitespace from each line and filter empty lines
     let trimmed_lines: Vec<String> = cleaned
         .lines()
@@ -100,20 +106,20 @@ pub fn clean_markdown_artifacts(markdown: &str) -> String {
         .map(|s| s.to_string())
         .collect();
     cleaned = trimmed_lines.join("\n");
-    
+
     cleaned
 }
 
 /// Comprehensive markdown cleaning function that applies all cleaning operations
 pub fn clean_markdown(markdown: &str) -> String {
     let mut cleaned = markdown.to_string();
-    
+
     // First strip data URI images
     cleaned = strip_data_uri_images(&cleaned);
-    
+
     // Then clean up artifacts
     cleaned = clean_markdown_artifacts(&cleaned);
-    
+
     cleaned
 }
 
@@ -136,9 +142,9 @@ More text here.
 
 Even more text.
 "#;
-        
+
         let cleaned = strip_data_uri_images(markdown);
-        
+
         // Should not contain data URI images
         assert!(!cleaned.contains("data:image/svg+xml"));
         assert!(!cleaned.contains("data:image/png"));
@@ -158,13 +164,13 @@ Even more text.
 
 ![Another Regular](/path/to/image.jpg)
 "#;
-        
+
         let cleaned = strip_data_uri_images(markdown);
-        
+
         // Should preserve regular images
         assert!(cleaned.contains("![Regular Image](https://example.com/image.png)"));
         assert!(cleaned.contains("![Another Regular](/path/to/image.jpg)"));
-        
+
         // Should remove data URI images
         assert!(!cleaned.contains("data:image/png"));
     }
@@ -184,16 +190,16 @@ Software development, application and system architecture
 
 [[[[[[[
 "#;
-        
+
         let cleaned = clean_markdown_artifacts(markdown);
-        
+
         // Should remove duplicate text links
         assert!(!cleaned.contains("SVG ImageSVG Image"));
         assert!(!cleaned.contains("Navigate back to the homepage"));
-        
+
         // Should remove multiple brackets
         assert!(!cleaned.contains("[[[[[[["));
-        
+
         // Should preserve valid content
         assert!(cleaned.contains("Spaceout"));
         assert!(cleaned.contains("beyond excelsior"));
@@ -213,21 +219,20 @@ adjust [SVG ImageSVG Image Navigate back](/ "Navigate")
 
 [about me](/about)
 "#;
-        
+
         let cleaned = clean_markdown(markdown);
-        
+
         // Should remove data URI images
         assert!(!cleaned.contains("data:image/svg+xml"));
-        
+
         // Should remove duplicate text and navigation artifacts
         assert!(!cleaned.contains("SVG ImageSVG Image"));
         assert!(!cleaned.contains("Navigate back"));
-        
+
         // Should remove multiple brackets
         assert!(!cleaned.contains("[[[[[[["));
-        
+
         // Should preserve valid links
         assert!(cleaned.contains("[about me](/about)"));
     }
 }
-
