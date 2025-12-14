@@ -40,10 +40,10 @@ test('filters items based on search query', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Search for "Apple"
   await fireEvent.input(searchInput, { target: { value: 'Apple' } })
-  
+
   expect(screen.getByText('Apple')).toBeTruthy()
   expect(screen.queryByText('Banana')).not.toBeInTheDocument()
   expect(screen.queryByText('Carrot')).not.toBeInTheDocument()
@@ -56,10 +56,10 @@ test('filters items case-insensitively', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Search with lowercase
   await fireEvent.input(searchInput, { target: { value: 'banana' } })
-  
+
   expect(screen.getByText('Banana')).toBeTruthy()
   expect(screen.queryByText('Apple')).not.toBeInTheDocument()
 })
@@ -73,10 +73,10 @@ test('filters items by subtext when getItemSubtext is provided', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Search by category
   await fireEvent.input(searchInput, { target: { value: 'Fruit' } })
-  
+
   expect(screen.getByText('Apple')).toBeTruthy()
   expect(screen.getByText('Banana')).toBeTruthy()
   expect(screen.queryByText('Carrot')).not.toBeInTheDocument()
@@ -89,13 +89,13 @@ test('shows clear button when search query exists', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Initially no clear button
   expect(screen.queryByLabelText('Clear search')).not.toBeInTheDocument()
-  
+
   // Type something
   await fireEvent.input(searchInput, { target: { value: 'test' } })
-  
+
   // Clear button should appear
   expect(screen.getByLabelText('Clear search')).toBeTruthy()
 })
@@ -106,15 +106,15 @@ test('clears search when clear button is clicked', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Type something
   await fireEvent.input(searchInput, { target: { value: 'Apple' } })
   expect(screen.queryByText('Banana')).not.toBeInTheDocument()
-  
+
   // Click clear button
   const clearButton = screen.getByLabelText('Clear search')
   fireEvent.click(clearButton)
-  
+
   // All items should be visible again
   await waitFor(() => {
     expect(screen.getByText('Apple')).toBeTruthy()
@@ -154,7 +154,7 @@ test('highlights selected item', () => {
 
   const bananaItem = screen.getByText('Banana').closest('button')
   expect(bananaItem).toHaveClass('selected')
-  
+
   const appleItem = screen.getByText('Apple').closest('button')
   expect(appleItem).not.toHaveClass('selected')
 })
@@ -165,10 +165,10 @@ test('shows empty message when no items match search', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Search for something that doesn't exist
   await fireEvent.input(searchInput, { target: { value: 'XYZ' } })
-  
+
   expect(screen.getByText('No items found')).toBeTruthy()
   expect(screen.queryByText('Apple')).not.toBeInTheDocument()
 })
@@ -183,7 +183,7 @@ test('shows custom empty message', async () => {
 
   const searchInput = screen.getByPlaceholderText('Search...')
   await fireEvent.input(searchInput, { target: { value: 'XYZ' } })
-  
+
   expect(screen.getByText('Nothing here!')).toBeTruthy()
 })
 
@@ -235,7 +235,7 @@ test('displays subtext when getItemSubtext is provided', () => {
   expect(fruitSubtexts.length).toBeGreaterThan(0)
   expect(screen.getByText('Vegetable')).toBeTruthy()
   expect(screen.getByText('Animal')).toBeTruthy()
-  
+
   // Verify subtext elements exist
   const subtextElements = document.querySelectorAll('.item-subtext')
   expect(subtextElements.length).toBe(4)
@@ -251,7 +251,7 @@ test('does not display subtext when getItemSubtext is undefined', () => {
 
   // Subtext should not be rendered
   const items = screen.getAllByRole('button')
-  items.forEach(item => {
+  items.forEach((item) => {
     expect(item.querySelector('.item-subtext')).not.toBeInTheDocument()
   })
 })
@@ -262,7 +262,9 @@ test('handles empty items array', () => {
   })
 
   expect(screen.getByText('No items found')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /Apple|Banana/ })).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: /Apple|Banana/ })
+  ).not.toBeInTheDocument()
 })
 
 test('handles items with primitive values', () => {
@@ -311,10 +313,10 @@ test('filters correctly with partial matches', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // Search for "ar" which should match "Carrot"
   await fireEvent.input(searchInput, { target: { value: 'ar' } })
-  
+
   expect(screen.getByText('Carrot')).toBeTruthy()
   expect(screen.queryByText('Apple')).not.toBeInTheDocument()
   expect(screen.queryByText('Banana')).not.toBeInTheDocument()
@@ -326,20 +328,20 @@ test('handles whitespace in search query', async () => {
   })
 
   const searchInput = screen.getByPlaceholderText('Search...')
-  
+
   // The component uses searchQuery.trim() to check if empty, but uses searchQuery.toLowerCase() for matching
   // So whitespace in the middle won't match, but leading/trailing whitespace should be handled
   // Actually, looking at the code, it doesn't trim the query before matching, so whitespace won't match
   // Let's test with just leading/trailing spaces that get trimmed in practice
   await fireEvent.input(searchInput, { target: { value: 'Apple' } })
-  
+
   // Should find Apple
   expect(screen.getByText('Apple')).toBeTruthy()
-  
+
   // Clear and test that the component handles the trimmed check correctly
   const clearButton = screen.getByLabelText('Clear search')
   fireEvent.click(clearButton)
-  
+
   // All items should be visible
   await waitFor(() => {
     expect(screen.getByText('Apple')).toBeTruthy()
@@ -356,7 +358,7 @@ test('multiple items can be clicked', async () => {
 
   const appleItem = screen.getByText('Apple').closest('button')
   const bananaItem = screen.getByText('Banana').closest('button')
-  
+
   fireEvent.click(appleItem!)
   fireEvent.click(bananaItem!)
 
@@ -389,4 +391,3 @@ test('selected state updates when selectedKey prop changes', async () => {
     expect(bananaItem).toHaveClass('selected')
   })
 })
-

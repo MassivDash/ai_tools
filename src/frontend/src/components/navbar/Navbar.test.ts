@@ -4,7 +4,6 @@ import { expect, test } from 'vitest'
 import Navbar from './Navbar.astro'
 import ssr from '@astrojs/svelte/server.js'
 
-
 test('Navbar renders correctly', async () => {
   const container = await AstroContainer.create()
   container.addServerRenderer({

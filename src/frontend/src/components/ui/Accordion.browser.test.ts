@@ -47,7 +47,7 @@ test('accordion closes when clicked again', async () => {
   })
 
   const button = screen.getByRole('button')
-  
+
   // Open it
   fireEvent.click(button)
   await waitFor(() => {
@@ -100,7 +100,7 @@ test('icon has open class when accordion is open', async () => {
 
   const button = screen.getByRole('button')
   const icon = button.querySelector('.accordion-icon')
-  
+
   expect(icon).not.toHaveClass('open')
 
   fireEvent.click(button)
@@ -117,7 +117,7 @@ test('icon does not have open class when accordion is closed', () => {
 
   const button = screen.getByRole('button')
   const icon = button.querySelector('.accordion-icon')
-  
+
   expect(icon).not.toHaveClass('open')
 })
 
@@ -128,7 +128,7 @@ test('renders content area when open', async () => {
 
   const button = screen.getByRole('button')
   expect(button).toHaveAttribute('aria-expanded', 'true')
-  
+
   // Check that content div exists
   const content = document.querySelector('.accordion-content')
   expect(content).toBeTruthy()
@@ -150,11 +150,11 @@ test('button has correct classes', () => {
 
   const button = screen.getByRole('button')
   expect(button).toHaveClass('accordion-header')
-  
+
   const title = button.querySelector('.accordion-title')
   expect(title).toBeTruthy()
   expect(title).toHaveTextContent('Test Accordion')
-  
+
   const icon = button.querySelector('.accordion-icon')
   expect(icon).toBeTruthy()
   expect(icon).toHaveTextContent('▼')
@@ -175,7 +175,7 @@ test('can toggle multiple times', async () => {
   })
 
   const button = screen.getByRole('button')
-  
+
   // Toggle multiple times
   for (let i = 0; i < 3; i++) {
     fireEvent.click(button)
@@ -206,4 +206,3 @@ test('external open prop changes override user interaction', async () => {
     expect(button).toHaveAttribute('aria-expanded', 'false')
   })
 })
-

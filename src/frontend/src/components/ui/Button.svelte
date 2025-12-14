@@ -6,7 +6,7 @@
     size?: 'small' | 'medium' | 'large'
     class?: string
     children?: import('svelte').Snippet
-    onclick?: (e: MouseEvent) => void
+    onclick?: (_e: MouseEvent) => void
   }
 
   let {

@@ -30,7 +30,9 @@ test('renders component with initial state', () => {
   render(UrlToMarkdown)
 
   expect(screen.getByText('URL to Markdown Converter')).toBeTruthy()
-  expect(screen.getByPlaceholderText('Enter a URL to convert to markdown...')).toBeTruthy()
+  expect(
+    screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  ).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Convert' })).toBeTruthy()
   expect(screen.getByRole('button', { name: /Advanced Options/i })).toBeTruthy()
 })
@@ -45,7 +47,9 @@ test('convert button is disabled when URL is empty', () => {
 test('convert button is enabled when URL is provided', async () => {
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -57,7 +61,9 @@ test('convert button shows loading state', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -86,7 +92,9 @@ test('successfully converts URL to markdown', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -118,7 +126,9 @@ test('displays error message on API failure', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -138,7 +148,9 @@ test('displays generic error message when error format is unexpected', async () 
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -163,7 +175,9 @@ test('triggers conversion on Enter key press', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
   fireEvent.keyPress(urlInput, { key: 'Enter' })
 
@@ -175,12 +189,14 @@ test('triggers conversion on Enter key press', async () => {
 test('does not trigger conversion on Shift+Enter', async () => {
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
   fireEvent.keyPress(urlInput, { key: 'Enter', shiftKey: true })
 
   // Wait a bit to ensure no API call is made
-  await new Promise(resolve => setTimeout(resolve, 100))
+  await new Promise((resolve) => setTimeout(resolve, 100))
 
   expect(mockedAxios.post).not.toHaveBeenCalled()
 })
@@ -189,9 +205,11 @@ test('toggles advanced options', async () => {
   render(UrlToMarkdown)
 
   const toggleButton = screen.getByRole('button', { name: /Advanced Options/i })
-  
+
   // Initially hidden
-  expect(screen.queryByText('Extract body content only')).not.toBeInTheDocument()
+  expect(
+    screen.queryByText('Extract body content only')
+  ).not.toBeInTheDocument()
 
   // Click to show
   fireEvent.click(toggleButton)
@@ -200,7 +218,9 @@ test('toggles advanced options', async () => {
   // Click to hide
   fireEvent.click(toggleButton)
   await waitFor(() => {
-    expect(screen.queryByText('Extract body content only')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Extract body content only')
+    ).not.toBeInTheDocument()
   })
 })
 
@@ -236,7 +256,9 @@ test('sends correct request data with default options', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -284,11 +306,13 @@ test('sends correct request data with advanced options', async () => {
   fireEvent.click(screen.getByLabelText('Enable preprocessing'))
   fireEvent.click(screen.getByLabelText('Remove navigation elements'))
   fireEvent.click(screen.getByLabelText('Remove forms'))
-  
+
   const presetSelect = screen.getByLabelText('Preprocessing Preset:')
   fireEvent.change(presetSelect, { target: { value: 'aggressive' } })
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -342,9 +366,13 @@ test('handles follow links option and downloads zip file', async () => {
   fireEvent.click(toggleButton)
 
   // Enable follow links
-  fireEvent.click(screen.getByLabelText('Follow internal links (creates zip file)'))
+  fireEvent.click(
+    screen.getByLabelText('Follow internal links (creates zip file)')
+  )
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -365,7 +393,7 @@ test('handles follow links option and downloads zip file', async () => {
     expect(mockClick).toHaveBeenCalled()
     expect(screen.getByText('Zip file downloaded successfully!')).toBeTruthy()
   })
-  
+
   // Restore original
   document.createElement = originalCreateElement
 })
@@ -398,7 +426,9 @@ test('downloads markdown file when download button is clicked', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -408,14 +438,16 @@ test('downloads markdown file when download button is clicked', async () => {
     expect(screen.getByText('Markdown Output:')).toBeTruthy()
   })
 
-  const downloadButton = screen.getByRole('button', { name: 'Download markdown file' })
+  const downloadButton = screen.getByRole('button', {
+    name: 'Download markdown file'
+  })
   fireEvent.click(downloadButton)
 
   await waitFor(() => {
     expect(mockCreateElement).toHaveBeenCalledWith('a')
     expect(mockClick).toHaveBeenCalled()
   })
-  
+
   // Restore original
   document.createElement = originalCreateElement
 })
@@ -424,7 +456,9 @@ test('does not download when markdown is empty', () => {
   render(UrlToMarkdown)
 
   // Download button should not be visible when there's no markdown
-  expect(screen.queryByRole('button', { name: 'Download markdown file' })).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Download markdown file' })
+  ).not.toBeInTheDocument()
 })
 
 test('trims URL before sending request', async () => {
@@ -441,8 +475,12 @@ test('trims URL before sending request', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
-  await fireEvent.input(urlInput, { target: { value: '  https://example.com  ' } })
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
+  await fireEvent.input(urlInput, {
+    target: { value: '  https://example.com  ' }
+  })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
   fireEvent.click(convertButton)
@@ -472,7 +510,9 @@ test('displays converted URL link', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -481,7 +521,10 @@ test('displays converted URL link', async () => {
   await waitFor(() => {
     const link = screen.getByText('https://converted-url.com')
     expect(link).toBeTruthy()
-    expect(link.closest('a')).toHaveAttribute('href', 'https://converted-url.com')
+    expect(link.closest('a')).toHaveAttribute(
+      'href',
+      'https://converted-url.com'
+    )
     expect(link.closest('a')).toHaveAttribute('target', '_blank')
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer')
   })
@@ -504,7 +547,9 @@ test('displays internal links correctly', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -512,12 +557,18 @@ test('displays internal links correctly', async () => {
 
   await waitFor(() => {
     expect(screen.getByText('Internal Links Found: 2')).toBeTruthy()
-    
+
     const aboutLink = screen.getByText('/about')
-    expect(aboutLink.closest('a')).toHaveAttribute('href', 'https://example.com/about')
-    
+    expect(aboutLink.closest('a')).toHaveAttribute(
+      'href',
+      'https://example.com/about'
+    )
+
     const contactLink = screen.getByText('/contact')
-    expect(contactLink.closest('a')).toHaveAttribute('href', 'https://example.com/contact')
+    expect(contactLink.closest('a')).toHaveAttribute(
+      'href',
+      'https://example.com/contact'
+    )
   })
 })
 
@@ -535,7 +586,9 @@ test('does not display internal links section when count is 0', async () => {
 
   render(UrlToMarkdown)
 
-  const urlInput = screen.getByPlaceholderText('Enter a URL to convert to markdown...')
+  const urlInput = screen.getByPlaceholderText(
+    'Enter a URL to convert to markdown...'
+  )
   await fireEvent.input(urlInput, { target: { value: 'https://example.com' } })
 
   const convertButton = screen.getByRole('button', { name: 'Convert' })
@@ -547,4 +600,3 @@ test('does not display internal links section when count is 0', async () => {
 
   expect(screen.queryByText(/Internal Links Found/i)).not.toBeInTheDocument()
 })
-

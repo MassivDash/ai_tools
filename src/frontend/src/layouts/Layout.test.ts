@@ -4,7 +4,6 @@ import { expect, test } from 'vitest'
 import Layout from './Layout.astro'
 import ssr from '@astrojs/svelte/server.js'
 
-
 test('Card with slots', async () => {
   const container = await AstroContainer.create()
   container.addServerRenderer({

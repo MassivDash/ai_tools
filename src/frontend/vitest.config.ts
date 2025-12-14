@@ -20,7 +20,7 @@ export default getViteConfig({
         plugins: [tsconfigPaths()],
         test: {
           name: 'Astro ssr',
-          include: ['**/!(*.browser).test.{ts,js,tsx,jsx,astro}'],  
+          include: ['**/!(*.browser).test.{ts,js,tsx,jsx,astro}'],
           environment: 'node'
         }
       }
