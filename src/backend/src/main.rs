@@ -13,6 +13,8 @@ mod markdown_utils;
 mod services;
 mod utils;
 
+use crate::api::agent::config::AgentConfigHandle;
+use crate::api::agent::types::AgentConfig;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
@@ -20,6 +22,7 @@ use crate::api::llama_server::types::{
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
 use crate::args::collect_args::collect_args;
 use crate::cors::get_cors_options::get_cors_options;
+use crate::services::agent::configure_agent_services;
 use crate::services::chromadb::configure_chromadb_services;
 use crate::services::converters::configure_converter_services;
 use crate::services::llama_server::configure_llama_server_services;
@@ -50,6 +53,9 @@ async fn main() -> std::io::Result<()> {
     // Shared state for ChromaDB config
     let chromadb_config: Arc<Mutex<ChromaDBConfig>> =
         Arc::new(Mutex::new(ChromaDBConfig::default()));
+
+    // Shared state for agent config
+    let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
 
     // Create WebSocket state ONCE before the server (shared across all workers)
     let ws_state = Arc::new(WebSocketState::new(
@@ -114,6 +120,7 @@ async fn main() -> std::io::Result<()> {
     let ws_state_data = ws_state.clone();
     let chroma_address_data = web::Data::new(chroma_address.clone());
     let chromadb_config_data = chromadb_config.clone();
+    let agent_config_data = agent_config.clone();
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -128,6 +135,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(ws_state_data.clone()))
             .app_data(chroma_address_data.clone())
             .app_data(web::Data::new(chromadb_config_data.clone()))
+            .app_data(web::Data::new(agent_config_data.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
@@ -137,6 +145,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_converter_services)
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)
+            .configure(configure_agent_services)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)

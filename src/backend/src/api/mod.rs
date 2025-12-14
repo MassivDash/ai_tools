@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod chromadb;
 pub mod html_to_markdown;
 pub mod json_to_toon;
