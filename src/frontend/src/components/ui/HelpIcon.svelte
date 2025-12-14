@@ -15,7 +15,13 @@
   }
 </script>
 
-<div class="help-icon-wrapper" role="button" tabindex="0" onmouseenter={handleMouseEnter} onmouseleave={handleMouseLeave}>
+<div
+  class="help-icon-wrapper"
+  role="button"
+  tabindex="0"
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
+>
   <span class="help-icon" aria-label="Help">?</span>
   {#if showTooltip && text}
     <div class="tooltip">{text}</div>
@@ -42,7 +48,9 @@
     font-size: 0.75rem;
     font-weight: 600;
     cursor: help;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 
   .help-icon:hover {
@@ -81,4 +89,3 @@
     border-top-color: var(--bg-primary, #333);
   }
 </style>
-

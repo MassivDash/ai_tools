@@ -18,13 +18,11 @@
     loading = true
     error = ''
     try {
-      console.log('📚 Loading collections...')
       const response = await axiosBackendInstance.get<
         ChromaDBResponse<ChromaDBCollection[]>
       >('chromadb/collections')
       if (response.data.success && response.data.data) {
         collections.set(response.data.data)
-        console.log('✅ Loaded collections:', response.data.data)
 
         // Update selectedCollection with latest data if it's still selected
         selectedCollection.update((current) => {
@@ -60,11 +58,9 @@
 
   const handleCollectionSelect = (collection: ChromaDBCollection) => {
     if (!collection || !collection.name) {
-      console.warn('⚠️ Attempted to select invalid collection:', collection)
       return
     }
     selectedCollection.set(collection)
-    console.log('📌 Selected collection:', collection)
   }
 
   const handleCollectionDelete = async (collectionName: string) => {
@@ -77,12 +73,10 @@
     }
 
     try {
-      console.log('🗑️ Deleting collection:', collectionName)
       const response = await axiosBackendInstance.delete<
         ChromaDBResponse<void>
       >(`chromadb/collections/${collectionName}`)
       if (response.data.success) {
-        console.log('✅ Collection deleted')
         let wasSelected = false
         selectedCollection.update((current) => {
           wasSelected = current?.name === collectionName

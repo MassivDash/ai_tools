@@ -7,7 +7,7 @@
   export let required: boolean = false
   export let disabled: boolean = false
   export let hint: string = ''
-  
+
   $: inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`
 </script>
 
@@ -66,7 +66,10 @@
     box-sizing: border-box;
     background-color: var(--bg-primary, #fff);
     color: var(--text-primary, #333);
-    transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
+    transition:
+      border-color 0.2s,
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .input:focus {
@@ -87,4 +90,3 @@
     transition: color 0.3s ease;
   }
 </style>
-

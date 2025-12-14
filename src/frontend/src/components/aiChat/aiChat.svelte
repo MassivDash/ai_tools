@@ -25,7 +25,7 @@
   let error = ''
   let showConfig = false
   let showTerminal = false
-  let isStarting = false
+  let _isStarting = false
 
   // WebSocket hook for status updates
   const statusWs = useStatusWebSocket(
@@ -34,33 +34,30 @@
     },
     () => {
       // Server just became ready
-      isStarting = false
+      _isStarting = false
       showTerminal = false
-      console.log('✅ Server is ready, hiding terminal')
     }
   )
 
   const startServer = async () => {
     loading = true
     error = ''
-    isStarting = true
+    _isStarting = true
     showTerminal = true
     try {
-      console.log('🚀 Starting llama server...')
       const response =
         await axiosBackendInstance.post<LlamaServerResponse>(
           'llama-server/start'
         )
-      console.log('✅ Start response:', response.data)
       if (!response.data.success) {
         error = response.data.message
-        isStarting = false
+        _isStarting = false
       }
     } catch (err: any) {
       console.error('❌ Failed to start server:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to start server'
-      isStarting = false
+      _isStarting = false
     } finally {
       loading = false
     }
@@ -69,14 +66,12 @@
   const stopServer = async () => {
     loading = true
     error = ''
-    isStarting = false
+    _isStarting = false
     try {
-      console.log('🛑 Stopping llama server...')
       const response =
         await axiosBackendInstance.post<LlamaServerResponse>(
           'llama-server/stop'
         )
-      console.log('✅ Stop response:', response.data)
       if (response.data.success) {
         serverStatus.active = false
       } else {
@@ -92,7 +87,7 @@
   }
 
   const handleConfigSave = () => {
-    console.log('✅ Config saved successfully')
+    // Config saved successfully
   }
 
   onMount(() => {

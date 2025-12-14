@@ -17,7 +17,7 @@
   }
 </script>
 
-<div class="collection-card" class:selected={selected} onclick={handleSelect}>
+<div class="collection-card" class:selected onclick={handleSelect}>
   <div class="card-header">
     <h3>{collection.name}</h3>
     <button
@@ -51,7 +51,8 @@
         <div class="metadata-items">
           {#each Object.entries(collection.metadata) as [key, value]}
             <div class="metadata-item">
-              <strong>{key}:</strong> {value}
+              <strong>{key}:</strong>
+              {value}
             </div>
           {/each}
         </div>
@@ -67,7 +68,10 @@
     border-radius: 8px;
     padding: 1.5rem;
     cursor: pointer;
-    transition: all 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      all 0.2s ease,
+      background-color 0.3s ease,
+      border-color 0.3s ease;
     box-shadow: 0 2px 4px var(--shadow);
   }
 
@@ -111,7 +115,11 @@
     align-items: center;
     justify-content: center;
     opacity: 0.8;
-    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      opacity 0.2s,
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
     color: var(--text-primary);
   }
 
@@ -164,5 +172,3 @@
     transition: color 0.3s ease;
   }
 </style>
-
-

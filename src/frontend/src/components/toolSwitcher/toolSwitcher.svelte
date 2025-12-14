@@ -1,7 +1,11 @@
 <script lang="ts">
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
 
-  type ToolType = 'url-to-markdown' | 'html-to-markdown' | 'pdf-to-markdown' | null
+  type ToolType =
+    | 'url-to-markdown'
+    | 'html-to-markdown'
+    | 'pdf-to-markdown'
+    | null
 
   let selectedTool: ToolType = null
 
@@ -71,12 +75,18 @@
         {:else if selectedTool === 'html-to-markdown'}
           <div class="placeholder-tool">
             <p>🚧 HTML to Markdown tool coming soon</p>
-            <p class="hint">This tool will allow you to paste HTML content and convert it to markdown format.</p>
+            <p class="hint">
+              This tool will allow you to paste HTML content and convert it to
+              markdown format.
+            </p>
           </div>
         {:else if selectedTool === 'pdf-to-markdown'}
           <div class="placeholder-tool">
             <p>🚧 PDF to Markdown tool coming soon</p>
-            <p class="hint">This tool will allow you to upload PDF files and convert them to markdown format.</p>
+            <p class="hint">
+              This tool will allow you to upload PDF files and convert them to
+              markdown format.
+            </p>
           </div>
         {/if}
       </div>
@@ -168,7 +178,9 @@
     border-radius: 8px;
     padding: 2rem;
     box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .tool-header {
@@ -250,4 +262,3 @@
     }
   }
 </style>
-

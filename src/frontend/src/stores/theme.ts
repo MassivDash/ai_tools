@@ -4,7 +4,9 @@ export type Theme = 'system' | 'light' | 'dark'
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light'
 }
 
 function getStoredTheme(): Theme | null {
@@ -60,4 +62,3 @@ if (typeof window !== 'undefined') {
     })()
   })
 }
-

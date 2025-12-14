@@ -12,7 +12,7 @@ export interface StatusWebSocketMessage {
 }
 
 export function useStatusWebSocket(
-  onStatusChange: (status: LlamaServerStatus) => void,
+  onStatusChange: (_status: LlamaServerStatus) => void,
   onServerReady?: () => void
 ) {
   const getWebSocketUrl = (): string => {
@@ -66,4 +66,3 @@ export function useStatusWebSocket(
 
   return useWebSocket(options)
 }
-

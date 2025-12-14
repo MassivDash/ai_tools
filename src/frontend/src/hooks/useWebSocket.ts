@@ -1,9 +1,9 @@
 export interface WebSocketOptions {
   url: string
   onOpen?: () => void
-  onMessage?: (event: MessageEvent) => void
-  onError?: (event: Event) => void
-  onClose?: (event: CloseEvent) => void
+  onMessage?: (_event: MessageEvent) => void
+  onError?: (_event: Event) => void
+  onClose?: (_event: CloseEvent) => void
   reconnectInterval?: number
   autoReconnect?: boolean
 }
@@ -15,11 +15,9 @@ export function useWebSocket(options: WebSocketOptions) {
 
   const connect = () => {
     try {
-      console.log('🔌 Connecting to WebSocket:', options.url)
       ws = new WebSocket(options.url)
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected')
         isConnected = true
         options.onOpen?.()
       }
@@ -35,11 +33,6 @@ export function useWebSocket(options: WebSocketOptions) {
       }
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket closed', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        })
         isConnected = false
         options.onClose?.(event)
 
@@ -90,4 +83,3 @@ export function useWebSocket(options: WebSocketOptions) {
     }
   }
 }
-

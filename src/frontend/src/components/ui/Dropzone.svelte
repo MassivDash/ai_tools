@@ -71,7 +71,7 @@
 <div
   class="dropzone"
   class:active={dragActive}
-  class:disabled={disabled}
+  class:disabled
   onclick={handleDropzoneClick}
   ondragenter={handleDrag}
   ondragover={handleDrag}
@@ -95,11 +95,18 @@
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
     </div>
-    <p class="dropzone-text">
-      Drag and drop files here, or
-    </p>
-    <label for={fileInputId} class="file-input-label" onclick={(e) => e.stopPropagation()}>
-      <Button type="button" variant="primary" disabled={disabled} onclick={handleButtonClick}>
+    <p class="dropzone-text">Drag and drop files here, or</p>
+    <label
+      for={fileInputId}
+      class="file-input-label"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <Button
+        type="button"
+        variant="primary"
+        {disabled}
+        onclick={handleButtonClick}
+      >
         {buttonText}
       </Button>
       <input
@@ -187,4 +194,3 @@
     transition: color 0.3s ease;
   }
 </style>
-

@@ -21,7 +21,35 @@ export default [
         window: 'readonly',
         document: 'readonly',
         console: 'readonly',
+        localStorage: 'readonly',
+        // Browser APIs
         File: 'readonly',
+        FormData: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        WebSocket: 'readonly',
+        // Browser timers
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        // Browser dialogs
+        confirm: 'readonly',
+        alert: 'readonly',
+        prompt: 'readonly',
+        // DOM types
+        HTMLElement: 'readonly',
+        HTMLDivElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        HTMLSelectElement: 'readonly',
+        // Event types
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        KeyboardEvent: 'readonly',
+        MouseEvent: 'readonly',
+        DragEvent: 'readonly',
+        MessageEvent: 'readonly',
+        CloseEvent: 'readonly',
         // Node globals
         process: 'readonly',
         Buffer: 'readonly',

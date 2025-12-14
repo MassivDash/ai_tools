@@ -1,22 +1,22 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  
+
   export let isOpen: boolean = false
   export let title: string = ''
   export let showCloseButton: boolean = true
-  
+
   const dispatch = createEventDispatcher()
-  
+
   function handleClose() {
     dispatch('close')
   }
-  
+
   function handleOverlayClick(e: MouseEvent) {
     if (e.target === e.currentTarget) {
       handleClose()
     }
   }
-  
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape' && isOpen) {
       handleClose()
@@ -45,11 +45,7 @@
           <h3 id="modal-title">{title}</h3>
         {/if}
         {#if showCloseButton}
-          <button
-            class="close-button"
-            onclick={handleClose}
-            aria-label="Close"
-          >
+          <button class="close-button" onclick={handleClose} aria-label="Close">
             ×
           </button>
         {/if}
@@ -122,7 +118,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s, background-color 0.2s;
+    transition:
+      color 0.2s,
+      background-color 0.2s;
     border-radius: 4px;
   }
 
@@ -155,4 +153,3 @@
     }
   }
 </style>
-

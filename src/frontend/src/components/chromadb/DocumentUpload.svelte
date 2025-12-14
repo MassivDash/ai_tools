@@ -1,7 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ChromaDBResponse, ProcessingStatus } from '../../types/chromadb.ts'
+  import type {
+    ChromaDBResponse,
+    ProcessingStatus
+  } from '../../types/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import Dropzone from '../ui/Dropzone.svelte'
   import XIcon from '../ui/icons/XIcon.svelte'
@@ -13,12 +16,17 @@
   let files: File[] = []
   let uploading = false
   let progress = 0
-  let error = ''
+  let _error = ''
   let status: ProcessingStatus | null = null
 
   const handleFiles = (newFiles: File[]) => {
     // Filter for supported file types
-    const supportedTypes = ['application/pdf', 'text/markdown', 'text/plain', 'text/mdx']
+    const supportedTypes = [
+      'application/pdf',
+      'text/markdown',
+      'text/plain',
+      'text/mdx'
+    ]
     const validFiles = newFiles.filter(
       (file) =>
         supportedTypes.includes(file.type) ||
@@ -29,16 +37,17 @@
     )
 
     if (validFiles.length !== newFiles.length) {
-      error = ''
+      _error = ''
       status = {
         status: 'error',
         progress: 0,
-        message: 'Some files were skipped. Only PDF, Markdown, and text files are supported.',
+        message:
+          'Some files were skipped. Only PDF, Markdown, and text files are supported.',
         processed_files: 0,
         total_files: 0
       }
     } else {
-      error = ''
+      _error = ''
       status = null
     }
 
@@ -51,7 +60,7 @@
 
   const uploadDocuments = async () => {
     if (!selectedCollection) {
-      error = ''
+      _error = ''
       status = {
         status: 'error',
         progress: 0,
@@ -63,7 +72,7 @@
     }
 
     if (files.length === 0) {
-      error = ''
+      _error = ''
       status = {
         status: 'error',
         progress: 0,
@@ -75,7 +84,7 @@
     }
 
     uploading = true
-    error = ''
+    _error = ''
     progress = 0
     status = {
       status: 'processing',
@@ -86,8 +95,6 @@
     }
 
     try {
-      console.log('📤 Uploading documents to collection:', selectedCollection)
-
       const formData = new FormData()
       formData.append('collection', selectedCollection)
       files.forEach((file) => {
@@ -103,7 +110,9 @@
           },
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
-              progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              progress = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              )
               if (status) {
                 status.progress = progress
                 status.message = `Uploading... ${progress}%`
@@ -114,7 +123,6 @@
       )
 
       if (response.data.success) {
-        console.log('✅ Documents uploaded successfully')
         status = {
           status: 'completed',
           progress: 100,
@@ -122,11 +130,14 @@
           processed_files: files.length,
           total_files: files.length
         }
-        dispatch('uploaded', { collection: selectedCollection, files: files.length })
+        dispatch('uploaded', {
+          collection: selectedCollection,
+          files: files.length
+        })
         // Clear files after successful upload
         files = []
       } else {
-        error = ''
+        _error = ''
         status = {
           status: 'error',
           progress: 0,
@@ -137,11 +148,14 @@
       }
     } catch (err: any) {
       console.error('❌ Error uploading documents:', err)
-      error = ''
+      _error = ''
       status = {
         status: 'error',
         progress: 0,
-        message: err.response?.data?.error || err.message || 'Failed to upload documents',
+        message:
+          err.response?.data?.error ||
+          err.message ||
+          'Failed to upload documents',
         processed_files: 0,
         total_files: files.length
       }
@@ -155,7 +169,7 @@
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 </script>
 
@@ -186,20 +200,36 @@
                 <span class="file-name">{file.name}</span>
                 <span class="file-size">{formatFileSize(file.size)}</span>
               </div>
-              <button class="remove-file-btn" onclick={() => removeFile(index)} type="button" title="Remove file">
+              <button
+                class="remove-file-btn"
+                onclick={() => removeFile(index)}
+                type="button"
+                title="Remove file"
+              >
                 <XIcon width="18" height="18" />
               </button>
             </div>
           {/each}
         </div>
-        <Button onclick={uploadDocuments} disabled={uploading || !selectedCollection} variant="success">
-          {uploading ? 'Uploading...' : `Upload ${files.length} file${files.length > 1 ? 's' : ''}`}
+        <Button
+          onclick={uploadDocuments}
+          disabled={uploading || !selectedCollection}
+          variant="success"
+        >
+          {uploading
+            ? 'Uploading...'
+            : `Upload ${files.length} file${files.length > 1 ? 's' : ''}`}
         </Button>
       </div>
     {/if}
 
     {#if status}
-      <div class="status" class:processing={status.status === 'processing'} class:completed={status.status === 'completed'} class:error={status.status === 'error'}>
+      <div
+        class="status"
+        class:processing={status.status === 'processing'}
+        class:completed={status.status === 'completed'}
+        class:error={status.status === 'error'}
+      >
         <div class="status-header">
           <span class="status-icon">
             {#if status.status === 'processing'}⏳
@@ -238,7 +268,10 @@
     border: 1px solid rgba(255, 193, 7, 0.5);
     border-radius: 4px;
     color: var(--text-secondary);
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .files-list {
@@ -296,7 +329,11 @@
     align-items: center;
     justify-content: center;
     opacity: 0.8;
-    transition: opacity 0.2s, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      opacity 0.2s,
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
     color: var(--text-primary);
   }
 
@@ -362,7 +399,9 @@
   .progress-fill {
     height: 100%;
     background: var(--accent-color, #4a90e2);
-    transition: width 0.3s ease, background-color 0.3s ease;
+    transition:
+      width 0.3s ease,
+      background-color 0.3s ease;
   }
 
   .progress-text {
@@ -372,4 +411,3 @@
     transition: color 0.3s ease;
   }
 </style>
-

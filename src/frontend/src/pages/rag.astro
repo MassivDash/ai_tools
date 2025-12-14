@@ -4,19 +4,19 @@ import Layout from '../layouts/Layout.astro'
 
 <Layout title='RAG - Retrieval Augmented Generation'>
   <main transition:animate='fade'>
-    <div class="rag-container">
+    <div class='rag-container'>
       <h1>RAG (Retrieval Augmented Generation)</h1>
-      <div class="rag-content">
-        <p class="description">
-          RAG combines the power of retrieval-based and generative AI models to provide
-          accurate, context-aware responses by searching through knowledge bases and
-          generating answers based on retrieved information.
+      <div class='rag-content'>
+        <p class='description'>
+          RAG combines the power of retrieval-based and generative AI models to
+          provide accurate, context-aware responses by searching through
+          knowledge bases and generating answers based on retrieved information.
         </p>
-        <div class="placeholder-section">
+        <div class='placeholder-section'>
           <p>🚧 RAG functionality coming soon</p>
-          <p class="hint">
-            This page will provide tools for document indexing, semantic search, and
-            context-aware AI responses.
+          <p class='hint'>
+            This page will provide tools for document indexing, semantic search,
+            and context-aware AI responses.
           </p>
         </div>
       </div>
@@ -45,7 +45,9 @@ import Layout from '../layouts/Layout.astro'
     border-radius: 8px;
     padding: 2rem;
     box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .description {
@@ -90,4 +92,3 @@ import Layout from '../layouts/Layout.astro'
     }
   }
 </style>
-

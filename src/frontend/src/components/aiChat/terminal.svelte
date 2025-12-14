@@ -12,8 +12,8 @@
     | { type: 'logs_batch'; logs: LogLine[] }
 
   let logs: LogLine[] = []
-  let loading = false
-  let error = ''
+  let _loading = false
+  let _error = ''
   let ws: WebSocket | null = null
   let isConnected = false
   let terminalRef: HTMLDivElement
@@ -28,26 +28,18 @@
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
     const wsBase = baseUrl.replace(/^https?:\/\//, '')
     const wsUrl = `${wsProtocol}://${wsBase}/api/llama-server/logs/ws`
-    console.log(
-      '🔗 Constructed WebSocket URL:',
-      wsUrl,
-      'from base:',
-      import.meta.env.PUBLIC_API_URL
-    )
     return wsUrl
   }
 
   const connectWebSocket = () => {
     try {
       const wsUrl = getWebSocketUrl()
-      console.log('🔌 Connecting to logs WebSocket:', wsUrl)
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        console.log('✅ Logs WebSocket connected')
         isConnected = true
-        error = ''
-        loading = false
+        _error = ''
+        _loading = false
       }
 
       ws.onmessage = (event) => {
@@ -79,15 +71,10 @@
       ws.onerror = (err) => {
         console.error('❌ Logs WebSocket error:', err)
         isConnected = false
-        error = 'WebSocket connection error'
+        _error = 'WebSocket connection error'
       }
 
-      ws.onclose = (event) => {
-        console.log('🔌 Logs WebSocket closed, reconnecting...', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        })
+      ws.onclose = (_event) => {
         isConnected = false
         ws = null
         // Reconnect after 2 seconds
@@ -100,7 +87,7 @@
       }
     } catch (err: any) {
       console.error('❌ Failed to connect WebSocket:', err)
-      error = err.message || 'Failed to connect to logs stream'
+      _error = err.message || 'Failed to connect to logs stream'
     }
   }
 
@@ -110,7 +97,7 @@
   }
 
   onMount(() => {
-    loading = true
+    _loading = true
     connectWebSocket()
   })
 

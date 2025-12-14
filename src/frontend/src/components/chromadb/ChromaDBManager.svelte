@@ -17,14 +17,12 @@
 
   const checkHealth = async () => {
     try {
-      console.log('🏥 Checking ChromaDB health...')
       const response =
         await axiosBackendInstance.get<
           ChromaDBResponse<ChromaDBHealthResponse>
         >('chromadb/health')
       if (response.data.success && response.data.data) {
         healthStatus = response.data.data
-        console.log('✅ ChromaDB health:', healthStatus)
       }
     } catch (err: any) {
       console.error('❌ Error checking ChromaDB health:', err)
@@ -36,14 +34,15 @@
     }
   }
 
-
   const handleDocumentUploaded = async () => {
     if (collectionListRef) {
       await collectionListRef.refresh()
       // Update the selected collection with the latest count from the collections store
       selectedCollection.update((current) => {
         if (current) {
-          const updated = $collections.find((c) => c.id === current.id || c.name === current.name)
+          const updated = $collections.find(
+            (c) => c.id === current.id || c.name === current.name
+          )
           if (updated) {
             return updated
           }

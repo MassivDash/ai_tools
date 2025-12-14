@@ -1,6 +1,10 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { QueryRequest, QueryResponse, ChromaDBResponse } from '../../types/chromadb.ts'
+  import type {
+    QueryRequest,
+    QueryResponse,
+    ChromaDBResponse
+  } from '../../types/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import Input from '../ui/Input.svelte'
 
@@ -28,27 +32,25 @@
     results = null
 
     try {
-      console.log('🔍 Querying collection:', selectedCollection)
       const request: QueryRequest = {
         collection: selectedCollection,
         query_texts: [queryText.trim()],
         n_results: nResults
       }
 
-      const response = await axiosBackendInstance.post<ChromaDBResponse<QueryResponse>>(
-        'chromadb/query',
-        request
-      )
+      const response = await axiosBackendInstance.post<
+        ChromaDBResponse<QueryResponse>
+      >('chromadb/query', request)
 
       if (response.data.success && response.data.data) {
         results = response.data.data
-        console.log('✅ Query results:', results)
       } else {
         error = response.data.error || 'Failed to perform query'
       }
     } catch (err: any) {
       console.error('❌ Error querying:', err)
-      error = err.response?.data?.error || err.message || 'Failed to perform query'
+      error =
+        err.response?.data?.error || err.message || 'Failed to perform query'
     } finally {
       loading = false
     }
@@ -66,9 +68,7 @@
   <h3>Search Collection</h3>
 
   {#if !selectedCollection}
-    <div class="warning">
-      ⚠️ Please select a collection first to search
-    </div>
+    <div class="warning">⚠️ Please select a collection first to search</div>
   {:else}
     <div class="query-form">
       <div class="form-group">
@@ -94,7 +94,11 @@
         />
       </div>
 
-      <Button onclick={performQuery} disabled={loading || !queryText.trim() || !selectedCollection} variant="primary">
+      <Button
+        onclick={performQuery}
+        disabled={loading || !queryText.trim() || !selectedCollection}
+        variant="primary"
+      >
         {loading ? 'Searching...' : 'Search'}
       </Button>
     </div>
@@ -129,7 +133,11 @@
                 {#if results.metadatas?.[0]?.[index]}
                   <div class="result-metadata">
                     <strong>Metadata:</strong>
-                    <pre>{JSON.stringify(results.metadatas[0][index], null, 2)}</pre>
+                    <pre>{JSON.stringify(
+                        results.metadatas[0][index],
+                        null,
+                        2
+                      )}</pre>
                   </div>
                 {/if}
               </div>
@@ -160,7 +168,10 @@
     border: 1px solid rgba(255, 193, 7, 0.5);
     border-radius: 4px;
     color: var(--text-secondary);
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .query-form {
@@ -189,7 +200,10 @@
     border-radius: 4px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .results {
@@ -198,7 +212,9 @@
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .results h4 {
@@ -281,5 +297,3 @@
     transition: color 0.3s ease;
   }
 </style>
-
-

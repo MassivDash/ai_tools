@@ -19,7 +19,6 @@ test('404 Page', async () => {
   expect(result).toContain('404')
 })
 
-
 test('Astro Page', async () => {
   const container = await AstroContainer.create()
   container.addServerRenderer({

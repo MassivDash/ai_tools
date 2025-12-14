@@ -305,7 +305,10 @@
     font-size: 1rem;
     background-color: var(--bg-primary, white);
     color: var(--text-primary, #333);
-    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .url-input:focus {
@@ -345,7 +348,10 @@
     border-radius: 4px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .url-info {
@@ -418,7 +424,10 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     color: var(--text-primary, #333);
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .markdown-output code {
@@ -491,7 +500,9 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    transition: background-color 0.2s, color 0.3s ease;
+    transition:
+      background-color 0.2s,
+      color 0.3s ease;
   }
 
   .advanced-toggle:hover {
@@ -513,7 +524,9 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .checkbox-label {
@@ -567,7 +580,10 @@
     color: var(--text-primary, #333);
     cursor: pointer;
     max-width: 200px;
-    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .preset-select:focus {

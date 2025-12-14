@@ -38,7 +38,9 @@
     border-radius: 4px;
     margin-bottom: 1rem;
     background-color: var(--bg-primary, #fff);
-    transition: border-color 0.3s ease, background-color 0.3s ease;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease;
   }
 
   .accordion-header {
@@ -67,7 +69,9 @@
   }
 
   .accordion-icon {
-    transition: transform 0.2s ease, color 0.3s ease;
+    transition:
+      transform 0.2s ease,
+      color 0.3s ease;
     color: var(--text-secondary, #666);
     font-size: 0.75rem;
   }
@@ -82,4 +86,3 @@
     transition: border-color 0.3s ease;
   }
 </style>
-

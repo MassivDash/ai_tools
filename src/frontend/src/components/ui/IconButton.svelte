@@ -1,19 +1,14 @@
 <script lang="ts">
   import Button from './Button.svelte'
-  
-  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' = 'info'
+
+  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' =
+    'info'
   export let disabled: boolean = false
   export let title: string = ''
   export let iconSize: number | string = 32
 </script>
 
-<Button
-  {variant}
-  {disabled}
-  class="button-icon-only"
-  {title}
-  {...$$restProps}
->
+<Button {variant} {disabled} class="button-icon-only" {title} {...$$restProps}>
   <slot />
 </Button>
 
@@ -31,4 +26,3 @@
     flex-shrink: 0;
   }
 </style>
-

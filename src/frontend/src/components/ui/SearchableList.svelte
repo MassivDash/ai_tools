@@ -1,19 +1,21 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  
+
   export let items: any[] = []
   export let searchPlaceholder: string = 'Search...'
   export let emptyMessage: string = 'No items found'
-  export let getItemKey: (item: any, index: number) => string = (item, index) => String(item.id || item.name || item || index)
-  export let getItemLabel: (item: any) => string = (item) => String(item.name || item.label || item)
+  export let getItemKey: (item: any, index: number) => string = (_item, index) =>
+    String(_item.id || _item.name || _item || index)
+  export let getItemLabel: (item: any) => string = (_item) =>
+    String(_item.name || _item.label || _item)
   export let getItemSubtext: ((item: any) => string) | undefined = undefined
   export let selectedKey: string | null = null
   export let maxHeight: string = '300px'
-  
+
   const dispatch = createEventDispatcher()
-  
+
   let searchQuery = ''
-  
+
   $: filteredItems = items.filter((item) => {
     if (!searchQuery.trim()) return true
     const query = searchQuery.toLowerCase()
@@ -24,7 +26,7 @@
     }
     return label.includes(query)
   })
-  
+
   function handleItemClick(item: any) {
     dispatch('select', item)
   }
@@ -48,7 +50,7 @@
       </button>
     {/if}
   </div>
-  
+
   <div class="list-container" style="max-height: {maxHeight}">
     {#if filteredItems.length === 0}
       <div class="empty-message">{emptyMessage}</div>
@@ -93,7 +95,10 @@
     box-sizing: border-box;
     background-color: var(--bg-primary, white);
     color: var(--text-primary, #333);
-    transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
+    transition:
+      border-color 0.2s,
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   .search-input:focus {
@@ -131,7 +136,9 @@
     border-radius: 4px;
     overflow-y: auto;
     background-color: var(--bg-primary, white);
-    transition: border-color 0.3s ease, background-color 0.3s ease;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease;
   }
 
   .list {
@@ -147,7 +154,9 @@
     background: var(--bg-primary, white);
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.2s, border-color 0.3s ease;
+    transition:
+      background-color 0.2s,
+      border-color 0.3s ease;
     color: var(--text-primary, #333);
   }
 
@@ -188,4 +197,3 @@
     transition: color 0.3s ease;
   }
 </style>
-
