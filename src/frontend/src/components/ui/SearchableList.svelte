@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
-
   export let items: any[] = []
   export let searchPlaceholder: string = 'Search...'
   export let emptyMessage: string = 'No items found'
@@ -13,8 +11,7 @@
   export let getItemSubtext: ((_item: any) => string) | undefined = undefined
   export let selectedKey: string | null = null
   export let maxHeight: string = '300px'
-
-  const dispatch = createEventDispatcher()
+  export let onselect: ((item: any) => void) | undefined = undefined
 
   let searchQuery = ''
 
@@ -30,7 +27,7 @@
   })
 
   function handleItemClick(item: any) {
-    dispatch('select', item)
+    onselect?.(item)
   }
 </script>
 

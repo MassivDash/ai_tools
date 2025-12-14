@@ -1,7 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import Agent from '../components/agent/agent.svelte'
 ---
 
 <Layout title='Agent - Chat Assistant'>
-  <div transition:animate='fade'></div>
+  <div transition:animate='fade'>
+    <Agent client:load />
+  </div>
 </Layout>

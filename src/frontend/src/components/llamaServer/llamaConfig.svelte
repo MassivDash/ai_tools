@@ -252,7 +252,7 @@
             // Use path as key (should be unique), fallback to name
             return selected.path || selected.name || selected.hf_format || null
           })()}
-          on:select={(e) => handleModelSelect(e.detail)}
+          onselect={handleModelSelect}
         />
       {:else}
         <div class="no-models">

@@ -199,7 +199,7 @@
             if (!selected) return null
             return selected.name
           })()}
-          on:select={(e) => handleEmbeddingModelSelect(e.detail)}
+          onselect={handleEmbeddingModelSelect}
         />
       {:else}
         <div class="no-models">

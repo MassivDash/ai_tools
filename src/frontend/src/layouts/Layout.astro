@@ -29,7 +29,10 @@ const { title } = Astro.props
       // Set theme immediately to prevent flash - runs on every navigation
       // Guard against SSR environments where window/document may not exist
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null
+        const storedTheme =
+          typeof localStorage !== 'undefined'
+            ? localStorage.getItem('theme')
+            : null
         let shouldBeDark = false
 
         if (storedTheme === 'dark') {
@@ -39,7 +42,9 @@ const { title } = Astro.props
         } else {
           // 'system' or no preference - check system preference
           if (window.matchMedia) {
-            shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+            shouldBeDark = window.matchMedia(
+              '(prefers-color-scheme: dark)'
+            ).matches
           }
         }
 
