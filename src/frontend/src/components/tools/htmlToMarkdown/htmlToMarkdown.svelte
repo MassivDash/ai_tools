@@ -135,11 +135,7 @@
     >
       {loading ? 'Converting...' : 'Convert'}
     </button>
-    <button
-      onclick={clearAll}
-      disabled={loading}
-      class="clear-button"
-    >
+    <button onclick={clearAll} disabled={loading} class="clear-button">
       Clear
     </button>
   </div>
@@ -677,4 +673,3 @@
     }
   }
 </style>
-

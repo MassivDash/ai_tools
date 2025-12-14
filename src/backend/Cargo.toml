@@ -35,3 +35,4 @@ uuid = { version = "1.15.1", features = ["v4"] }
 chroma = "0.9.0"
 tokenizers = { version = "0.22.2", features = ["http", "progressbar"] }
 pdf-extract = "0.7"
+toon = "0.1.0"

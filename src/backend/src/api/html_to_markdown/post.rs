@@ -128,7 +128,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_html_to_markdown_empty_html() {
-        let mut app = test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
+        let mut app =
+            test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/html-to-markdown")
@@ -149,7 +150,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_html_to_markdown_valid_html() {
-        let mut app = test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
+        let mut app =
+            test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/html-to-markdown")
@@ -170,7 +172,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_html_to_markdown_with_options() {
-        let mut app = test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
+        let mut app =
+            test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/html-to-markdown")
@@ -189,4 +192,3 @@ mod tests {
         assert!(resp.status().is_success());
     }
 }
-

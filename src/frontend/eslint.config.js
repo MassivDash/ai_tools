@@ -25,6 +25,7 @@ export default [
         // Browser APIs
         File: 'readonly',
         FileList: 'readonly',
+        FileReader: 'readonly',
         FormData: 'readonly',
         Blob: 'readonly',
         URL: 'readonly',

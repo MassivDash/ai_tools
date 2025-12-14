@@ -12,4 +12,3 @@ export const HtmlToMarkdownRequestSchema = z.object({
     .default(null),
   count_tokens: z.boolean().default(false)
 })
-

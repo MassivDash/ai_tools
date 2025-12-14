@@ -1,5 +1,6 @@
 <script lang="ts">
   import HtmlToMarkdown from '../htmlToMarkdown/htmlToMarkdown.svelte'
+  import JsonToToon from '../jsonToToon/jsonToToon.svelte'
   import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
   import TextToTokens from '../textToTokens/textToTokens.svelte'
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
@@ -7,6 +8,7 @@
   type ToolType =
     | 'url-to-markdown'
     | 'html-to-markdown'
+    | 'json-to-toon'
     | 'pdf-to-markdown'
     | 'text-to-tokens'
     | null
@@ -25,6 +27,12 @@
       name: 'HTML to Markdown',
       description: 'Paste HTML and convert to markdown',
       icon: '📄'
+    },
+    {
+      id: 'json-to-toon' as ToolType,
+      name: 'JSON to TOON',
+      description: 'Convert JSON to TOON format for LLMs',
+      icon: '🔀'
     },
     {
       id: 'pdf-to-markdown' as ToolType,
@@ -84,6 +92,8 @@
           <UrlToMarkdown />
         {:else if selectedTool === 'html-to-markdown'}
           <HtmlToMarkdown />
+        {:else if selectedTool === 'json-to-toon'}
+          <JsonToToon />
         {:else if selectedTool === 'pdf-to-markdown'}
           <PdfToMarkdown />
         {:else if selectedTool === 'text-to-tokens'}
