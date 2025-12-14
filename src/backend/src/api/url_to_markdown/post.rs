@@ -20,6 +20,8 @@ pub struct UrlRequest {
     pub preprocessing_preset: Option<String>, // "minimal", "standard", "aggressive", or None for default
     #[serde(default)]
     pub follow_links: bool, // Whether to follow internal links and create zip file
+    #[serde(default)]
+    pub count_tokens: bool, // Whether to count tokens (can be slow for large documents)
 }
 
 #[derive(Serialize, Debug)]
@@ -35,6 +37,7 @@ pub struct MarkdownResponse {
     pub url: String,
     pub internal_links_count: usize,
     pub internal_links: Vec<LinkInfo>,
+    pub token_count: usize,
 }
 
 #[post("/api/url-to-markdown")]
@@ -123,6 +126,22 @@ pub async fn convert_url_to_markdown(
                             }
 
                             // Return single page result (either follow_links disabled or zip creation failed)
+                            // Count tokens in the markdown only if requested (can be slow for large documents)
+                            let token_count = if body.count_tokens {
+                                match crate::utils::tokenizer::count_tokens(&main_result.markdown) {
+                                    Ok(count) => {
+                                        println!("🔢 Token count: {}", count);
+                                        count
+                                    }
+                                    Err(e) => {
+                                        println!("⚠️ Failed to count tokens: {}", e);
+                                        0 // Return 0 if token counting fails
+                                    }
+                                }
+                            } else {
+                                0 // Skip token counting if not requested
+                            };
+
                             Ok(HttpResponse::Ok().json(MarkdownResponse {
                                 markdown: main_result.markdown,
                                 url: url.clone(),
@@ -136,6 +155,7 @@ pub async fn convert_url_to_markdown(
                                         link_text: link.link_text.clone(),
                                     })
                                     .collect(),
+                                token_count,
                             }))
                         }
                         Err(error) => {
@@ -356,6 +376,7 @@ mod tests {
                 remove_forms: false,
                 preprocessing_preset: None,
                 follow_links: false,
+                count_tokens: false,
             })
             .to_request();
 

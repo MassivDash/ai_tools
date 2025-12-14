@@ -12,6 +12,7 @@
     url: string
     internal_links_count: number
     internal_links: LinkInfo[]
+    token_count: number
   }
 
   let url = ''
@@ -21,6 +22,7 @@
   let convertedUrl = ''
   let internalLinks: LinkInfo[] = []
   let internalLinksCount = 0
+  let tokenCount = 0
 
   // Advanced options
   let showAdvanced = false
@@ -30,6 +32,7 @@
   let removeForms = false
   let preprocessingPreset: 'minimal' | 'standard' | 'aggressive' = 'minimal'
   let followLinks = false
+  let countTokens = false
 
   const convertUrlToMarkdown = async () => {
     loading = true
@@ -48,7 +51,8 @@
         remove_navigation: removeNavigation,
         remove_forms: removeForms,
         preprocessing_preset: enablePreprocessing ? preprocessingPreset : null,
-        follow_links: followLinks
+        follow_links: followLinks,
+        count_tokens: countTokens
       })
 
       if (!validationResult.success) {
@@ -69,7 +73,8 @@
           remove_navigation: requestData.remove_navigation,
           remove_forms: requestData.remove_forms,
           preprocessing_preset: requestData.preprocessing_preset,
-          follow_links: requestData.follow_links
+          follow_links: requestData.follow_links,
+          count_tokens: requestData.count_tokens
         },
         {
           responseType: followLinks ? 'blob' : 'json'
@@ -97,6 +102,7 @@
         convertedUrl = data.url
         internalLinks = data.internal_links
         internalLinksCount = data.internal_links_count
+        tokenCount = data.token_count || 0
       }
     } catch (err: any) {
       error =
@@ -107,6 +113,7 @@
       convertedUrl = ''
       internalLinks = []
       internalLinksCount = 0
+      tokenCount = 0
     } finally {
       loading = false
     }
@@ -191,6 +198,13 @@
           <span>Follow internal links (creates zip file)</span>
         </label>
 
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={countTokens} />
+          <span
+            >Count tokens (may slow down conversion for large documents)</span
+          >
+        </label>
+
         {#if enablePreprocessing}
           <div class="preprocessing-options">
             <label class="checkbox-label">
@@ -227,10 +241,18 @@
 
   {#if convertedUrl}
     <div class="url-info">
-      <strong>Converted URL:</strong>
-      <a href={convertedUrl} target="_blank" rel="noopener noreferrer"
-        >{convertedUrl}</a
-      >
+      <div>
+        <strong>Converted URL:</strong>
+        <a href={convertedUrl} target="_blank" rel="noopener noreferrer"
+          >{convertedUrl}</a
+        >
+      </div>
+      {#if tokenCount > 0}
+        <div class="token-info">
+          <strong>Token Count:</strong>
+          {tokenCount.toLocaleString()}
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -377,12 +399,21 @@
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .url-info a {
     color: var(--accent-color, #2e7d32);
     word-break: break-all;
     transition: color 0.3s ease;
+  }
+
+  .token-info {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color, #c8e6c9);
+    color: var(--text-primary, #333);
   }
 
   .markdown-container {

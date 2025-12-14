@@ -1,11 +1,13 @@
 <script lang="ts">
-  import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
   import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
+  import TextToTokens from '../textToTokens/textToTokens.svelte'
+  import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
 
   type ToolType =
     | 'url-to-markdown'
     | 'html-to-markdown'
     | 'pdf-to-markdown'
+    | 'text-to-tokens'
     | null
 
   let selectedTool: ToolType = null
@@ -28,6 +30,12 @@
       name: 'PDF to Markdown',
       description: 'Upload PDF files and convert to markdown',
       icon: '📑'
+    },
+    {
+      id: 'text-to-tokens' as ToolType,
+      name: 'Text to Tokens',
+      description: 'Count tokens in any text using GPT-2 tokenizer',
+      icon: '🔢'
     }
   ]
 
@@ -83,6 +91,8 @@
           </div>
         {:else if selectedTool === 'pdf-to-markdown'}
           <PdfToMarkdown />
+        {:else if selectedTool === 'text-to-tokens'}
+          <TextToTokens />
         {/if}
       </div>
     </div>

@@ -21,5 +21,6 @@ export const UrlToMarkdownRequestSchema = z.object({
   remove_navigation: z.boolean().default(false),
   remove_forms: z.boolean().default(false),
   preprocessing_preset: PreprocessingPresetSchema.nullable().optional(),
-  follow_links: z.boolean().default(false)
+  follow_links: z.boolean().default(false),
+  count_tokens: z.boolean().default(false)
 })

@@ -7,12 +7,14 @@ use serde::Serialize;
 pub struct MarkdownResponse {
     pub markdown: String,
     pub filename: String,
+    pub token_count: usize,
 }
 
 #[post("/api/pdf-to-markdown")]
 pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpResponse, ActixError> {
     let mut file_data: Option<Vec<u8>> = None;
     let mut filename: Option<String> = None;
+    let mut count_tokens = false;
 
     // Parse multipart form data
     while let Some(mut field) = payload.try_next().await? {
@@ -31,6 +33,16 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
                 data.extend_from_slice(&chunk);
             }
             file_data = Some(data);
+        } else if field_name == "count_tokens" {
+            // Read count_tokens boolean value
+            let mut bytes = Vec::new();
+            while let Some(chunk) = field.try_next().await? {
+                bytes.extend_from_slice(&chunk);
+            }
+            if let Ok(value_str) = String::from_utf8(bytes) {
+                count_tokens =
+                    value_str.trim().eq_ignore_ascii_case("true") || value_str.trim() == "1";
+            }
         }
     }
 
@@ -99,9 +111,26 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
     // In the future, we could add more sophisticated formatting
     let markdown = format_text_as_markdown(&text);
 
+    // Count tokens in the markdown only if requested (can be slow for large documents)
+    let token_count = if count_tokens {
+        match crate::utils::tokenizer::count_tokens(&markdown) {
+            Ok(count) => {
+                println!("🔢 Token count: {}", count);
+                count
+            }
+            Err(e) => {
+                println!("⚠️ Failed to count tokens: {}", e);
+                0 // Return 0 if token counting fails
+            }
+        }
+    } else {
+        0 // Skip token counting if not requested
+    };
+
     Ok(HttpResponse::Ok().json(MarkdownResponse {
         markdown,
         filename: filename.clone(),
+        token_count,
     }))
 }
 

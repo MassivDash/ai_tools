@@ -13,6 +13,7 @@ mod cors;
 mod markdown_utils;
 mod session;
 mod ssr_routes;
+mod utils;
 
 use crate::api::chromadb::collections::create_collection::create_collection;
 use crate::api::chromadb::collections::delete_collection::delete_collection;
@@ -33,6 +34,7 @@ use crate::api::llama_server::types::{
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
 use crate::api::pdf_to_markdown::post::convert_pdf_to_markdown;
+use crate::api::text_to_tokens::post::convert_text_to_tokens;
 use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
 use crate::auth::auth_middleware::Authentication;
@@ -150,6 +152,7 @@ async fn main() -> std::io::Result<()> {
             )
             .service(convert_url_to_markdown)
             .service(convert_pdf_to_markdown)
+            .service(convert_text_to_tokens)
             .service(get_llama_server_status)
             .service(get_llama_models)
             .service(get_llama_config)

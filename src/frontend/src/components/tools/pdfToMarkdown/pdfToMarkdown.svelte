@@ -5,6 +5,7 @@
   interface MarkdownResponse {
     markdown: string
     filename: string
+    token_count: number
   }
 
   let selectedFile: File | null = null
@@ -12,6 +13,11 @@
   let loading = false
   let error = ''
   let convertedFilename = ''
+  let tokenCount = 0
+
+  // Advanced options
+  let showAdvanced = false
+  let countTokens = false
 
   const handleFileSelect = (event: Event) => {
     const target = event.target as HTMLInputElement
@@ -50,6 +56,7 @@
       // Create FormData for file upload
       const formData = new FormData()
       formData.append('file', selectedFile)
+      formData.append('count_tokens', countTokens.toString())
 
       const res = await axiosBackendInstance.post<MarkdownResponse>(
         'pdf-to-markdown',
@@ -63,6 +70,7 @@
 
       markdown = res.data.markdown
       convertedFilename = res.data.filename || selectedFile.name
+      tokenCount = res.data.token_count || 0
     } catch (err: any) {
       error =
         err.response?.data?.error ||
@@ -70,6 +78,7 @@
         'Failed to convert PDF to markdown'
       markdown = ''
       convertedFilename = ''
+      tokenCount = 0
     } finally {
       loading = false
     }
@@ -134,13 +143,40 @@
     </button>
   </div>
 
+  <div class="advanced-section">
+    <button
+      class="advanced-toggle"
+      onclick={() => (showAdvanced = !showAdvanced)}
+      type="button"
+    >
+      <span class="toggle-icon">{showAdvanced ? '▼' : '▶'}</span>
+      Advanced Options
+    </button>
+
+    {#if showAdvanced}
+      <div class="advanced-options">
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={countTokens} />
+          <span>Count tokens (may slow down conversion for large documents)</span>
+        </label>
+      </div>
+    {/if}
+  </div>
+
   {#if error}
     <div class="error">{error}</div>
   {/if}
 
   {#if convertedFilename}
     <div class="file-info">
-      <strong>Converted File:</strong> {convertedFilename}
+      <div>
+        <strong>Converted File:</strong> {convertedFilename}
+      </div>
+      {#if tokenCount > 0}
+        <div class="token-info">
+          <strong>Token Count:</strong> {tokenCount.toLocaleString()}
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -269,6 +305,76 @@
     cursor: not-allowed;
   }
 
+  .advanced-section {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+  }
+
+  .advanced-toggle {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--bg-secondary, #f5f5f5);
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary, #333);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition:
+      background-color 0.2s,
+      color 0.3s ease;
+  }
+
+  .advanced-toggle:hover {
+    background-color: var(--bg-tertiary, #e8e8e8);
+  }
+
+  .toggle-icon {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #666);
+    width: 1rem;
+    display: inline-block;
+    transition: color 0.3s ease;
+  }
+
+  .advanced-options {
+    padding: 1rem;
+    background-color: var(--bg-secondary, #fafafa);
+    border-top: 1px solid var(--border-color, #ddd);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .checkbox-label input[type='checkbox'] {
+    cursor: pointer;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .checkbox-label span {
+    color: var(--text-primary, #333);
+    font-size: 0.95rem;
+    transition: color 0.3s ease;
+  }
+
   .error {
     padding: 0.75rem;
     background-color: rgba(255, 200, 200, 0.2);
@@ -291,6 +397,15 @@
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
+    color: var(--text-primary, #333);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .token-info {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color, #c8e6c9);
     color: var(--text-primary, #333);
   }
 
@@ -371,4 +486,3 @@
     }
   }
 </style>
-
