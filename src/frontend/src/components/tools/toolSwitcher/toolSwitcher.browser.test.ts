@@ -123,17 +123,15 @@ test('displays placeholder for HTML to Markdown', async () => {
   })
 })
 
-test('displays placeholder for PDF to Markdown', async () => {
+test('displays PDF to Markdown component', async () => {
   render(ToolSwitcher)
 
   const pdfToolCard = screen.getByText('PDF to Markdown').closest('button')
   fireEvent.click(pdfToolCard!)
 
   await waitFor(() => {
-    expect(screen.getByText('🚧 PDF to Markdown tool coming soon')).toBeTruthy()
-    expect(
-      screen.getByText(/This tool will allow you to upload PDF files/)
-    ).toBeTruthy()
+    expect(screen.getByText('PDF to Markdown Converter')).toBeTruthy()
+    expect(screen.getByText('Choose PDF file...')).toBeTruthy()
   })
 })
 
@@ -181,9 +179,7 @@ test('can switch between different tools', async () => {
 
   await waitFor(
     () => {
-      expect(
-        screen.getByText('🚧 PDF to Markdown tool coming soon')
-      ).toBeTruthy()
+      expect(screen.getByText('PDF to Markdown Converter')).toBeTruthy()
     },
     { timeout: 2000 }
   )
@@ -194,7 +190,7 @@ test('renders tool icons', () => {
 
   // Icons are emojis, so we check for the tool cards
   const toolCards = document.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(3)
+  expect(toolCards.length).toBe(4) // Updated: now includes Text to Tokens
 
   toolCards.forEach((card) => {
     const icon = card.querySelector('.tool-icon')
@@ -206,7 +202,7 @@ test('tool cards have correct structure', () => {
   const { container } = render(ToolSwitcher)
 
   const toolCards = container.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(3)
+  expect(toolCards.length).toBe(4) // Updated: now includes Text to Tokens
 
   toolCards.forEach((card) => {
     expect(card.querySelector('.tool-icon')).toBeTruthy()

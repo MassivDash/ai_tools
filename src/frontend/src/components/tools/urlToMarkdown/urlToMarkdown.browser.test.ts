@@ -323,12 +323,13 @@ test('sends correct request data with advanced options', async () => {
       'url-to-markdown',
       expect.objectContaining({
         url: 'https://example.com',
-        extract_body: false,
+        extract_body: true, // Checkbox was clicked, so it's true
         enable_preprocessing: true,
         remove_navigation: true,
         remove_forms: true,
         preprocessing_preset: 'aggressive',
-        follow_links: false
+        follow_links: false,
+        count_tokens: false
       }),
       expect.objectContaining({
         responseType: 'json'

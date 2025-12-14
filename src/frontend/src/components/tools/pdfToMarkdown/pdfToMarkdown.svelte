@@ -157,7 +157,9 @@
       <div class="advanced-options">
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={countTokens} />
-          <span>Count tokens (may slow down conversion for large documents)</span>
+          <span
+            >Count tokens (may slow down conversion for large documents)</span
+          >
         </label>
       </div>
     {/if}
@@ -170,11 +172,13 @@
   {#if convertedFilename}
     <div class="file-info">
       <div>
-        <strong>Converted File:</strong> {convertedFilename}
+        <strong>Converted File:</strong>
+        {convertedFilename}
       </div>
       {#if tokenCount > 0}
         <div class="token-info">
-          <strong>Token Count:</strong> {tokenCount.toLocaleString()}
+          <strong>Token Count:</strong>
+          {tokenCount.toLocaleString()}
         </div>
       {/if}
     </div>

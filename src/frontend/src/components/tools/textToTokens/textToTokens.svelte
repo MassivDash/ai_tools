@@ -54,9 +54,7 @@
       wordCount = res.data.word_count
     } catch (err: any) {
       error =
-        err.response?.data?.error ||
-        err.message ||
-        'Failed to count tokens'
+        err.response?.data?.error || err.message || 'Failed to count tokens'
       tokenCount = 0
       characterCount = 0
       wordCount = 0
@@ -293,4 +291,3 @@
     }
   }
 </style>
-

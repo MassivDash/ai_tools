@@ -33,7 +33,10 @@ pub async fn convert_text_to_tokens(
         })));
     }
 
-    println!("📥 Received text for token counting (length: {} chars)", text.len());
+    println!(
+        "📥 Received text for token counting (length: {} chars)",
+        text.len()
+    );
 
     // Count tokens
     let token_count = match crate::utils::tokenizer::count_tokens(text) {
@@ -59,4 +62,3 @@ pub async fn convert_text_to_tokens(
         word_count,
     }))
 }
-

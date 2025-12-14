@@ -44,13 +44,10 @@ pub fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
 /// Counts the number of tokens in a text string
 pub fn count_tokens(text: &str) -> Result<usize, String> {
     match get_tokenizer() {
-        Ok(tokenizer) => {
-            match tokenizer.encode(text, false) {
-                Ok(encoding) => Ok(encoding.len()),
-                Err(e) => Err(format!("Failed to encode text: {}", e)),
-            }
-        }
+        Ok(tokenizer) => match tokenizer.encode(text, false) {
+            Ok(encoding) => Ok(encoding.len()),
+            Err(e) => Err(format!("Failed to encode text: {}", e)),
+        },
         Err(e) => Err(format!("Failed to get tokenizer: {}", e)),
     }
 }
-
