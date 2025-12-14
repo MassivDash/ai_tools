@@ -116,8 +116,8 @@ pub async fn post_update_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::llama_server::types::Config;
+    use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 
     #[actix_web::test]

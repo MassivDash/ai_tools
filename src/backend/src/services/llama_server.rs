@@ -26,10 +26,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_configure_llama_server_services_registers_all_endpoints() {
-        let app = test::init_service(
-            App::new().configure(configure_llama_server_services),
-        )
-        .await;
+        let app = test::init_service(App::new().configure(configure_llama_server_services)).await;
 
         // Test that all endpoints are registered by checking they respond (even if with errors)
         let endpoints = vec![

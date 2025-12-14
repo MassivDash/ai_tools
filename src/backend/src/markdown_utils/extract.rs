@@ -69,7 +69,8 @@ mod tests {
 
     #[test]
     fn test_extract_body_content_with_body_tags() {
-        let html = r#"<html><head><title>Test</title></head><body><p>Hello World</p></body></html>"#;
+        let html =
+            r#"<html><head><title>Test</title></head><body><p>Hello World</p></body></html>"#;
         let result = extract_body_content(html);
         assert!(result.contains("Hello World"));
         assert!(!result.contains("<html>"));

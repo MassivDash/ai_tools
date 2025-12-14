@@ -55,15 +55,14 @@ pub async fn post_stop_llama_server(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::llama_server::types::{ProcessHandle, ServerState, ServerStateHandle};
+    use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 
     #[actix_web::test]
     async fn test_post_stop_llama_server_not_running() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle =
-            Arc::new(Mutex::new(ServerState { is_ready: false }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: false }));
 
         let app = test::init_service(
             App::new()

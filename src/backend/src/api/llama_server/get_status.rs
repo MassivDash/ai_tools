@@ -73,15 +73,14 @@ async fn check_port_8080() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::llama_server::types::{ProcessHandle, ServerState, ServerStateHandle};
+    use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 
     #[actix_web::test]
     async fn test_get_llama_server_status_no_process() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle =
-            Arc::new(Mutex::new(ServerState { is_ready: false }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: false }));
 
         let app = test::init_service(
             App::new()
@@ -105,8 +104,7 @@ mod tests {
     #[actix_web::test]
     async fn test_get_llama_server_status_with_ready_state() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle =
-            Arc::new(Mutex::new(ServerState { is_ready: true }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: true }));
 
         let app = test::init_service(
             App::new()

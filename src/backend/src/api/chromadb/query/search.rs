@@ -46,8 +46,8 @@ pub async fn search_collection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::chromadb::types::QueryRequest;
+    use actix_web::{test, web, App};
 
     #[actix_web::test]
     async fn test_search_collection_basic() {

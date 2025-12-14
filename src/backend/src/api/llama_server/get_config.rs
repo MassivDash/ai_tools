@@ -42,8 +42,8 @@ pub async fn get_llama_config(config: web::Data<Arc<Mutex<Config>>>) -> ActixRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::llama_server::types::Config;
+    use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 
     #[actix_web::test]

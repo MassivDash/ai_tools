@@ -269,7 +269,7 @@ mod tests {
         let result = convert_html_to_markdown(html, base_url, &config);
         assert!(result.is_ok());
         let result = result.unwrap();
-        // Should extract internal links
-        assert!(result.internal_links.len() >= 0);
+        // Should extract internal links (at least 0, which is always true for len())
+        assert!(result.internal_links.len() == 1); // Should find the /page link
     }
 }

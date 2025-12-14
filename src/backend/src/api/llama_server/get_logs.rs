@@ -36,8 +36,8 @@ pub async fn get_llama_logs(log_buffer: web::Data<LogBuffer>) -> ActixResult<Htt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
     use crate::api::llama_server::types::{LogBuffer, LogEntry, LogSource};
+    use actix_web::{test, web, App};
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
 
