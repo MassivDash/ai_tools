@@ -24,6 +24,7 @@ export default [
         localStorage: 'readonly',
         // Browser APIs
         File: 'readonly',
+        FileList: 'readonly',
         FormData: 'readonly',
         Blob: 'readonly',
         URL: 'readonly',

@@ -12,12 +12,27 @@
     dispatch('select')
   }
 
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleSelect()
+    }
+  }
+
   const handleDelete = () => {
     dispatch('delete')
   }
 </script>
 
-<div class="collection-card" class:selected onclick={handleSelect}>
+<div
+  class="collection-card"
+  class:selected
+  role="button"
+  tabindex="0"
+  onclick={handleSelect}
+  onkeydown={handleKeydown}
+  aria-label={`Select collection ${collection.name}`}
+>
   <div class="card-header">
     <h3>{collection.name}</h3>
     <button

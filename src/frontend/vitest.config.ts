@@ -3,6 +3,7 @@ import { svelteTesting } from '@testing-library/svelte/vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default getViteConfig({
+  //@ts-ignore
   test: {
     projects: [
       {

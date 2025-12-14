@@ -1,15 +1,44 @@
 <script lang="ts">
   import Button from './Button.svelte'
 
-  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' =
-    'info'
-  export let disabled: boolean = false
-  export let title: string = ''
-  export let iconSize: number | string = 32
+  interface Props {
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info'
+    disabled?: boolean
+    title?: string
+    iconSize?: number | string
+    class?: string
+    onclick?: (_e: MouseEvent) => void
+    children?: import('svelte').Snippet
+  }
+
+  let {
+    variant = 'info',
+    disabled = false,
+    title = '',
+    iconSize = 32,
+    class: extraClass = '',
+    onclick,
+    children,
+    ...restProps
+  }: Props = $props()
+
+  const iconSizeValue = $derived(
+    typeof iconSize === 'number' ? `${iconSize}px` : iconSize
+  )
 </script>
 
-<Button {variant} {disabled} class="button-icon-only" {title} {...$$restProps}>
-  <slot />
+<Button
+  {variant}
+  {disabled}
+  class="button-icon-only {extraClass}"
+  {title}
+  {onclick}
+  style="--icon-size: {iconSizeValue}"
+  {...restProps}
+>
+  {#if children}
+    {@render children()}
+  {/if}
 </Button>
 
 <style>
@@ -24,5 +53,7 @@
 
   :global(.button-icon-only) :global(svg) {
     flex-shrink: 0;
+    width: var(--icon-size, 32px);
+    height: var(--icon-size, 32px);
   }
 </style>

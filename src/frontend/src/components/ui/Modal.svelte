@@ -50,11 +50,11 @@
           </button>
         {/if}
       </div>
-      <div class="modal-body" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-body">
         <slot />
       </div>
       {#if $$slots.footer}
-        <div class="modal-footer" onclick={(e) => e.stopPropagation()}>
+        <div class="modal-footer">
           <slot name="footer" />
         </div>
       {/if}

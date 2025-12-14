@@ -6,9 +6,10 @@
 import { render, fireEvent } from '@testing-library/svelte'
 import { expect, test, vi } from 'vitest'
 import IconButton from './IconButton.svelte'
+import type { Component } from 'svelte'
 
 test('renders icon button', () => {
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { children: () => 'Icon' }
   })
 
@@ -18,7 +19,7 @@ test('renders icon button', () => {
 })
 
 test('renders with default variant', () => {
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { children: () => 'Icon' }
   })
 
@@ -27,7 +28,7 @@ test('renders with default variant', () => {
 })
 
 test('renders with different variants', () => {
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { variant: 'primary', children: () => 'Icon' }
   })
 
@@ -37,7 +38,7 @@ test('renders with different variants', () => {
 })
 
 test('disables button when disabled prop is true', () => {
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { disabled: true, children: () => 'Icon' }
   })
 
@@ -46,7 +47,7 @@ test('disables button when disabled prop is true', () => {
 })
 
 test('applies title attribute', () => {
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { title: 'Tooltip text', children: () => 'Icon' }
   })
 
@@ -56,7 +57,7 @@ test('applies title attribute', () => {
 
 test('handles click events', () => {
   const handleClick = vi.fn()
-  const { container } = render(IconButton, {
+  const { container } = render(IconButton as Component, {
     props: { children: () => 'Icon', onclick: handleClick }
   })
 
@@ -71,7 +72,7 @@ test('applies all variant classes', () => {
   > = ['primary', 'secondary', 'success', 'danger', 'info']
 
   variants.forEach((variant) => {
-    const { container, unmount } = render(IconButton, {
+    const { container, unmount } = render(IconButton as Component, {
       props: { variant, children: () => 'Icon' }
     })
 
