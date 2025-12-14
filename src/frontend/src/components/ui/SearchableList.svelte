@@ -4,11 +4,13 @@
   export let items: any[] = []
   export let searchPlaceholder: string = 'Search...'
   export let emptyMessage: string = 'No items found'
-  export let getItemKey: (item: any, index: number) => string = (_item, index) =>
-    String(_item.id || _item.name || _item || index)
-  export let getItemLabel: (item: any) => string = (_item) =>
+  export let getItemKey: (_item: any, _index: number) => string = (
+    _item,
+    _index
+  ) => String(_item.id || _item.name || _item || _index)
+  export let getItemLabel: (_item: any) => string = (_item) =>
     String(_item.name || _item.label || _item)
-  export let getItemSubtext: ((item: any) => string) | undefined = undefined
+  export let getItemSubtext: ((_item: any) => string) | undefined = undefined
   export let selectedKey: string | null = null
   export let maxHeight: string = '300px'
 
