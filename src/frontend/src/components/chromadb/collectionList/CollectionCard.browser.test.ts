@@ -5,7 +5,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent } from '@testing-library/svelte'
 import { expect, test, vi } from 'vitest'
-import CollectionCard from '../CollectionCard.svelte'
+import CollectionCard from './CollectionCard.svelte'
 import type { ChromaDBCollection } from '@types/chromadb.ts'
 import type { Component } from 'svelte'
 

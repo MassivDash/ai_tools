@@ -199,7 +199,9 @@
     min-height: 60vh;
     overflow: hidden;
     width: 100%;
-    transition: margin-right 0.3s ease-in-out, transform 0.3s ease-in-out;
+    transition:
+      margin-right 0.3s ease-in-out,
+      transform 0.3s ease-in-out;
     margin-right: 0;
   }
 

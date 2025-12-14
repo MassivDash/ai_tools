@@ -29,10 +29,43 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
-test('renders ChromaDB manager', () => {
+test('renders ChromaDB manager', async () => {
+  // Mock API calls
+  mockedAxios.get.mockImplementation((url: string) => {
+    if (url === 'chromadb/health') {
+      return Promise.resolve({
+        data: {
+          success: true,
+          data: {
+            status: 'healthy',
+            version: '1.0.0',
+            chromadb: { connected: true }
+          }
+        }
+      })
+    }
+    if (url === 'chromadb/collections') {
+      return Promise.resolve({
+        data: {
+          success: true,
+          data: []
+        }
+      })
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`))
+  })
+
   render(ChromaDBManager)
 
-  expect(screen.getByText(/ChromaDB/)).toBeTruthy()
+  await waitFor(
+    () => {
+      // Check for the status text specifically, not the config panel header
+      expect(
+        screen.getByText(/ChromaDB (Connected|Disconnected)/)
+      ).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('checks health on mount', async () => {
