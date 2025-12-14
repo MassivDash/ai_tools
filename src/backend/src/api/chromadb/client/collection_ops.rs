@@ -52,6 +52,19 @@ pub async fn create_collection(
 
     let metadata_map = to_chromadb_metadata(metadata);
 
+    // Log distance metric if set
+    if let Some(ref meta) = metadata_map {
+        if let Some(space) = meta.get("hnsw:space") {
+            println!(
+                "📊 Distance metric configured: {} (via hnsw:space)",
+                match space {
+                    chroma::types::MetadataValue::Str(s) => s.as_str(),
+                    _ => "unknown",
+                }
+            );
+        }
+    }
+
     println!(
         "🔧 Calling chroma client.create_collection with name: '{}', metadata_map: {:?}",
         name, metadata_map
@@ -71,6 +84,26 @@ pub async fn create_collection(
         "✅ ChromaDB collection created successfully: {}",
         collection.name()
     );
+
+    // Verify the collection's metadata to check if distance metric was set
+    if let Some(collection_metadata) = collection.metadata() {
+        println!(
+            "📋 Collection metadata after creation: {:?}",
+            collection_metadata
+        );
+        if let Some(space) = collection_metadata.get("hnsw:space") {
+            println!(
+                "✅ Distance metric confirmed in collection: {}",
+                match space {
+                    chroma::types::MetadataValue::Str(s) => s.as_str(),
+                    _ => "unknown",
+                }
+            );
+        } else {
+            println!("⚠️ WARNING: Distance metric (hnsw:space) not found in collection metadata!");
+            println!("   The collection may be using default L2 distance instead of cosine.");
+        }
+    }
 
     Ok(Collection {
         id: collection.id().to_string(),

@@ -34,9 +34,12 @@ export interface QueryResponse {
   metadatas?: Array<Array<Record<string, any>>>
 }
 
+export type DistanceMetric = 'cosine' | 'l2' | 'ip'
+
 export interface CreateCollectionRequest {
   name: string
   metadata?: Record<string, string>
+  distance_metric?: DistanceMetric
 }
 
 export interface UploadDocumentRequest {
@@ -53,5 +56,3 @@ export interface ProcessingStatus {
   processed_files: number
   total_files: number
 }
-
-

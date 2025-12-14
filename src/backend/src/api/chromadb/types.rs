@@ -41,6 +41,15 @@ pub struct AddDocumentsRequest {
     pub metadatas: Option<Vec<HashMap<String, String>>>,
 }
 
+/// Distance metric options for ChromaDB collections
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DistanceMetric {
+    Cosine,
+    L2,
+    Ip,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChromaDBHealthResponse {
     pub status: String,

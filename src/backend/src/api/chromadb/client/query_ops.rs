@@ -12,6 +12,18 @@ use super::metadata::metadata_value_to_json;
 use super::ollama::OllamaManager;
 use super::where_clause::convert_where_clause;
 
+/// Normalize query embeddings to unit length for cosine similarity
+fn normalize_query_embeddings(embeddings: &mut [Vec<f32>]) {
+    for embedding in embeddings.iter_mut() {
+        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for value in embedding.iter_mut() {
+                *value /= norm;
+            }
+        }
+    }
+}
+
 /// Query a collection with embedding-based search
 pub async fn query_collection(
     client: &ChromaHttpClient,
@@ -36,10 +48,22 @@ pub async fn query_collection(
     // Generate query embeddings using Ollama
     let ollama_manager = OllamaManager::new(Default::default());
     let query_refs: Vec<&str> = request.query_texts.iter().map(|s| s.as_str()).collect();
-    let query_embeddings = ollama_manager
+    let mut query_embeddings = ollama_manager
         .generate_embeddings_with_server(&query_refs)
         .await
         .context("Failed to generate embeddings from query texts")?;
+
+    // Normalize query embeddings for cosine similarity
+    normalize_query_embeddings(&mut query_embeddings);
+
+    // Verify normalization
+    if let Some(first_embedding) = query_embeddings.first() {
+        let norm: f32 = first_embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        println!(
+            "📊 Query embedding norm after normalization: {:.4} (expected: ~1.0)",
+            norm
+        );
+    }
 
     let include = Some(IncludeList::default_query());
 
@@ -53,6 +77,25 @@ pub async fn query_collection(
         )
         .await
         .context("Failed to query collection")?;
+
+    // Log distance statistics for debugging
+    if let Some(ref distances) = results.distances {
+        if let Some(first_query_distances) = distances.first() {
+            if let Some(min_dist) = first_query_distances
+                .iter()
+                .flatten()
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+            {
+                if let Some(max_dist) = first_query_distances
+                    .iter()
+                    .flatten()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                {
+                    println!("📊 Query distance range: min={:.4}, max={:.4} (cosine distance, lower is better)", min_dist, max_dist);
+                }
+            }
+        }
+    }
 
     // Convert results to our format
     Ok(QueryResponse {

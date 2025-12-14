@@ -15,6 +15,7 @@
   let showForm = false
   let collectionName = ''
   let metadata: Record<string, string> = {}
+  let distanceMetric: 'cosine' | 'l2' | 'ip' | undefined = 'cosine'
   let loading = false
   let error = ''
 
@@ -24,6 +25,7 @@
       // Reset form when closing
       collectionName = ''
       metadata = {}
+      distanceMetric = 'cosine'
       error = ''
     }
   }
@@ -48,10 +50,10 @@
     error = ''
 
     try {
-      console.log('📝 Creating collection:', collectionName)
       const request: CreateCollectionRequest = {
         name: collectionName.trim(),
-        metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        distance_metric: distanceMetric
       }
 
       const response = await axiosBackendInstance.post<
@@ -59,7 +61,6 @@
       >('chromadb/collections', request)
 
       if (response.data.success && response.data.data) {
-        console.log('✅ Collection created:', response.data.data)
         // Add to collections store
         collections.update((cols) => [...cols, response.data.data!])
         // Select the newly created collection
@@ -67,6 +68,7 @@
         // Reset form
         collectionName = ''
         metadata = {}
+        distanceMetric = 'cosine'
         showForm = false
       } else {
         error = response.data.error || 'Failed to create collection'
@@ -112,6 +114,26 @@
           placeholder="Enter collection name..."
           disabled={loading}
         />
+      </div>
+
+      <div class="form-group">
+        <label for="distance-metric">Distance Metric *</label>
+        <select
+          id="distance-metric"
+          bind:value={distanceMetric}
+          disabled={loading}
+          class="select-input"
+        >
+          <option value="cosine"
+            >Cosine (Recommended for semantic search)</option
+          >
+          <option value="l2">L2 / Euclidean</option>
+          <option value="ip">Inner Product</option>
+        </select>
+        <p class="hint">
+          Cosine is recommended for semantic search with normalized embeddings
+          (like nomic-embed-text).
+        </p>
       </div>
 
       <div class="form-group">
@@ -289,6 +311,37 @@
     color: var(--text-tertiary);
     font-style: italic;
     transition: color 0.3s ease;
+    margin-top: 0.25rem;
+  }
+
+  .select-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    cursor: pointer;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  .select-input:hover:not(:disabled) {
+    border-color: var(--border-color-hover);
+  }
+
+  .select-input:focus {
+    outline: none;
+    border-color: var(--accent-color, #007bff);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  }
+
+  .select-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .form-actions {

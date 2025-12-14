@@ -21,6 +21,7 @@ export default [
         window: 'readonly',
         document: 'readonly',
         console: 'readonly',
+        File: 'readonly',
         // Node globals
         process: 'readonly',
         Buffer: 'readonly',
@@ -33,7 +34,7 @@ export default [
       }
     },
     rules: {
-      'no-console': 'warn',
+      'no-console': ['warn', { allow: ['error'] }],
       'no-unused-vars': [
         'warn',
         {

@@ -1,5 +1,5 @@
 use crate::api::chromadb::client::ChromaDBClient;
-use crate::api::chromadb::types::{ChromaDBResponse, Collection};
+use crate::api::chromadb::types::{ChromaDBResponse, Collection, DistanceMetric};
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -8,6 +8,8 @@ use std::collections::HashMap;
 pub struct CreateCollectionRequest {
     pub name: String,
     pub metadata: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub distance_metric: Option<DistanceMetric>,
 }
 
 #[post("/api/chromadb/collections")]
@@ -16,8 +18,8 @@ pub async fn create_collection(
     chroma_address: web::Data<String>,
 ) -> ActixResult<HttpResponse> {
     println!(
-        "📝 Creating collection request: name={}, metadata={:?}",
-        req.name, req.metadata
+        "📝 Creating collection request: name={}, metadata={:?}, distance_metric={:?}",
+        req.name, req.metadata, req.distance_metric
     );
 
     // Validate collection name
@@ -102,8 +104,21 @@ pub async fn create_collection(
         collection_name, sanitized_name
     );
 
+    // Merge distance_metric into metadata if provided
+    // ChromaDB accepts distance metric via metadata key "hnsw:space" or "distance_metric"
+    let mut metadata = req.metadata.clone().unwrap_or_default();
+    if let Some(metric) = &req.distance_metric {
+        let metric_str = match metric {
+            DistanceMetric::Cosine => "cosine",
+            DistanceMetric::L2 => "l2",
+            DistanceMetric::Ip => "ip",
+        };
+        metadata.insert("hnsw:space".to_string(), metric_str.to_string());
+        println!("🔧 Setting distance metric to: {}", metric_str);
+    }
+
     match client
-        .create_collection(sanitized_name, req.metadata.clone())
+        .create_collection(sanitized_name, Some(metadata))
         .await
     {
         Ok(collection) => {
