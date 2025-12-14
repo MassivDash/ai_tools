@@ -60,9 +60,7 @@ test('renders ChromaDB manager', async () => {
   await waitFor(
     () => {
       // Check for the status text specifically, not the config panel header
-      expect(
-        screen.getByText(/ChromaDB (Connected|Disconnected)/)
-      ).toBeTruthy()
+      expect(screen.getByText(/ChromaDB (Connected|Disconnected)/)).toBeTruthy()
     },
     { timeout: 2000 }
   )
