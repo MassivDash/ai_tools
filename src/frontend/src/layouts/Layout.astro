@@ -27,22 +27,27 @@ const { title } = Astro.props
     />
     <script is:inline>
       // Set theme immediately to prevent flash - runs on every navigation
-      const storedTheme = localStorage.getItem('theme')
-      let shouldBeDark = false
+      // Guard against SSR environments where window/document may not exist
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null
+        let shouldBeDark = false
 
-      if (storedTheme === 'dark') {
-        shouldBeDark = true
-      } else if (storedTheme === 'light') {
-        shouldBeDark = false
-      } else {
-        // 'system' or no preference - check system preference
-        shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      }
+        if (storedTheme === 'dark') {
+          shouldBeDark = true
+        } else if (storedTheme === 'light') {
+          shouldBeDark = false
+        } else {
+          // 'system' or no preference - check system preference
+          if (window.matchMedia) {
+            shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          }
+        }
 
-      if (shouldBeDark) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
+        if (shouldBeDark) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
       }
     </script>
   </head>

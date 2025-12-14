@@ -35,7 +35,7 @@ export const menuConfig: MenuConfig = {
     },
     {
       label: 'Agent Chat',
-      href: '/agent-creator',
+      href: '/agent',
       id: 'footer-agent-link',
       icon: 'codicon:agent'
     },
