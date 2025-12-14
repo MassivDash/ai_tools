@@ -5,6 +5,10 @@
     ChromaDBResponse,
     ProcessingStatus
   } from '../../types/chromadb.ts'
+  import {
+    DocumentUploadSchema,
+    validateFileType
+  } from '../../validation/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import Dropzone from '../ui/Dropzone.svelte'
   import XIcon from '../ui/icons/XIcon.svelte'
@@ -20,21 +24,14 @@
   let status: ProcessingStatus | null = null
 
   const handleFiles = (newFiles: File[]) => {
-    // Filter for supported file types
-    const supportedTypes = [
-      'application/pdf',
-      'text/markdown',
-      'text/plain',
-      'text/mdx'
-    ]
-    const validFiles = newFiles.filter(
-      (file) =>
-        supportedTypes.includes(file.type) ||
-        file.name.endsWith('.pdf') ||
-        file.name.endsWith('.md') ||
-        file.name.endsWith('.mdx') ||
-        file.name.endsWith('.txt')
-    )
+    // Filter for supported file types using Zod validation
+    const validFiles = newFiles.filter((file) => {
+      try {
+        return validateFileType(file)
+      } catch {
+        return false
+      }
+    })
 
     if (validFiles.length !== newFiles.length) {
       _error = ''
@@ -59,44 +56,70 @@
   }
 
   const uploadDocuments = async () => {
-    if (!selectedCollection) {
-      _error = ''
-      status = {
-        status: 'error',
-        progress: 0,
-        message: 'Please select a collection first',
-        processed_files: 0,
-        total_files: 0
-      }
-      return
-    }
-
-    if (files.length === 0) {
-      _error = ''
-      status = {
-        status: 'error',
-        progress: 0,
-        message: 'Please select at least one file',
-        processed_files: 0,
-        total_files: 0
-      }
-      return
-    }
-
     uploading = true
     _error = ''
     progress = 0
-    status = {
-      status: 'processing',
-      progress: 0,
-      message: 'Preparing files...',
-      processed_files: 0,
-      total_files: files.length
-    }
 
     try {
+      // Validate collection name with Zod
+      const collectionValidation = DocumentUploadSchema.safeParse({
+        collection: selectedCollection
+      })
+
+      if (!collectionValidation.success) {
+        const firstError = collectionValidation.error.issues[0]
+        _error = ''
+        status = {
+          status: 'error',
+          progress: 0,
+          message: firstError.message,
+          processed_files: 0,
+          total_files: 0
+        }
+        uploading = false
+        return
+      }
+
+      // Validate files
+      if (files.length === 0) {
+        _error = ''
+        status = {
+          status: 'error',
+          progress: 0,
+          message: 'Please select at least one file',
+          processed_files: 0,
+          total_files: 0
+        }
+        uploading = false
+        return
+      }
+
+      // Validate each file type
+      const invalidFiles = files.filter((file) => !validateFileType(file))
+      if (invalidFiles.length > 0) {
+        _error = ''
+        status = {
+          status: 'error',
+          progress: 0,
+          message:
+            'Some files have invalid types. Only PDF, Markdown, and text files are supported.',
+          processed_files: 0,
+          total_files: 0
+        }
+        uploading = false
+        return
+      }
+
+      status = {
+        status: 'processing',
+        progress: 0,
+        message: 'Preparing files...',
+        processed_files: 0,
+        total_files: files.length
+      }
+
       const formData = new FormData()
-      formData.append('collection', selectedCollection)
+      formData.append('collection', selectedCollection!)
       files.forEach((file) => {
         formData.append('files', file)
       })

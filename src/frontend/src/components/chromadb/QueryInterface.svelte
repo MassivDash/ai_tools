@@ -5,6 +5,7 @@
     QueryResponse,
     ChromaDBResponse
   } from '../../types/chromadb.ts'
+  import { QueryRequestSchema } from '../../validation/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import Input from '../ui/Input.svelte'
 
@@ -17,26 +18,26 @@
   let results: QueryResponse | null = null
 
   const performQuery = async () => {
-    if (!selectedCollection) {
-      error = 'Please select a collection first'
-      return
-    }
-
-    if (!queryText.trim()) {
-      error = 'Please enter a query'
-      return
-    }
-
     loading = true
     error = ''
     results = null
 
     try {
-      const request: QueryRequest = {
+      // Validate with Zod
+      const validationResult = QueryRequestSchema.safeParse({
         collection: selectedCollection,
         query_texts: [queryText.trim()],
         n_results: nResults
+      })
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.issues[0]
+        error = firstError.message
+        loading = false
+        return
       }
+
+      const request: QueryRequest = validationResult.data
 
       const response = await axiosBackendInstance.post<
         ChromaDBResponse<QueryResponse>

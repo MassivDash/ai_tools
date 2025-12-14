@@ -5,6 +5,10 @@
   import Accordion from '../ui/Accordion.svelte'
   import HelpIcon from '../ui/HelpIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
+  import {
+    LlamaConfigRequestSchema,
+    buildLlamaConfigPayload
+  } from '../../validation/llamaConfig.ts'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -120,27 +124,44 @@
   const handleSave = async () => {
     savingConfig = true
     error = ''
-    try {
-      const payload: any = {
-        hf_model: newHfModel.trim() || undefined,
-        ctx_size: newCtxSize > 0 ? newCtxSize : undefined
-      }
 
-      // Advanced options - only include if set
-      if (newThreads !== '') payload.threads = newThreads
-      if (newThreadsBatch !== '') payload.threads_batch = newThreadsBatch
-      if (newPredict !== '') payload.predict = newPredict
-      if (newBatchSize !== '') payload.batch_size = newBatchSize
-      if (newUbatchSize !== '') payload.ubatch_size = newUbatchSize
-      if (newFlashAttn) payload.flash_attn = newFlashAttn
-      if (newMlock) payload.mlock = newMlock
-      if (newNoMmap) payload.no_mmap = newNoMmap
-      if (newGpuLayers !== '') payload.gpu_layers = newGpuLayers
-      if (newModel.trim()) payload.model = newModel.trim()
+    // Validate required field (UI already enforces this, but add safety check)
+    if (!newHfModel.trim()) {
+      error = 'HuggingFace model is required'
+      savingConfig = false
+      return
+    }
+
+    try {
+      // Build payload using helper function
+      const payload = buildLlamaConfigPayload({
+        hf_model: newHfModel,
+        ctx_size: newCtxSize,
+        threads: newThreads,
+        threads_batch: newThreadsBatch,
+        predict: newPredict,
+        batch_size: newBatchSize,
+        ubatch_size: newUbatchSize,
+        flash_attn: newFlashAttn,
+        mlock: newMlock,
+        no_mmap: newNoMmap,
+        gpu_layers: newGpuLayers,
+        model: newModel
+      })
+
+      // Validate with Zod
+      const validationResult = LlamaConfigRequestSchema.safeParse(payload)
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.issues[0]
+        error = firstError.message
+        savingConfig = false
+        return
+      }
 
       const response = await axiosBackendInstance.post<LlamaServerResponse>(
         'llama-server/config',
-        payload
+        validationResult.data
       )
       if (response.data.success) {
         await loadConfig()

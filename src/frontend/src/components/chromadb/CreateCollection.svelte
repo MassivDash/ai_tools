@@ -6,6 +6,7 @@
     CreateCollectionRequest
   } from '../../types/chromadb.ts'
   import { collections, selectedCollection } from '../../stores/chromadb.ts'
+  import { CreateCollectionRequestSchema } from '../../validation/chromadb.ts'
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import PlusIcon from '../ui/icons/PlusIcon.svelte'
@@ -41,20 +42,25 @@
   }
 
   const createCollection = async () => {
-    if (!collectionName.trim()) {
-      error = 'Collection name is required'
-      return
-    }
-
     loading = true
     error = ''
 
     try {
-      const request: CreateCollectionRequest = {
+      // Validate with Zod
+      const validationResult = CreateCollectionRequestSchema.safeParse({
         name: collectionName.trim(),
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         distance_metric: distanceMetric
+      })
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.issues[0]
+        error = firstError.message
+        loading = false
+        return
       }
+
+      const request: CreateCollectionRequest = validationResult.data
 
       const response = await axiosBackendInstance.post<
         ChromaDBResponse<ChromaDBCollection>

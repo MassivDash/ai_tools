@@ -1,5 +1,6 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
+  import { UrlToMarkdownRequestSchema } from '../../validation/urlToMarkdown.ts'
 
   interface LinkInfo {
     original: string
@@ -31,11 +32,6 @@
   let followLinks = false
 
   const convertUrlToMarkdown = async () => {
-    if (!url.trim()) {
-      error = 'Please enter a valid URL'
-      return
-    }
-
     loading = true
     error = ''
     markdown = ''
@@ -44,18 +40,36 @@
     internalLinksCount = 0
 
     try {
+      // Validate with Zod
+      const validationResult = UrlToMarkdownRequestSchema.safeParse({
+        url: url.trim(),
+        extract_body: extractBody,
+        enable_preprocessing: enablePreprocessing,
+        remove_navigation: removeNavigation,
+        remove_forms: removeForms,
+        preprocessing_preset: enablePreprocessing ? preprocessingPreset : null,
+        follow_links: followLinks
+      })
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.issues[0]
+        error = firstError.message
+        loading = false
+        return
+      }
+
+      const requestData = validationResult.data
+
       const res = await axiosBackendInstance.post<MarkdownResponse | Blob>(
         'url-to-markdown',
         {
-          url: url.trim(),
-          extract_body: extractBody,
-          enable_preprocessing: enablePreprocessing,
-          remove_navigation: removeNavigation,
-          remove_forms: removeForms,
-          preprocessing_preset: enablePreprocessing
-            ? preprocessingPreset
-            : null,
-          follow_links: followLinks
+          url: requestData.url,
+          extract_body: requestData.extract_body,
+          enable_preprocessing: requestData.enable_preprocessing,
+          remove_navigation: requestData.remove_navigation,
+          remove_forms: requestData.remove_forms,
+          preprocessing_preset: requestData.preprocessing_preset,
+          follow_links: requestData.follow_links
         },
         {
           responseType: followLinks ? 'blob' : 'json'
