@@ -4,6 +4,9 @@ use crate::api::chromadb::collections::create_collection::create_collection;
 use crate::api::chromadb::collections::delete_collection::delete_collection;
 use crate::api::chromadb::collections::get_collection::get_collection;
 use crate::api::chromadb::collections::get_collections::get_collections;
+use crate::api::chromadb::config::get_config::get_chromadb_config;
+use crate::api::chromadb::config::get_models::get_ollama_models;
+use crate::api::chromadb::config::post_config::post_chromadb_config;
 use crate::api::chromadb::documents::upload::upload_documents;
 use crate::api::chromadb::health::get_chromadb_health;
 use crate::api::chromadb::query::search_collection;
@@ -16,7 +19,10 @@ pub fn configure_chromadb_services(cfg: &mut ServiceConfig) {
         .service(get_collection)
         .service(delete_collection)
         .service(search_collection)
-        .service(upload_documents);
+        .service(upload_documents)
+        .service(get_ollama_models)
+        .service(get_chromadb_config)
+        .service(post_chromadb_config);
 }
 
 #[cfg(test)]

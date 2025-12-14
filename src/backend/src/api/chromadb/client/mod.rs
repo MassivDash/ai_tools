@@ -106,12 +106,16 @@ impl ChromaDBClient {
     }
 
     /// Add documents to a collection with automatic embedding generation
-    pub async fn add_documents(&self, request: AddDocumentsRequest) -> Result<()> {
-        add_documents(&self.client, request).await
+    pub async fn add_documents(
+        &self,
+        request: AddDocumentsRequest,
+        embedding_model: &str,
+    ) -> Result<()> {
+        add_documents(&self.client, request, embedding_model).await
     }
 
     /// Query a collection with embedding-based search
-    pub async fn query(&self, request: QueryRequest) -> Result<QueryResponse> {
-        query_collection(&self.client, request).await
+    pub async fn query(&self, request: QueryRequest, query_model: &str) -> Result<QueryResponse> {
+        query_collection(&self.client, request, query_model).await
     }
 }

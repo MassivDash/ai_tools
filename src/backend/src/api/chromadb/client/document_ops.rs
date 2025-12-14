@@ -8,7 +8,7 @@ use chroma::types::Metadata;
 use chroma::ChromaHttpClient;
 
 use super::metadata::vec_to_chromadb_metadata;
-use super::ollama::OllamaManager;
+use super::ollama::{OllamaConfig, OllamaManager};
 
 /// Normalize embeddings to unit length for cosine similarity
 /// This ensures embeddings are on the unit sphere, which is required for proper cosine distance calculation
@@ -24,7 +24,11 @@ fn normalize_embeddings(embeddings: &mut [Vec<f32>]) {
 }
 
 /// Add documents to a collection with automatic embedding generation
-pub async fn add_documents(client: &ChromaHttpClient, request: AddDocumentsRequest) -> Result<()> {
+pub async fn add_documents(
+    client: &ChromaHttpClient,
+    request: AddDocumentsRequest,
+    embedding_model: &str,
+) -> Result<()> {
     let collection = client
         .get_collection(&request.collection)
         .await
@@ -34,17 +38,36 @@ pub async fn add_documents(client: &ChromaHttpClient, request: AddDocumentsReque
     let metadatas: Option<Vec<Option<Metadata>>> = request.metadatas.map(vec_to_chromadb_metadata);
 
     println!(
-        "🔧 Generating embeddings for {} documents using Ollama embedding function",
-        request.documents.len()
+        "🔧 Generating embeddings for {} documents using Ollama embedding model '{}'",
+        request.documents.len(),
+        embedding_model
     );
 
-    // Generate embeddings using Ollama
-    let ollama_manager = OllamaManager::new(Default::default());
+    // Generate embeddings using Ollama with configured model
+    let config = OllamaConfig {
+        model: embedding_model.to_string(),
+        ..Default::default()
+    };
+    let ollama_manager = OllamaManager::new(config);
     let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
     let mut embeddings = ollama_manager
         .generate_embeddings_with_server(&document_refs)
         .await
-        .context("Failed to generate embeddings from documents")?;
+        .with_context(|| {
+            format!(
+                "Failed to generate embeddings from documents using model '{}'",
+                embedding_model
+            )
+        })?;
+
+    // Log embedding dimension for debugging
+    if let Some(first_embedding) = embeddings.first() {
+        println!(
+            "📐 Document embedding dimension: {} (using model '{}')",
+            first_embedding.len(),
+            embedding_model
+        );
+    }
 
     // Normalize embeddings for cosine similarity (nomic-embed-text should already be normalized,
     // but we ensure it for consistency, especially important for cosine distance metric)

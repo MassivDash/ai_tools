@@ -120,9 +120,7 @@ test('displays HTML to Markdown component when selected', async () => {
 
   await waitFor(() => {
     expect(screen.getByText('HTML to Markdown Converter')).toBeTruthy()
-    expect(
-      screen.getByPlaceholderText('Paste your HTML here...')
-    ).toBeTruthy()
+    expect(screen.getByPlaceholderText('Paste your HTML here...')).toBeTruthy()
   })
 })
 

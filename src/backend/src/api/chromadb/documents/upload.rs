@@ -1,9 +1,10 @@
 use crate::api::chromadb::client::ChromaDBClient;
+use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::chromadb::types::{AddDocumentsRequest, ChromaDBResponse};
 use actix_multipart::Multipart;
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
 use futures_util::TryStreamExt;
-use std::sync::Once;
+use std::sync::{Arc, Mutex, Once};
 use tokenizers::tokenizer::{Result as TokenizerResult, Tokenizer};
 use uuid::Uuid;
 
@@ -52,6 +53,7 @@ fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
 pub async fn upload_documents(
     mut payload: Multipart,
     chroma_address: web::Data<String>,
+    chromadb_config: web::Data<Arc<Mutex<ChromaDBConfig>>>,
 ) -> ActixResult<HttpResponse> {
     let client = match ChromaDBClient::new(chroma_address.as_str()) {
         Ok(c) => c,
@@ -213,7 +215,13 @@ pub async fn upload_documents(
         metadatas: Some(all_metadatas),
     };
 
-    match client.add_documents(request).await {
+    // Get embedding model from config
+    let embedding_model = {
+        let config_guard = chromadb_config.lock().unwrap();
+        config_guard.embedding_model.clone()
+    };
+
+    match client.add_documents(request, &embedding_model).await {
         Ok(_) => {
             println!(
                 "✅ Successfully added {} documents to collection {}",

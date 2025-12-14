@@ -13,6 +13,7 @@ mod markdown_utils;
 mod services;
 mod utils;
 
+use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
@@ -45,6 +46,10 @@ async fn main() -> std::io::Result<()> {
     let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
     let llama_server_state: ServerStateHandle =
         Arc::new(Mutex::new(ServerState { is_ready: false }));
+
+    // Shared state for ChromaDB config
+    let chromadb_config: Arc<Mutex<ChromaDBConfig>> =
+        Arc::new(Mutex::new(ChromaDBConfig::default()));
 
     // Create WebSocket state ONCE before the server (shared across all workers)
     let ws_state = Arc::new(WebSocketState::new(
@@ -108,6 +113,7 @@ async fn main() -> std::io::Result<()> {
     let llama_server_state_data = llama_server_state.clone();
     let ws_state_data = ws_state.clone();
     let chroma_address_data = web::Data::new(chroma_address.clone());
+    let chromadb_config_data = chromadb_config.clone();
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -121,6 +127,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(llama_server_state_data.clone()))
             .app_data(web::Data::new(ws_state_data.clone()))
             .app_data(chroma_address_data.clone())
+            .app_data(web::Data::new(chromadb_config_data.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

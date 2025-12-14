@@ -9,11 +9,14 @@
   import CollectionList from './CollectionList.svelte'
   import DocumentUpload from './DocumentUpload.svelte'
   import QueryInterface from './QueryInterface.svelte'
+  import ChromaDBConfig from './ChromaDBConfig.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
+  import SettingsIcon from '../ui/icons/SettingsIcon.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
   let collectionListRef: CollectionList
+  let configPanelOpen = false
 
   const checkHealth = async () => {
     try {
@@ -76,44 +79,63 @@
         <span class="version">v{healthStatus.version}</span>
       {/if}
     </div>
-    <IconButton
-      variant="info"
-      onclick={checkHealth}
-      title="Refresh Health Status"
-    >
-      <RefreshIcon width="24" height="24" />
-    </IconButton>
+    <div class="status-actions">
+      <IconButton
+        variant="info"
+        onclick={() => (configPanelOpen = true)}
+        title="Configure Embedding Models"
+      >
+        <SettingsIcon width="24" height="24" />
+      </IconButton>
+      <IconButton
+        variant="info"
+        onclick={checkHealth}
+        title="Refresh Health Status"
+      >
+        <RefreshIcon width="24" height="24" />
+      </IconButton>
+    </div>
   </div>
 
-  <div class="manager-content">
-    <div class="left-panel">
-      <CollectionList bind:this={collectionListRef} />
-    </div>
+  <div class="content-area" class:has-config={configPanelOpen}>
+    <div class="manager-content" class:with-config={configPanelOpen}>
+      <div class="left-panel">
+        <CollectionList bind:this={collectionListRef} />
+      </div>
 
-    <div class="right-panel">
-      {#if $collections.length === 0}
-        <div class="no-selection">
-          <p>No collections, add collection to start</p>
-        </div>
-      {:else if $selectedCollection}
-        <div class="selected-collection">
-          <h2>Collection: {$selectedCollection.name}</h2>
-          <DocumentUpload
-            selectedCollection={$selectedCollection.name}
-            on:uploaded={handleDocumentUploaded}
-          />
-          {#if $selectedCollection.count !== undefined && $selectedCollection.count > 0}
-            <QueryInterface selectedCollection={$selectedCollection.name} />
-          {/if}
-        </div>
-      {:else}
-        <div class="no-selection">
-          <p>
-            👈 Select a collection from the left to upload documents or search
-          </p>
-        </div>
-      {/if}
+      <div class="right-panel">
+        {#if $collections.length === 0}
+          <div class="no-selection">
+            <p>No collections, add collection to start</p>
+          </div>
+        {:else if $selectedCollection}
+          <div class="selected-collection">
+            <h2>Collection: {$selectedCollection.name}</h2>
+            <DocumentUpload
+              key={$selectedCollection.name}
+              selectedCollection={$selectedCollection.name}
+              on:uploaded={handleDocumentUploaded}
+            />
+            {#if $selectedCollection.count !== undefined && $selectedCollection.count > 0}
+              <QueryInterface selectedCollection={$selectedCollection.name} />
+            {/if}
+          </div>
+        {:else}
+          <div class="no-selection">
+            <p>
+              👈 Select a collection from the left to upload documents or search
+            </p>
+          </div>
+        {/if}
+      </div>
     </div>
+    <ChromaDBConfig
+      isOpen={configPanelOpen}
+      onClose={() => (configPanelOpen = false)}
+      onSave={() => {
+        // Config saved, no action needed
+      }}
+    />
   </div>
 </div>
 
@@ -122,6 +144,9 @@
     width: 100%;
     max-width: 1400px;
     margin: 0 auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
   }
 
   .status-bar {
@@ -136,6 +161,12 @@
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
+  }
+
+  .status-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
   }
 
   .health-status {
@@ -165,10 +196,26 @@
       background-color 0.3s ease;
   }
 
+  .content-area {
+    flex: 1;
+    position: relative;
+    min-height: 60vh;
+    overflow: hidden;
+    width: 100%;
+    transition: margin-right 0.3s ease-in-out;
+    margin-right: 0;
+  }
+
+  .content-area.has-config {
+    margin-right: 70%;
+  }
+
   .manager-content {
     display: grid;
     grid-template-columns: 1fr 1.5fr;
     gap: 1.5rem;
+    width: 100%;
+    min-width: 0;
   }
 
   .left-panel,
@@ -210,6 +257,15 @@
   @media screen and (max-width: 1024px) {
     .manager-content {
       grid-template-columns: 1fr;
+    }
+
+    .content-area.has-config {
+      margin-right: 0;
+    }
+
+    :global(.config-panel) {
+      width: 100% !important;
+      top: 80px !important;
     }
   }
 </style>

@@ -23,6 +23,15 @@
   let _error = ''
   let status: ProcessingStatus | null = null
 
+  // Reset upload area when collection changes
+  $: if (selectedCollection) {
+    files = []
+    uploading = false
+    progress = 0
+    _error = ''
+    status = null
+  }
+
   const handleFiles = (newFiles: File[]) => {
     // Filter for supported file types using Zod validation
     const validFiles = newFiles.filter((file) => {

@@ -102,7 +102,10 @@ mod integration_tests {
             ]),
         };
 
-        client.add_documents(request).await.unwrap();
+        client
+            .add_documents(request, "nomic-embed-text")
+            .await
+            .unwrap();
 
         // Query
         let query_request = QueryRequest {
@@ -112,7 +115,10 @@ mod integration_tests {
             where_clause: None,
         };
 
-        let results = client.query(query_request).await.unwrap();
+        let results = client
+            .query(query_request, "nomic-embed-text")
+            .await
+            .unwrap();
         assert!(!results.ids.is_empty());
         assert_eq!(results.ids.len(), 1); // One query
         assert!(!results.ids[0].is_empty()); // Should have results
