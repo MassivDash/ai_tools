@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HtmlToMarkdown from '../htmlToMarkdown/htmlToMarkdown.svelte'
   import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
   import TextToTokens from '../textToTokens/textToTokens.svelte'
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
@@ -82,13 +83,7 @@
         {#if selectedTool === 'url-to-markdown'}
           <UrlToMarkdown />
         {:else if selectedTool === 'html-to-markdown'}
-          <div class="placeholder-tool">
-            <p>🚧 HTML to Markdown tool coming soon</p>
-            <p class="hint">
-              This tool will allow you to paste HTML content and convert it to
-              markdown format.
-            </p>
-          </div>
+          <HtmlToMarkdown />
         {:else if selectedTool === 'pdf-to-markdown'}
           <PdfToMarkdown />
         {:else if selectedTool === 'text-to-tokens'}
