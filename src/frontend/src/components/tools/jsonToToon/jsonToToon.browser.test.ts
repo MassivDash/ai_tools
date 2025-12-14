@@ -54,7 +54,9 @@ test('switches between paste and file modes', async () => {
   fireEvent.click(fileButton)
 
   await waitFor(() => {
-    expect(screen.queryByPlaceholderText('Paste your JSON here...')).not.toBeInTheDocument()
+    expect(
+      screen.queryByPlaceholderText('Paste your JSON here...')
+    ).not.toBeInTheDocument()
     expect(screen.getByText(/Choose JSON file/i)).toBeTruthy()
   })
 
@@ -335,10 +337,10 @@ test('sends correct request data with FormData (file mode)', async () => {
   // Mock FileReader
   class MockFileReader {
     result = ''
-    onload: ((e: any) => void) | null = null
+    onload: ((_e: any) => void) | null = null
     onerror: (() => void) | null = null
 
-    readAsText(file: File) {
+    readAsText(_file: File) {
       // Use setImmediate or Promise.resolve to ensure async behavior
       Promise.resolve().then(() => {
         if (this.onload) {
@@ -361,7 +363,9 @@ test('sends correct request data with FormData (file mode)', async () => {
   })
 
   // Mock file selection
-  const fileInput = screen.getByLabelText(/Choose JSON file/i) as HTMLInputElement
+  const fileInput = screen.getByLabelText(
+    /Choose JSON file/i
+  ) as HTMLInputElement
   const file = new File(['{"test": "value"}'], 'test.json', {
     type: 'application/json'
   })
@@ -425,7 +429,9 @@ test('format button only appears in paste mode', async () => {
   fireEvent.click(fileButton)
 
   await waitFor(() => {
-    expect(screen.queryByRole('button', { name: 'Format JSON' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Format JSON' })
+    ).not.toBeInTheDocument()
   })
 })
 
@@ -544,10 +550,10 @@ test('handles file upload with invalid JSON', async () => {
   // Mock FileReader
   class MockFileReader {
     result = ''
-    onload: ((e: any) => void) | null = null
+    onload: ((_e: any) => void) | null = null
     onerror: (() => void) | null = null
 
-    readAsText(file: File) {
+    readAsText(_file: File) {
       setTimeout(() => {
         if (this.onload) {
           this.onload({ target: { result: 'invalid json' } })
@@ -568,7 +574,9 @@ test('handles file upload with invalid JSON', async () => {
     expect(screen.getByText(/Choose JSON file/i)).toBeTruthy()
   })
 
-  const fileInput = screen.getByLabelText(/Choose JSON file/i) as HTMLInputElement
+  const fileInput = screen.getByLabelText(
+    /Choose JSON file/i
+  ) as HTMLInputElement
   const file = new File(['invalid json'], 'test.json', {
     type: 'application/json'
   })
@@ -622,4 +630,3 @@ test('sends count_tokens in request when enabled', async () => {
     )
   })
 })
-

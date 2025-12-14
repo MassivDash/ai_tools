@@ -261,7 +261,8 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
             .set_json(&JsonToToonRequest {
-                json: r#"{"users": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]}"#.to_string(),
+                json: r#"{"users": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]}"#
+                    .to_string(),
                 count_tokens: false,
             })
             .to_request();
@@ -442,12 +443,14 @@ mod tests {
 
         let body: ToonResponse = test::read_body_json(resp).await;
         assert!(!body.toon.is_empty());
-        
+
         // If tokens are counted, verify savings calculation
         if body.json_tokens > 0 && body.toon_tokens > 0 {
-            let expected_savings = ((body.json_tokens as f64 - body.toon_tokens as f64) / body.json_tokens as f64) * 100.0;
+            let expected_savings = ((body.json_tokens as f64 - body.toon_tokens as f64)
+                / body.json_tokens as f64)
+                * 100.0;
             assert!((body.token_savings - expected_savings).abs() < 0.01); // Allow small floating point differences
-            // TOON should generally have fewer tokens than JSON
+                                                                           // TOON should generally have fewer tokens than JSON
             assert!(body.toon_tokens <= body.json_tokens);
         }
     }
