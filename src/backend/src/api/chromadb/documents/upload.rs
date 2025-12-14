@@ -42,7 +42,8 @@ fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
         TOKENIZER.as_ref().ok_or_else(|| {
             // Create an error from a string message
             use std::io;
-            Box::new(io::Error::other("Tokenizer initialization failed")) as tokenizers::tokenizer::Error
+            Box::new(io::Error::other("Tokenizer initialization failed"))
+                as tokenizers::tokenizer::Error
         })
     }
 }

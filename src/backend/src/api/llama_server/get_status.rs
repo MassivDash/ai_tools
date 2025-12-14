@@ -61,7 +61,11 @@ async fn check_port_8080() -> bool {
 
     // Try to connect to localhost:8080 with a timeout
     matches!(
-        timeout(Duration::from_millis(100), TcpStream::connect("127.0.0.1:8080")).await,
+        timeout(
+            Duration::from_millis(100),
+            TcpStream::connect("127.0.0.1:8080")
+        )
+        .await,
         Ok(Ok(_))
     )
 }
