@@ -45,8 +45,12 @@ test('convert button is disabled when no file is selected', () => {
 test('displays selected file name and size', async () => {
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -58,8 +62,12 @@ test('displays selected file name and size', async () => {
 test('convert button is enabled when file is selected', async () => {
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -74,8 +82,12 @@ test('convert button shows loading state', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -101,8 +113,12 @@ test('successfully converts PDF to markdown', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -142,8 +158,12 @@ test('displays token count when count_tokens is enabled', async () => {
   )
   fireEvent.click(countTokensCheckbox)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -170,8 +190,12 @@ test('does not display token count when count_tokens is disabled', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -198,8 +222,12 @@ test('displays error message on API failure', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -220,8 +248,12 @@ test('displays generic error message when error format is unexpected', async () 
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -240,20 +272,26 @@ test('toggles advanced options', async () => {
 
   // Initially hidden
   expect(
-    screen.queryByText(/Count tokens \(may slow down conversion for large documents\)/i)
+    screen.queryByText(
+      /Count tokens \(may slow down conversion for large documents\)/i
+    )
   ).not.toBeInTheDocument()
 
   // Click to show
   fireEvent.click(toggleButton)
   expect(
-    screen.getByText(/Count tokens \(may slow down conversion for large documents\)/i)
+    screen.getByText(
+      /Count tokens \(may slow down conversion for large documents\)/i
+    )
   ).toBeTruthy()
 
   // Click to hide
   fireEvent.click(toggleButton)
   await waitFor(() => {
     expect(
-      screen.queryByText(/Count tokens \(may slow down conversion for large documents\)/i)
+      screen.queryByText(
+        /Count tokens \(may slow down conversion for large documents\)/i
+      )
     ).not.toBeInTheDocument()
   })
 })
@@ -271,8 +309,12 @@ test('sends correct request data with count_tokens disabled', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -314,8 +356,12 @@ test('sends correct request data with count_tokens enabled', async () => {
   )
   fireEvent.click(countTokensCheckbox)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -358,8 +404,12 @@ test('downloads markdown file', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file = new File(['test content'], 'test.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file] } })
 
@@ -370,7 +420,9 @@ test('downloads markdown file', async () => {
     expect(screen.getByText('Markdown Output:')).toBeTruthy()
   })
 
-  const downloadButton = screen.getByRole('button', { name: 'Download markdown file' })
+  const downloadButton = screen.getByRole('button', {
+    name: 'Download markdown file'
+  })
   fireEvent.click(downloadButton)
 
   // Verify download was triggered
@@ -399,8 +451,12 @@ test('clears previous results when new file is selected', async () => {
 
   render(PdfToMarkdown)
 
-  const fileInput = screen.getByLabelText(/Choose PDF file/i) as HTMLInputElement
-  const file1 = new File(['test content'], 'test1.pdf', { type: 'application/pdf' })
+  const fileInput = screen.getByLabelText(
+    /Choose PDF file/i
+  ) as HTMLInputElement
+  const file1 = new File(['test content'], 'test1.pdf', {
+    type: 'application/pdf'
+  })
 
   await fireEvent.change(fileInput, { target: { files: [file1] } })
 
@@ -412,11 +468,12 @@ test('clears previous results when new file is selected', async () => {
   })
 
   // Select a new file
-  const file2 = new File(['new content'], 'test2.pdf', { type: 'application/pdf' })
+  const file2 = new File(['new content'], 'test2.pdf', {
+    type: 'application/pdf'
+  })
   await fireEvent.change(fileInput, { target: { files: [file2] } })
 
   // Previous results should be cleared
   expect(screen.queryByText('Markdown Output:')).not.toBeInTheDocument()
   expect(screen.queryByText('test1.pdf')).not.toBeInTheDocument()
 })
-

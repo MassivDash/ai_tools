@@ -23,7 +23,6 @@ pub struct Args {
     pub port: String,
     pub env: String,
     pub cors_url: String,
-    pub cookie_domain: Option<String>,
     pub chroma_address: Option<String>,
 }
 
@@ -32,7 +31,6 @@ pub fn collect_args(args: Vec<String>) -> Args {
     let mut host = "127.0.0.1";
     let mut port = 8080;
     let mut cors_url = "astrox.spaceout.pl";
-    let mut cookie_domain: Option<String> = None;
     let mut chroma_address: Option<String> = None;
 
     for arg in &args {
@@ -64,13 +62,6 @@ pub fn collect_args(args: Vec<String>) -> Args {
             }
         }
 
-        if arg.starts_with("--cookie_domain=") {
-            let split: Vec<&str> = arg.split('=').collect();
-            if split.len() == 2 && !split[1].is_empty() {
-                cookie_domain = Some(split[1].to_string());
-            }
-        }
-
         if arg.starts_with("--chroma_address=") {
             let split: Vec<&str> = arg.split('=').collect();
             if split.len() == 2 && !split[1].is_empty() {
@@ -84,7 +75,6 @@ pub fn collect_args(args: Vec<String>) -> Args {
         port: port.to_string(),
         env: env.to_string(),
         cors_url: cors_url.to_string(),
-        cookie_domain,
         chroma_address,
     }
 }

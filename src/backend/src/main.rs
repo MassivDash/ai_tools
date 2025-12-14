@@ -8,40 +8,21 @@ use actix_web::{middleware, web, App, HttpServer};
 
 mod api;
 mod args;
-mod auth;
 mod cors;
 mod markdown_utils;
-mod session;
-mod ssr_routes;
+mod services;
 mod utils;
 
-use crate::api::chromadb::collections::create_collection::create_collection;
-use crate::api::chromadb::collections::delete_collection::delete_collection;
-use crate::api::chromadb::collections::get_collection::get_collection;
-use crate::api::chromadb::collections::get_collections::get_collections;
-use crate::api::chromadb::documents::upload::upload_documents;
-use crate::api::chromadb::health::get_chromadb_health;
-use crate::api::chromadb::query::search_collection;
-use crate::api::llama_server::get_config::get_llama_config;
-use crate::api::llama_server::get_logs::get_llama_logs;
-use crate::api::llama_server::get_models::get_llama_models;
-use crate::api::llama_server::get_status::get_llama_server_status;
-use crate::api::llama_server::post_config::post_update_config;
-use crate::api::llama_server::post_start::post_start_llama_server;
-use crate::api::llama_server::post_stop::post_stop_llama_server;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
-use crate::api::pdf_to_markdown::post::convert_pdf_to_markdown;
-use crate::api::text_to_tokens::post::convert_text_to_tokens;
-use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
-use crate::auth::auth_middleware::Authentication;
 use crate::cors::get_cors_options::get_cors_options;
-use crate::session::flash_messages::set_up_flash_messages;
-use crate::ssr_routes::login::login_form;
-use crate::ssr_routes::post_login::post_login;
+use crate::services::chromadb::configure_chromadb_services;
+use crate::services::converters::configure_converter_services;
+use crate::services::llama_server::configure_llama_server_services;
+
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
@@ -51,7 +32,6 @@ async fn main() -> std::io::Result<()> {
     let host = args.host;
     let port = args.port.parse::<u16>().unwrap();
     let cors_url = args.cors_url;
-    let cookie_domain = args.cookie_domain;
 
     // Get chroma_address from args or use default
     let chroma_address = args
@@ -131,7 +111,6 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
-        let auth_routes: Vec<String> = vec!["/auth/*".to_string()]; // Routes that require authentication
 
         // The services and wrappers are loaded from the last to first
         // Ensure all the wrappers are after routes and handlers
@@ -143,30 +122,14 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(ws_state_data.clone()))
             .app_data(chroma_address_data.clone())
             .wrap(cors)
-            .route("/login", web::get().to(login_form))
-            .route("/login", web::post().to(post_login))
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
                 "/api/llama-server/status/ws",
                 web::get().to(status_websocket),
             )
-            .service(convert_url_to_markdown)
-            .service(convert_pdf_to_markdown)
-            .service(convert_text_to_tokens)
-            .service(get_llama_server_status)
-            .service(get_llama_models)
-            .service(get_llama_config)
-            .service(get_llama_logs)
-            .service(post_start_llama_server)
-            .service(post_stop_llama_server)
-            .service(post_update_config)
-            .service(get_chromadb_health)
-            .service(get_collections)
-            .service(create_collection)
-            .service(get_collection)
-            .service(delete_collection)
-            .service(search_collection)
-            .service(upload_documents)
+            .configure(configure_converter_services)
+            .configure(configure_llama_server_services)
+            .configure(configure_chromadb_services)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)
@@ -178,13 +141,6 @@ async fn main() -> std::io::Result<()> {
                         Ok(ServiceResponse::new(req, res))
                     })),
             )
-            .wrap(Authentication {
-                routes: auth_routes,
-            })
-            .wrap(session::session_middleware::session_middleware(
-                cookie_domain.clone(),
-            ))
-            .wrap(set_up_flash_messages())
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .wrap(NormalizePath::new(TrailingSlash::Trim)) // Add this line to handle trailing slashes\
