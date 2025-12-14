@@ -1,6 +1,6 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import { UrlToMarkdownRequestSchema } from '../../validation/urlToMarkdown.ts'
+  import { UrlToMarkdownRequestSchema } from '@validation/urlToMarkdown.ts'
 
   interface LinkInfo {
     original: string
@@ -24,7 +24,7 @@
 
   // Advanced options
   let showAdvanced = false
-  let extractBody = true
+  let extractBody = false
   let enablePreprocessing = false
   let removeNavigation = false
   let removeForms = false
@@ -370,15 +370,19 @@
 
   .url-info {
     padding: 0.75rem;
-    background-color: #e8f5e9;
-    border: 1px solid #c8e6c9;
+    background-color: var(--bg-secondary, #e8f5e9);
+    border: 1px solid var(--border-color, #c8e6c9);
     border-radius: 4px;
     margin-bottom: 1rem;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .url-info a {
-    color: #2e7d32;
+    color: var(--accent-color, #2e7d32);
     word-break: break-all;
+    transition: color 0.3s ease;
   }
 
   .markdown-container {
@@ -451,15 +455,19 @@
   .links-info {
     margin-top: 1rem;
     padding: 1rem;
-    background-color: #e3f2fd;
-    border: 1px solid #90caf9;
+    background-color: var(--bg-secondary, #e3f2fd);
+    border: 1px solid var(--border-color, #90caf9);
     border-radius: 4px;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .links-info h4 {
     margin-top: 0;
     margin-bottom: 0.75rem;
-    color: #1976d2;
+    color: var(--text-primary, #1976d2);
+    transition: color 0.3s ease;
   }
 
   .links-list {
@@ -470,7 +478,8 @@
 
   .links-list li {
     padding: 0.5rem 0;
-    border-bottom: 1px solid #bbdefb;
+    border-bottom: 1px solid var(--border-color, #bbdefb);
+    transition: border-color 0.3s ease;
   }
 
   .links-list li:last-child {
@@ -478,9 +487,10 @@
   }
 
   .links-list a {
-    color: #1976d2;
+    color: var(--accent-color, #1976d2);
     text-decoration: none;
     font-weight: 500;
+    transition: color 0.3s ease;
   }
 
   .links-list a:hover {
@@ -488,9 +498,10 @@
   }
 
   .link-url {
-    color: #666;
+    color: var(--text-secondary, #666);
     font-size: 0.9rem;
     margin-left: 0.5rem;
+    transition: color 0.3s ease;
   }
 
   .advanced-section {
@@ -581,8 +592,9 @@
 
   .select-group label {
     font-size: 0.9rem;
-    color: #555;
+    color: var(--text-primary, #555);
     font-weight: 500;
+    transition: color 0.3s ease;
   }
 
   .preset-select {

@@ -269,7 +269,7 @@ test('sends correct request data with default options', async () => {
       'url-to-markdown',
       expect.objectContaining({
         url: 'https://example.com',
-        extract_body: true,
+        extract_body: false,
         enable_preprocessing: false,
         remove_navigation: false,
         remove_forms: false,
