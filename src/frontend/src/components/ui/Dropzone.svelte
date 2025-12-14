@@ -66,13 +66,31 @@
     e.stopPropagation() // Prevent dropzone click handler
     fileInput?.click()
   }
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (disabled) return
+    // Don't trigger if focus is on the button or label
+    const target = e.target as HTMLElement
+    if (target.closest('.file-input-label') || target.closest('button')) {
+      return
+    }
+    // Trigger file input on Enter or Space
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      fileInput?.click()
+    }
+  }
 </script>
 
 <div
   class="dropzone"
   class:active={dragActive}
   class:disabled
+  role="button"
+  tabindex={disabled ? -1 : 0}
+  aria-label="Drop files here or click to browse"
   onclick={handleDropzoneClick}
+  onkeydown={handleKeydown}
   ondragenter={handleDrag}
   ondragover={handleDrag}
   ondragleave={handleDrag}
@@ -96,11 +114,7 @@
       </svg>
     </div>
     <p class="dropzone-text">Drag and drop files here, or</p>
-    <label
-      for={fileInputId}
-      class="file-input-label"
-      onclick={(e) => e.stopPropagation()}
-    >
+    <label for={fileInputId} class="file-input-label">
       <Button
         type="button"
         variant="primary"

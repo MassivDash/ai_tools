@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",
+    "test:related": "vitest related --run",
     "coverage": "vitest run --coverage",
     "lint:all": "prettier --write  \"**/*.{js,jsx,ts,tsx,md,mdx,astro,svelte}\" && eslint --fix \"src/**/*.{js,ts,jsx,tsx,astro,svelte}\"",
     "lint:staged": "npm run lint:staged::prettier && npm run lint:staged::eslint",

@@ -1,19 +1,34 @@
 <script lang="ts">
-  export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'info' =
-    'primary'
-  export let disabled: boolean = false
-  export let type: 'button' | 'submit' | 'reset' = 'button'
-  export let size: 'small' | 'medium' | 'large' = 'medium'
+  interface Props {
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info'
+    disabled?: boolean
+    type?: 'button' | 'submit' | 'reset'
+    size?: 'small' | 'medium' | 'large'
+    class?: string
+    children?: import('svelte').Snippet
+    onclick?: (e: MouseEvent) => void
+  }
 
-  let extraClass = ''
-  export { extraClass as class }
+  let {
+    variant = 'primary',
+    disabled = false,
+    type = 'button',
+    size = 'medium',
+    class: extraClass = '',
+    children,
+    onclick,
+    ...restProps
+  }: Props = $props()
 
-  $: classes =
+  const classes = $derived(
     `button button-${variant} button-${size} ${extraClass || ''}`.trim()
+  )
 </script>
 
-<button {type} {disabled} class={classes} on:click {...$$restProps}>
-  <slot />
+<button {type} {disabled} class={classes} {onclick} {...restProps}>
+  {#if children}
+    {@render children()}
+  {/if}
 </button>
 
 <style>

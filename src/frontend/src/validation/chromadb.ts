@@ -69,4 +69,3 @@ export const FileValidationSchema = z
     message:
       'File type not supported. Only PDF, Markdown (.md, .mdx), and Text (.txt) files are allowed.'
   })
-

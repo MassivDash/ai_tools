@@ -7,7 +7,11 @@ const urlSchema = z
   .url({ message: 'Please enter a valid URL' })
 
 // Preprocessing preset enum
-export const PreprocessingPresetSchema = z.enum(['minimal', 'standard', 'aggressive'])
+export const PreprocessingPresetSchema = z.enum([
+  'minimal',
+  'standard',
+  'aggressive'
+])
 
 // URL to Markdown Request Schema
 export const UrlToMarkdownRequestSchema = z.object({
@@ -19,4 +23,3 @@ export const UrlToMarkdownRequestSchema = z.object({
   preprocessing_preset: PreprocessingPresetSchema.nullable().optional(),
   follow_links: z.boolean().default(false)
 })
-

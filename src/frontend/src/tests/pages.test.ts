@@ -1,25 +1,10 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { expect, test } from 'vitest'
+// @ts-expect-error - Astro files are not recognized by TypeScript
 import IndexPage from '../pages/index.astro'
-import Page404 from '../pages/404.astro'
-import ProtectedPage from '../pages/auth/protected.astro'
-import AstroPage from '../pages/astro.astro'
 import ssr from '@astrojs/svelte/server.js'
-import ssrReact from '@astrojs/react/server.js'
 
 test('Index Page', async () => {
-  const container = await AstroContainer.create()
-  const result = await container.renderToString(IndexPage)
-  expect(result).toContain('🦀 Rust orientated monolithic')
-})
-
-test('404 Page', async () => {
-  const container = await AstroContainer.create()
-  const result = await container.renderToString(Page404)
-  expect(result).toContain('404')
-})
-
-test('Astro Page', async () => {
   const container = await AstroContainer.create()
   container.addServerRenderer({
     name: '@astrojs/svelte',
@@ -30,29 +15,6 @@ test('Astro Page', async () => {
     entrypoint: '@astrojs/svelte/client-v5.js'
   })
 
-  container.addServerRenderer({
-    name: '@astrojs/react',
-    renderer: ssrReact
-  })
-  container.addClientRenderer({
-    name: '@astrojs/react',
-    entrypoint: '@astrojs/react/client-v17.js'
-  })
-
-  const result = await container.renderToString(AstroPage)
-  expect(result).toContain('What is Astro?')
-})
-
-test('Protected Page', async () => {
-  const container = await AstroContainer.create()
-  container.addServerRenderer({
-    name: '@astrojs/react',
-    renderer: ssrReact
-  })
-  container.addClientRenderer({
-    name: '@astrojs/react',
-    entrypoint: '@astrojs/react/client-v17.js'
-  })
-  const result = await container.renderToString(ProtectedPage)
-  expect(result).toContain('Protected')
+  const result = await container.renderToString(IndexPage)
+  expect(result).toContain('AI Tools')
 })

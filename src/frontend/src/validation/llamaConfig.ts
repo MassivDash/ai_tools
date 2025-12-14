@@ -12,28 +12,37 @@ export const LlamaConfigRequestSchema = z.object({
     .number()
     .int()
     .positive('Context size must be greater than 0')
-    .optional(),    
-  threads: z.number().int().nullable().optional(), 
+    .optional(),
+  threads: z.number().int().nullable().optional(),
   threads_batch: z.number().int().nullable().optional(),
   predict: z.number().int().nullable().optional(),
   batch_size: z
     .number()
     .int()
     .positive('Batch size must be greater than 0')
-    .nullable().optional(),
+    .nullable()
+    .optional(),
   ubatch_size: z
     .number()
     .int()
     .positive('UBatch size must be greater than 0')
-    .nullable().optional(),
+    .nullable()
+    .optional(),
   flash_attn: z.boolean().nullable().optional(),
   mlock: z.boolean().nullable().optional(),
   no_mmap: z.boolean().nullable().optional(),
   gpu_layers: z
     .number()
     .int()
-    .nonnegative('GPU layers must be 0 or greater').nullable().optional(),
-  model: z.string().trim().min(1, 'Model path cannot be empty').nullable().optional()
+    .nonnegative('GPU layers must be 0 or greater')
+    .nullable()
+    .optional(),
+  model: z
+    .string()
+    .trim()
+    .min(1, 'Model path cannot be empty')
+    .nullable()
+    .optional()
 })
 
 // Helper function to build the payload from form values
@@ -104,4 +113,3 @@ export const buildLlamaConfigPayload = (values: {
 
   return payload
 }
-
