@@ -127,8 +127,10 @@ test('clears search when clear button is clicked', async () => {
 test('dispatches select event when item is clicked', async () => {
   const handleSelect = vi.fn()
   render(SearchableList, {
-    props: { items: mockItems },
-    events: { select: handleSelect }
+    props: { 
+      items: mockItems,
+      onselect: handleSelect
+    }
   })
 
   const appleItem = screen.getByText('Apple').closest('button')
@@ -138,7 +140,9 @@ test('dispatches select event when item is clicked', async () => {
     expect(handleSelect).toHaveBeenCalledTimes(1)
     expect(handleSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        detail: { id: '1', name: 'Apple', category: 'Fruit' }
+        id: '1',
+        name: 'Apple',
+        category: 'Fruit'
       })
     )
   })
@@ -352,8 +356,10 @@ test('handles whitespace in search query', async () => {
 test('multiple items can be clicked', async () => {
   const handleSelect = vi.fn()
   render(SearchableList, {
-    props: { items: mockItems },
-    events: { select: handleSelect }
+    props: { 
+      items: mockItems,
+      onselect: handleSelect
+    }
   })
 
   const appleItem = screen.getByText('Apple').closest('button')

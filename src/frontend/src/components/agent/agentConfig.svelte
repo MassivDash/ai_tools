@@ -56,10 +56,11 @@
 
   const loadConfig = async () => {
     try {
-      const response = await axiosBackendInstance.get<AgentConfig>('agent/config')
+      const response =
+        await axiosBackendInstance.get<AgentConfig>('agent/config')
       enabledTools = response.data.enabled_tools || []
       financialDataEnabled = enabledTools.includes('financial_data')
-      
+
       // ChromaDB is now separate from enabled_tools
       if (response.data.chromadb) {
         chromadbEnabled = true
@@ -131,7 +132,7 @@
     } else {
       enabledTools = [...enabledTools, tool]
     }
-    
+
     if (tool === 'financial_data') {
       financialDataEnabled = enabledTools.includes('financial_data')
     }
@@ -169,9 +170,9 @@
         chromadb: chromadbEnabled
           ? {
               collection: selectedCollection,
-              embedding_model: selectedEmbeddingModel,
+              embedding_model: selectedEmbeddingModel
             }
-          : undefined,
+          : undefined
       }
 
       const response = await axiosBackendInstance.post<AgentConfigResponse>(
@@ -346,7 +347,8 @@
     <Button
       variant="primary"
       onclick={handleSave}
-      disabled={savingConfig || (chromadbEnabled && (!selectedCollection || !selectedEmbeddingModel))}
+      disabled={savingConfig ||
+        (chromadbEnabled && (!selectedCollection || !selectedEmbeddingModel))}
     >
       {savingConfig ? 'Saving...' : 'Save'}
     </Button>
