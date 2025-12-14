@@ -113,17 +113,23 @@ test('loads config and models on open', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(mockedAxios.get).toHaveBeenCalledWith('llama-server/config')
-    expect(mockedAxios.get).toHaveBeenCalledWith('llama-server/models')
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(mockedAxios.get).toHaveBeenCalledWith('llama-server/config')
+      expect(mockedAxios.get).toHaveBeenCalledWith('llama-server/models')
+    },
+    { timeout: 2000 }
+  )
 
-  await waitFor(() => {
-    const input = screen.getByPlaceholderText(
-      /e.g., unsloth\/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL/
-    ) as HTMLInputElement
-    expect(input.value).toBe('test-model')
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      const input = screen.getByPlaceholderText(
+        /e.g., unsloth\/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL/
+      ) as HTMLInputElement
+      expect(input.value).toBe('test-model')
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('displays local models in searchable list', async () => {
@@ -158,9 +164,12 @@ test('displays local models in searchable list', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Model 1')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Model 1')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('shows loading state when loading models', async () => {
@@ -184,9 +193,12 @@ test('shows loading state when loading models', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Loading models...')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Loading models...')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('shows empty state when no models found', async () => {
@@ -210,11 +222,14 @@ test('shows empty state when no models found', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(
-      screen.getByText(/No GGUF models found in ~\/\.cache\/llama\.cpp\//)
-    ).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(
+        screen.getByText(/No GGUF models found in ~\/\.cache\/llama\.cpp\//)
+      ).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('allows selecting model from list', async () => {
@@ -248,25 +263,33 @@ test('allows selecting model from list', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Model 1')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Model 1')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 
   // Find the model item and click it
   // The SearchableList component dispatches a select event
   const modelItem = screen.getByText('Model 1')
-  const listItem = modelItem.closest('div[role="button"]') || modelItem.closest('.searchable-list-item')
-  
+  const listItem =
+    modelItem.closest('div[role="button"]') ||
+    modelItem.closest('.searchable-list-item')
+
   if (listItem) {
     fireEvent.click(listItem)
-    
-    await waitFor(() => {
-      const input = screen.getByPlaceholderText(
-        /e.g., unsloth\/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL/
-      ) as HTMLInputElement
-      // The value might be model1 or the path, depending on which is used
-      expect(input.value.length).toBeGreaterThan(0)
-    }, { timeout: 2000 })
+
+    await waitFor(
+      () => {
+        const input = screen.getByPlaceholderText(
+          /e.g., unsloth\/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL/
+        ) as HTMLInputElement
+        // The value might be model1 or the path, depending on which is used
+        expect(input.value.length).toBeGreaterThan(0)
+      },
+      { timeout: 2000 }
+    )
   }
 })
 
@@ -303,9 +326,12 @@ test('saves config successfully', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Server Configuration')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Server Configuration')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 
   // Fill in model name
   const modelInput = screen.getByPlaceholderText(
@@ -314,28 +340,37 @@ test('saves config successfully', async () => {
   fireEvent.input(modelInput, { target: { value: 'test-model' } })
 
   // Wait for input to update
-  await waitFor(() => {
-    expect(modelInput.value).toBe('test-model')
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(modelInput.value).toBe('test-model')
+    },
+    { timeout: 2000 }
+  )
 
   // Click save
   const saveButton = screen.getByText('Save')
   expect(saveButton).not.toBeDisabled()
   fireEvent.click(saveButton)
 
-  await waitFor(() => {
-    expect(mockedAxios.post).toHaveBeenCalledWith(
-      'llama-server/config',
-      expect.objectContaining({
-        hf_model: 'test-model'
-      })
-    )
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'llama-server/config',
+        expect.objectContaining({
+          hf_model: 'test-model'
+        })
+      )
+    },
+    { timeout: 2000 }
+  )
 
-  await waitFor(() => {
-    expect(onSave).toHaveBeenCalled()
-    expect(onClose).toHaveBeenCalled()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(onSave).toHaveBeenCalled()
+      expect(onClose).toHaveBeenCalled()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('shows error when save fails', async () => {
@@ -363,9 +398,12 @@ test('shows error when save fails', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Server Configuration')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Server Configuration')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 
   // Fill in model name
   const modelInput = screen.getByPlaceholderText(
@@ -373,17 +411,23 @@ test('shows error when save fails', async () => {
   ) as HTMLInputElement
   fireEvent.input(modelInput, { target: { value: 'test-model' } })
 
-  await waitFor(() => {
-    expect(modelInput.value).toBe('test-model')
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(modelInput.value).toBe('test-model')
+    },
+    { timeout: 2000 }
+  )
 
   // Click save
   const saveButton = screen.getByText('Save')
   fireEvent.click(saveButton)
 
-  await waitFor(() => {
-    expect(screen.getByText(/Failed to save config/)).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText(/Failed to save config/)).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('disables save button when model name is empty', async () => {
@@ -407,10 +451,13 @@ test('disables save button when model name is empty', async () => {
     }
   })
 
-  await waitFor(() => {
-    const saveButton = screen.getByText('Save')
-    expect(saveButton).toBeDisabled()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      const saveButton = screen.getByText('Save')
+      expect(saveButton).toBeDisabled()
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('allows changing context size', async () => {
@@ -434,10 +481,13 @@ test('allows changing context size', async () => {
     }
   })
 
-  await waitFor(() => {
-    const ctxInput = screen.getByLabelText(/Context Size/) as HTMLInputElement
-    expect(ctxInput.value).toBe('10240')
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      const ctxInput = screen.getByLabelText(/Context Size/) as HTMLInputElement
+      expect(ctxInput.value).toBe('10240')
+    },
+    { timeout: 2000 }
+  )
 
   const ctxInput = screen.getByLabelText(/Context Size/) as HTMLInputElement
   fireEvent.input(ctxInput, { target: { value: '2048' } })
@@ -466,20 +516,29 @@ test('allows toggling advanced options accordion', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Advanced Options')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Advanced Options')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 
   // Click to expand - find the button/header element
   const accordionHeader = screen.getByText('Advanced Options')
-  const clickableElement = accordionHeader.closest('button') || accordionHeader.closest('[role="button"]') || accordionHeader
+  const clickableElement =
+    accordionHeader.closest('button') ||
+    accordionHeader.closest('[role="button"]') ||
+    accordionHeader
   fireEvent.click(clickableElement)
 
-  await waitFor(() => {
-    // There might be multiple elements with "Threads" text, so use getAllByLabelText
-    const threadsInputs = screen.getAllByLabelText(/Threads/)
-    expect(threadsInputs.length).toBeGreaterThan(0)
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      // There might be multiple elements with "Threads" text, so use getAllByLabelText
+      const threadsInputs = screen.getAllByLabelText(/Threads/)
+      expect(threadsInputs.length).toBeGreaterThan(0)
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('closes config panel when cancel is clicked', async () => {
@@ -493,16 +552,22 @@ test('closes config panel when cancel is clicked', async () => {
     }
   })
 
-  await waitFor(() => {
-    expect(screen.getByText('Server Configuration')).toBeTruthy()
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(screen.getByText('Server Configuration')).toBeTruthy()
+    },
+    { timeout: 2000 }
+  )
 
   const cancelButton = screen.getByText('Cancel')
   fireEvent.click(cancelButton)
 
-  await waitFor(() => {
-    expect(onClose).toHaveBeenCalledTimes(1)
-  }, { timeout: 2000 })
+  await waitFor(
+    () => {
+      expect(onClose).toHaveBeenCalledTimes(1)
+    },
+    { timeout: 2000 }
+  )
 })
 
 test('closes config panel when close button is clicked', async () => {
@@ -521,4 +586,3 @@ test('closes config panel when close button is clicked', async () => {
 
   expect(onClose).toHaveBeenCalledTimes(1)
 })
-

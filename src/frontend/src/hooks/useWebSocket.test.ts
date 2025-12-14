@@ -14,10 +14,10 @@ class MockWebSocket {
 
   url: string
   readyState: number = MockWebSocket.CONNECTING
-  onopen: ((event: Event) => void) | null = null
-  onmessage: ((event: MessageEvent) => void) | null = null
-  onerror: ((event: Event) => void) | null = null
-  onclose: ((event: CloseEvent) => void) | null = null
+  onopen: ((_event: Event) => void) | null = null
+  onmessage: ((_event: MessageEvent) => void) | null = null
+  onerror: ((_event: Event) => void) | null = null
+  onclose: ((_event: CloseEvent) => void) | null = null
 
   constructor(url: string) {
     this.url = url
@@ -241,7 +241,7 @@ test('disconnect clears reconnect timeout and closes connection', async () => {
 
   // Immediately after disconnect, socket should be null
   expect(ws.socket).toBe(null)
-  
+
   // Wait a bit for any async operations
   await new Promise((resolve) => setTimeout(resolve, 50))
 
@@ -272,4 +272,3 @@ test('handles connection errors gracefully', () => {
   // Restore
   global.WebSocket = originalWebSocket
 })
-

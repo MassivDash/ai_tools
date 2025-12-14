@@ -3,7 +3,7 @@
  */
 
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
-import { useStatusWebSocket, type LlamaServerStatus } from './useStatusWebSocket'
+import { useStatusWebSocket } from './useStatusWebSocket'
 
 // Mock WebSocket
 class MockWebSocket {
@@ -14,10 +14,10 @@ class MockWebSocket {
 
   url: string
   readyState: number = MockWebSocket.CONNECTING
-  onopen: ((event: Event) => void) | null = null
-  onmessage: ((event: MessageEvent) => void) | null = null
-  onerror: ((event: Event) => void) | null = null
-  onclose: ((event: CloseEvent) => void) | null = null
+  onopen: ((_event: Event) => void) | null = null
+  onmessage: ((_event: MessageEvent) => void) | null = null
+  onerror: ((_event: Event) => void) | null = null
+  onclose: ((_event: CloseEvent) => void) | null = null
 
   constructor(url: string) {
     this.url = url
@@ -58,7 +58,7 @@ beforeEach(() => {
   vi.spyOn(global, 'setTimeout')
   vi.spyOn(global, 'clearTimeout')
   vi.spyOn(console, 'error').mockImplementation(() => {})
-  
+
   // Mock import.meta.env
   Object.defineProperty(import.meta, 'env', {
     value: { PUBLIC_API_URL: 'http://localhost:3000' },
@@ -73,7 +73,7 @@ afterEach(() => {
 test('connects to status WebSocket', async () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
@@ -84,7 +84,7 @@ test('connects to status WebSocket', async () => {
 test('handles status messages', async () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
@@ -109,7 +109,7 @@ test('handles status messages', async () => {
 test('calls onStatusChange only when status changes', async () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
@@ -120,16 +120,20 @@ test('calls onStatusChange only when status changes', async () => {
     active: true,
     port: 8080
   }
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify(status1)
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify(status1)
+    })
+  )
 
   expect(onStatusChange).toHaveBeenCalledTimes(1)
 
   // Same status - should not call again
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify(status1)
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify(status1)
+    })
+  )
 
   expect(onStatusChange).toHaveBeenCalledTimes(1)
 
@@ -139,9 +143,11 @@ test('calls onStatusChange only when status changes', async () => {
     active: false,
     port: 8080
   }
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify(status2)
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify(status2)
+    })
+  )
 
   expect(onStatusChange).toHaveBeenCalledTimes(2)
   expect(onStatusChange).toHaveBeenLastCalledWith({
@@ -154,22 +160,26 @@ test('calls onServerReady when server becomes active', async () => {
   const onStatusChange = vi.fn()
   const onServerReady = vi.fn()
   const ws = useStatusWebSocket(onStatusChange, onServerReady)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
 
   // Server inactive
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify({ type: 'status', active: false, port: 8080 })
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify({ type: 'status', active: false, port: 8080 })
+    })
+  )
 
   expect(onServerReady).not.toHaveBeenCalled()
 
   // Server becomes active
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify({ type: 'status', active: true, port: 8080 })
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify({ type: 'status', active: true, port: 8080 })
+    })
+  )
 
   expect(onServerReady).toHaveBeenCalledTimes(1)
 })
@@ -178,15 +188,17 @@ test('does not call onServerReady if server was already active', async () => {
   const onStatusChange = vi.fn()
   const onServerReady = vi.fn()
   const ws = useStatusWebSocket(onStatusChange, onServerReady)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
 
   // Server already active
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify({ type: 'status', active: true, port: 8080 })
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify({ type: 'status', active: true, port: 8080 })
+    })
+  )
 
   expect(onServerReady).not.toHaveBeenCalled()
 })
@@ -194,15 +206,17 @@ test('does not call onServerReady if server was already active', async () => {
 test('handles invalid JSON messages gracefully', async () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
 
   // Invalid JSON
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: 'invalid json'
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: 'invalid json'
+    })
+  )
 
   expect(onStatusChange).not.toHaveBeenCalled()
   expect(console.error).toHaveBeenCalled()
@@ -211,15 +225,17 @@ test('handles invalid JSON messages gracefully', async () => {
 test('ignores non-status messages', async () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   await new Promise((resolve) => setTimeout(resolve, 10))
 
   // Non-status message
-  ws.socket?.onmessage?.(new MessageEvent('message', {
-    data: JSON.stringify({ type: 'other', data: 'test' })
-  }))
+  ws.socket?.onmessage?.(
+    new MessageEvent('message', {
+      data: JSON.stringify({ type: 'other', data: 'test' })
+    })
+  )
 
   expect(onStatusChange).not.toHaveBeenCalled()
 })
@@ -227,7 +243,7 @@ test('ignores non-status messages', async () => {
 test('constructs WebSocket URL', () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   // Just verify that a URL was constructed (exact URL depends on environment)
@@ -238,11 +254,10 @@ test('constructs WebSocket URL', () => {
 test('constructs WebSocket URL with correct protocol', () => {
   const onStatusChange = vi.fn()
   const ws = useStatusWebSocket(onStatusChange)
-  
+
   ws.connect()
 
   // Verify protocol is ws or wss
   const url = ws.socket?.url || ''
   expect(url.startsWith('ws://') || url.startsWith('wss://')).toBe(true)
 })
-
