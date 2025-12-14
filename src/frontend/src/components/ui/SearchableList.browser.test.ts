@@ -127,7 +127,7 @@ test('clears search when clear button is clicked', async () => {
 test('dispatches select event when item is clicked', async () => {
   const handleSelect = vi.fn()
   render(SearchableList, {
-    props: { 
+    props: {
       items: mockItems,
       onselect: handleSelect
     }
@@ -356,7 +356,7 @@ test('handles whitespace in search query', async () => {
 test('multiple items can be clicked', async () => {
   const handleSelect = vi.fn()
   render(SearchableList, {
-    props: { 
+    props: {
       items: mockItems,
       onselect: handleSelect
     }
