@@ -1,5 +1,6 @@
 <script lang="ts">
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
+  import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
 
   type ToolType =
     | 'url-to-markdown'
@@ -81,13 +82,7 @@
             </p>
           </div>
         {:else if selectedTool === 'pdf-to-markdown'}
-          <div class="placeholder-tool">
-            <p>🚧 PDF to Markdown tool coming soon</p>
-            <p class="hint">
-              This tool will allow you to upload PDF files and convert them to
-              markdown format.
-            </p>
-          </div>
+          <PdfToMarkdown />
         {/if}
       </div>
     </div>

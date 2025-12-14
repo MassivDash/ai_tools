@@ -32,6 +32,7 @@ use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
+use crate::api::pdf_to_markdown::post::convert_pdf_to_markdown;
 use crate::api::url_to_markdown::post::convert_url_to_markdown;
 use crate::args::collect_args::collect_args;
 use crate::auth::auth_middleware::Authentication;
@@ -148,6 +149,7 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(status_websocket),
             )
             .service(convert_url_to_markdown)
+            .service(convert_pdf_to_markdown)
             .service(get_llama_server_status)
             .service(get_llama_models)
             .service(get_llama_config)
