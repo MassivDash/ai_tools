@@ -7,6 +7,7 @@
     class?: string
     children?: import('svelte').Snippet
     onclick?: (_e: MouseEvent) => void
+    title?: string
   }
 
   let {
@@ -14,6 +15,7 @@
     disabled = false,
     type = 'button',
     size = 'medium',
+    title = '',
     class: extraClass = '',
     children,
     onclick,
@@ -25,7 +27,7 @@
   )
 </script>
 
-<button {type} {disabled} class={classes} {onclick} {...restProps}>
+<button {type} {disabled} class={classes} {onclick} {title} {...restProps}>
   {#if children}
     {@render children()}
   {/if}

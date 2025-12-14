@@ -447,10 +447,10 @@
     </Accordion>
   </div>
   <div class="config-footer">
-    <Button variant="secondary" on:click={onClose}>Cancel</Button>
+    <Button variant="secondary" onclick={onClose}>Cancel</Button>
     <Button
       variant="primary"
-      on:click={handleSave}
+      onclick={handleSave}
       disabled={savingConfig || !newHfModel.trim()}
     >
       {savingConfig ? 'Saving...' : 'Save'}

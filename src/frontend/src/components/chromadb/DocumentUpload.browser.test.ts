@@ -15,7 +15,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
 }
 
