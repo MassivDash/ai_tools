@@ -1,9 +1,9 @@
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::api::llama_server::types::{ProcessHandle, ServerStateHandle};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LlamaServerResponse {
     pub success: bool,
     pub message: String,
@@ -49,5 +49,39 @@ pub async fn post_stop_llama_server(
             success: false,
             message: "Llama server is not running".to_string(),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App};
+    use crate::api::llama_server::types::{ProcessHandle, ServerState, ServerStateHandle};
+    use std::sync::{Arc, Mutex};
+
+    #[actix_web::test]
+    async fn test_post_stop_llama_server_not_running() {
+        let process: ProcessHandle = Arc::new(Mutex::new(None));
+        let server_state: ServerStateHandle =
+            Arc::new(Mutex::new(ServerState { is_ready: false }));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(process))
+                .app_data(web::Data::new(server_state))
+                .service(post_stop_llama_server),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/llama-server/stop")
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let body: LlamaServerResponse = test::read_body_json(resp).await;
+        assert!(!body.success);
+        assert!(body.message.contains("not running"));
     }
 }

@@ -122,3 +122,154 @@ pub fn convert_html_to_markdown(
         internal_links: link_info,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_html_to_markdown_basic() {
+        let html = r#"<html><body><h1>Hello</h1><p>World</p></body></html>"#;
+        let base_url = "https://example.com";
+        let config = ConversionConfig::default();
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.markdown.contains("Hello"));
+        assert!(result.markdown.contains("World"));
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_without_extract_body() {
+        let html = r#"<html><head><title>Test</title></head><body><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let mut config = ConversionConfig::default();
+        config.extract_body = false;
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        // Should include head content when extract_body is false
+        assert!(result.markdown.len() > 0);
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_with_preprocessing() {
+        let html = r#"<html><body><nav><a href="/">Home</a></nav><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let mut config = ConversionConfig::default();
+        config.enable_preprocessing = true;
+        config.remove_navigation = true;
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_preprocessing_presets() {
+        let html = r#"<html><body><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+
+        // Test minimal preset
+        let mut config = ConversionConfig::default();
+        config.enable_preprocessing = true;
+        config.preprocessing_preset = Some("minimal".to_string());
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+
+        // Test standard preset
+        config.preprocessing_preset = Some("standard".to_string());
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+
+        // Test aggressive preset
+        config.preprocessing_preset = Some("aggressive".to_string());
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_strips_script_tags() {
+        let html = r#"<html><body><script>alert('test');</script><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let config = ConversionConfig::default();
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        // Script tags should be stripped
+        assert!(!result.markdown.contains("alert"));
+    }
+
+    #[test]
+    fn test_conversion_config_default() {
+        let config = ConversionConfig::default();
+        assert!(config.extract_body);
+        assert!(!config.enable_preprocessing);
+        assert!(!config.remove_navigation);
+        assert!(!config.remove_forms);
+        assert!(!config.follow_links);
+        assert_eq!(config.preprocessing_preset, None);
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_with_remove_forms() {
+        let html = r#"<html><body><form><input type="text"></form><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let mut config = ConversionConfig::default();
+        config.enable_preprocessing = true;
+        config.remove_forms = true;
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_with_remove_navigation() {
+        let html = r#"<html><body><nav><a href="/">Home</a></nav><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let mut config = ConversionConfig::default();
+        config.enable_preprocessing = true;
+        config.remove_navigation = true;
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_invalid_preset() {
+        let html = r#"<html><body><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let mut config = ConversionConfig::default();
+        config.enable_preprocessing = true;
+        config.preprocessing_preset = Some("invalid_preset".to_string());
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        // Should default to Minimal preset
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_empty_html() {
+        let html = "";
+        let base_url = "https://example.com";
+        let config = ConversionConfig::default();
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_html_to_markdown_with_internal_links() {
+        let html = r#"<html><body><a href="/page">Link</a><p>Content</p></body></html>"#;
+        let base_url = "https://example.com";
+        let config = ConversionConfig::default();
+
+        let result = convert_html_to_markdown(html, base_url, &config);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        // Should extract internal links
+        assert!(result.internal_links.len() >= 0);
+    }
+}

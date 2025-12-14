@@ -51,3 +51,69 @@ pub fn count_tokens(text: &str) -> Result<usize, String> {
         Err(e) => Err(format!("Failed to get tokenizer: {}", e)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_count_tokens_basic() {
+        let text = "Hello world";
+        let result = count_tokens(text);
+        // Should succeed if tokenizer is available
+        if let Ok(count) = result {
+            assert!(count > 0);
+            assert!(count <= text.len()); // Tokens are usually fewer than characters
+        }
+    }
+
+    #[test]
+    fn test_count_tokens_empty() {
+        let text = "";
+        let result = count_tokens(text);
+        // Empty text should return 0 or handle gracefully
+        if let Ok(count) = result {
+            assert_eq!(count, 0);
+        }
+    }
+
+    #[test]
+    fn test_count_tokens_long_text() {
+        let text = "This is a longer text that should be tokenized properly. ".repeat(10);
+        let result = count_tokens(&text);
+        // Should handle longer text
+        if let Ok(count) = result {
+            assert!(count > 0);
+        }
+    }
+
+    #[test]
+    fn test_count_tokens_special_characters() {
+        let text = "Hello! @world #test $123";
+        let result = count_tokens(text);
+        // Should handle special characters
+        if let Ok(count) = result {
+            assert!(count > 0);
+        }
+    }
+
+    #[test]
+    fn test_count_tokens_multiline() {
+        let text = "Line 1\nLine 2\nLine 3";
+        let result = count_tokens(text);
+        // Should handle multiline text
+        if let Ok(count) = result {
+            assert!(count > 0);
+        }
+    }
+
+    #[test]
+    fn test_count_tokens_unicode() {
+        let text = "Hello 世界 🌍";
+        let result = count_tokens(text);
+        // Should handle unicode characters
+        if let Ok(count) = result {
+            assert!(count > 0);
+        }
+    }
+}

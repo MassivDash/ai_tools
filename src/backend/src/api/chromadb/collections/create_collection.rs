@@ -1,10 +1,10 @@
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::{ChromaDBResponse, Collection, DistanceMetric};
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateCollectionRequest {
     pub name: String,
     pub metadata: Option<HashMap<String, String>>,
@@ -142,5 +142,109 @@ pub async fn create_collection(
                 }),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App};
+    use std::collections::HashMap;
+
+    #[actix_web::test]
+    async fn test_create_collection_empty_name() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(create_collection),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/collections")
+            .set_json(&CreateCollectionRequest {
+                name: "   ".to_string(), // Empty after trim
+                metadata: None,
+                distance_metric: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_name_too_long() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(create_collection),
+        )
+        .await;
+
+        let long_name = "a".repeat(101); // 101 characters
+
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/collections")
+            .set_json(&CreateCollectionRequest {
+                name: long_name,
+                metadata: None,
+                distance_metric: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_name_sanitization() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(create_collection),
+        )
+        .await;
+
+        // Test that names with spaces get sanitized
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/collections")
+            .set_json(&CreateCollectionRequest {
+                name: "test collection name".to_string(),
+                metadata: None,
+                distance_metric: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        // Should not be 400 (bad request) - sanitization should handle it
+        // It might fail with 500 if ChromaDB is not available, but that's OK
+        assert_ne!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_with_metadata() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(create_collection),
+        )
+        .await;
+
+        let mut metadata = HashMap::new();
+        metadata.insert("description".to_string(), "test collection".to_string());
+
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/collections")
+            .set_json(&CreateCollectionRequest {
+                name: "test_collection".to_string(),
+                metadata: Some(metadata),
+                distance_metric: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        // Should not be 400 (bad request)
+        assert_ne!(resp.status().as_u16(), 400);
     }
 }

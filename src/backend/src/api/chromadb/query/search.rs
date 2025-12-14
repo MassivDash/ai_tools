@@ -42,3 +42,62 @@ pub async fn search_collection(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App};
+    use crate::api::chromadb::types::QueryRequest;
+
+    #[actix_web::test]
+    async fn test_search_collection_basic() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(search_collection),
+        )
+        .await;
+
+        let query_request = QueryRequest {
+            collection: "test_collection".to_string(),
+            query_texts: vec!["test query".to_string()],
+            n_results: Some(5),
+            where_clause: None,
+        };
+
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/query")
+            .set_json(&query_request)
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        // Should not be 400 (bad request) - might be 500 if ChromaDB unavailable
+        assert_ne!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_search_collection_empty_query() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .service(search_collection),
+        )
+        .await;
+
+        let query_request = QueryRequest {
+            collection: "test_collection".to_string(),
+            query_texts: vec![],
+            n_results: Some(5),
+            where_clause: None,
+        };
+
+        let req = test::TestRequest::post()
+            .uri("/api/chromadb/query")
+            .set_json(&query_request)
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        // Should not be 400 (bad request) - might be 500 if ChromaDB unavailable
+        assert_ne!(resp.status().as_u16(), 400);
+    }
+}

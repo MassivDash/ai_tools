@@ -19,3 +19,45 @@ pub fn configure_llama_server_services(cfg: &mut ServiceConfig) {
         .service(post_update_config);
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    #[actix_web::test]
+    async fn test_configure_llama_server_services_registers_all_endpoints() {
+        let app = test::init_service(
+            App::new().configure(configure_llama_server_services),
+        )
+        .await;
+
+        // Test that all endpoints are registered by checking they respond (even if with errors)
+        let endpoints = vec![
+            ("/api/llama-server/status", "GET"),
+            ("/api/llama-server/models", "GET"),
+            ("/api/llama-server/config", "GET"),
+            ("/api/llama-server/logs", "GET"),
+            ("/api/llama-server/start", "POST"),
+            ("/api/llama-server/stop", "POST"),
+            ("/api/llama-server/config", "POST"),
+        ];
+
+        for (path, method) in endpoints {
+            let req = match method {
+                "GET" => test::TestRequest::get().uri(path),
+                "POST" => test::TestRequest::post().uri(path),
+                _ => continue,
+            };
+            let req = req.to_request();
+            let resp = test::call_service(&app, req).await;
+            // Endpoints should be registered (not 404)
+            assert_ne!(
+                resp.status().as_u16(),
+                404,
+                "Endpoint {} {} should be registered",
+                method,
+                path
+            );
+        }
+    }
+}

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use crate::api::llama_server::types::Config;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ConfigRequest {
     pub hf_model: Option<String>,
     pub ctx_size: Option<u32>,
@@ -21,7 +21,7 @@ pub struct ConfigRequest {
     pub model: Option<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ConfigResponse {
     pub success: bool,
     pub message: String,
@@ -111,4 +111,172 @@ pub async fn post_update_config(
         success: true,
         message: "Configuration updated successfully".to_string(),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App};
+    use crate::api::llama_server::types::Config;
+    use std::sync::{Arc, Mutex};
+
+    #[actix_web::test]
+    async fn test_post_update_config_hf_model() {
+        let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_update_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/llama-server/config")
+            .set_json(&ConfigRequest {
+                hf_model: Some("test/model:Q4_K_M".to_string()),
+                ctx_size: None,
+                threads: None,
+                threads_batch: None,
+                predict: None,
+                batch_size: None,
+                ubatch_size: None,
+                flash_attn: None,
+                mlock: None,
+                no_mmap: None,
+                gpu_layers: None,
+                model: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let body: ConfigResponse = test::read_body_json(resp).await;
+        assert!(body.success);
+        assert_eq!(body.message, "Configuration updated successfully");
+
+        // Verify config was updated
+        let config_guard = config.lock().unwrap();
+        assert_eq!(config_guard.hf_model, "test/model:Q4_K_M");
+    }
+
+    #[actix_web::test]
+    async fn test_post_update_config_multiple_fields() {
+        let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_update_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/llama-server/config")
+            .set_json(&ConfigRequest {
+                hf_model: Some("test/model".to_string()),
+                ctx_size: Some(2048),
+                threads: Some(4),
+                threads_batch: Some(8),
+                predict: Some(256),
+                batch_size: Some(512),
+                ubatch_size: Some(256),
+                flash_attn: Some(true),
+                mlock: Some(false),
+                no_mmap: Some(true),
+                gpu_layers: Some(10),
+                model: Some("/path/to/model".to_string()),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let body: ConfigResponse = test::read_body_json(resp).await;
+        assert!(body.success);
+
+        // Verify all config fields were updated
+        let config_guard = config.lock().unwrap();
+        assert_eq!(config_guard.hf_model, "test/model");
+        assert_eq!(config_guard.ctx_size, 2048);
+        assert_eq!(config_guard.threads, Some(4));
+        assert_eq!(config_guard.gpu_layers, Some(10));
+    }
+
+    #[actix_web::test]
+    async fn test_post_update_config_empty_hf_model_ignored() {
+        let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+        let original_model = config.lock().unwrap().hf_model.clone();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_update_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/llama-server/config")
+            .set_json(&ConfigRequest {
+                hf_model: Some("   ".to_string()), // Empty after trim
+                ctx_size: None,
+                threads: None,
+                threads_batch: None,
+                predict: None,
+                batch_size: None,
+                ubatch_size: None,
+                flash_attn: None,
+                mlock: None,
+                no_mmap: None,
+                gpu_layers: None,
+                model: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        // Verify config was not updated (empty string ignored)
+        let config_guard = config.lock().unwrap();
+        assert_eq!(config_guard.hf_model, original_model);
+    }
+
+    #[actix_web::test]
+    async fn test_post_update_config_invalid_ctx_size_ignored() {
+        let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+        let original_ctx_size = config.lock().unwrap().ctx_size;
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_update_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/llama-server/config")
+            .set_json(&ConfigRequest {
+                hf_model: None,
+                ctx_size: Some(0), // Invalid (must be > 0)
+                threads: None,
+                threads_batch: None,
+                predict: None,
+                batch_size: None,
+                ubatch_size: None,
+                flash_attn: None,
+                mlock: None,
+                no_mmap: None,
+                gpu_layers: None,
+                model: None,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        // Verify ctx_size was not updated (0 is invalid)
+        let config_guard = config.lock().unwrap();
+        assert_eq!(config_guard.ctx_size, original_ctx_size);
+    }
 }

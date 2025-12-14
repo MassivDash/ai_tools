@@ -383,4 +383,50 @@ mod tests {
         let resp = test::call_service(&mut app, req).await;
         assert!(resp.status().is_client_error());
     }
+
+    #[actix_rt::test]
+    async fn test_convert_url_to_markdown_valid_url_format() {
+        let mut app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/url-to-markdown")
+            .set_json(&UrlRequest {
+                url: "https://example.com".to_string(),
+                extract_body: true,
+                enable_preprocessing: false,
+                remove_navigation: false,
+                remove_forms: false,
+                preprocessing_preset: None,
+                follow_links: false,
+                count_tokens: false,
+            })
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        // Should not be 400 (bad request) for URL format - might fail on network but that's OK
+        assert_ne!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_rt::test]
+    async fn test_convert_url_to_markdown_with_options() {
+        let mut app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/url-to-markdown")
+            .set_json(&UrlRequest {
+                url: "https://example.com".to_string(),
+                extract_body: false,
+                enable_preprocessing: true,
+                remove_navigation: true,
+                remove_forms: true,
+                preprocessing_preset: Some("aggressive".to_string()),
+                follow_links: false,
+                count_tokens: true,
+            })
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        // Should not be 400 (bad request) for URL format
+        assert_ne!(resp.status().as_u16(), 400);
+    }
 }

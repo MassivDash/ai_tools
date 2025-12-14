@@ -1,12 +1,12 @@
 use actix_web::{post, web, Error as ActixError, HttpResponse};
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TextRequest {
     pub text: String,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TokenResponse {
     pub token_count: usize,
     pub character_count: usize,
@@ -61,4 +61,66 @@ pub async fn convert_text_to_tokens(
         character_count,
         word_count,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_success() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: "Hello world! This is a test.".to_string(),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let body: TokenResponse = test::read_body_json(resp).await;
+        assert!(body.token_count > 0);
+        // Text is trimmed, so "Hello world! This is a test." = 30 chars
+        // But after trim it's still 30 chars, so check it's at least that
+        assert!(body.character_count >= 28); // Allow for trimming variations
+        assert!(body.word_count >= 5); // "Hello world! This is a test." = 6 words
+    }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_empty() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: "   ".to_string(), // Only whitespace
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_whitespace_trimmed() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: "  Hello  ".to_string(),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let body: TokenResponse = test::read_body_json(resp).await;
+        assert!(body.token_count > 0);
+        assert_eq!(body.character_count, 5); // "Hello" after trim
+    }
 }

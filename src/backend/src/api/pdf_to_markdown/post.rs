@@ -1,9 +1,9 @@
 use actix_multipart::Multipart;
 use actix_web::{post, Error as ActixError, HttpResponse};
 use futures_util::TryStreamExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct MarkdownResponse {
     pub markdown: String,
     pub filename: String,
@@ -174,4 +174,79 @@ fn format_text_as_markdown(text: &str) -> String {
     }
 
     markdown.trim().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_text_as_markdown() {
+        let text = "Line 1\n\nLine 2\nLine 3\n\n\nLine 4";
+        let markdown = format_text_as_markdown(text);
+
+        // Should preserve lines and normalize spacing
+        assert!(markdown.contains("Line 1"));
+        assert!(markdown.contains("Line 2"));
+        assert!(markdown.contains("Line 3"));
+        assert!(markdown.contains("Line 4"));
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_empty() {
+        let text = "";
+        let markdown = format_text_as_markdown(text);
+        assert_eq!(markdown, "");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_whitespace() {
+        let text = "   \n\n   \n  ";
+        let markdown = format_text_as_markdown(text);
+        // Should trim and normalize
+        assert_eq!(markdown, "");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_single_line() {
+        let text = "Single line";
+        let markdown = format_text_as_markdown(text);
+        assert_eq!(markdown, "Single line");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_multiple_empty_lines() {
+        let text = "Line 1\n\n\n\nLine 2";
+        let markdown = format_text_as_markdown(text);
+        // Should normalize multiple empty lines to double newline
+        assert!(markdown.contains("Line 1"));
+        assert!(markdown.contains("Line 2"));
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_preserves_content() {
+        let text = "First paragraph\n\nSecond paragraph\nWith multiple lines";
+        let markdown = format_text_as_markdown(text);
+        assert!(markdown.contains("First paragraph"));
+        assert!(markdown.contains("Second paragraph"));
+        assert!(markdown.contains("With multiple lines"));
+    }
+
+    #[test]
+    fn test_extract_text_from_pdf_empty_data() {
+        // Test with empty/invalid PDF data
+        let empty_data = b"";
+        let result = extract_text_from_pdf(empty_data);
+        // Should return an error for empty data
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_text_from_pdf_invalid_data() {
+        // Test with invalid PDF data (not a real PDF)
+        let invalid_data = b"This is not a PDF file";
+        let result = extract_text_from_pdf(invalid_data);
+        // Should return an error for invalid PDF
+        assert!(result.is_err());
+    }
 }
