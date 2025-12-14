@@ -21,10 +21,13 @@ test('renders all tool cards when no tool is selected', () => {
 
   expect(screen.getByText('URL to Markdown')).toBeTruthy()
   expect(screen.getByText('HTML to Markdown')).toBeTruthy()
+  expect(screen.getByText('JSON to TOON')).toBeTruthy()
   expect(screen.getByText('PDF to Markdown')).toBeTruthy()
+  expect(screen.getByText('Text to Tokens')).toBeTruthy()
 
   expect(screen.getByText('Convert web pages to markdown format')).toBeTruthy()
   expect(screen.getByText('Paste HTML and convert to markdown')).toBeTruthy()
+  expect(screen.getByText('Convert JSON to TOON format for LLMs')).toBeTruthy()
   expect(
     screen.getByText('Upload PDF files and convert to markdown')
   ).toBeTruthy()
@@ -85,7 +88,9 @@ test('returns to tool list when back button is clicked', async () => {
       // All tool cards should be visible again
       expect(screen.getByText('URL to Markdown')).toBeTruthy()
       expect(screen.getByText('HTML to Markdown')).toBeTruthy()
+      expect(screen.getByText('JSON to TOON')).toBeTruthy()
       expect(screen.getByText('PDF to Markdown')).toBeTruthy()
+      expect(screen.getByText('Text to Tokens')).toBeTruthy()
     },
     { timeout: 2000 }
   )
@@ -107,18 +112,16 @@ test('displays URL to Markdown component when selected', async () => {
   )
 })
 
-test('displays placeholder for HTML to Markdown', async () => {
+test('displays HTML to Markdown component when selected', async () => {
   render(ToolSwitcher)
 
   const htmlToolCard = screen.getByText('HTML to Markdown').closest('button')
   fireEvent.click(htmlToolCard!)
 
   await waitFor(() => {
+    expect(screen.getByText('HTML to Markdown Converter')).toBeTruthy()
     expect(
-      screen.getByText('🚧 HTML to Markdown tool coming soon')
-    ).toBeTruthy()
-    expect(
-      screen.getByText(/This tool will allow you to paste HTML content/)
+      screen.getByPlaceholderText('Paste your HTML here...')
     ).toBeTruthy()
   })
 })
@@ -190,7 +193,7 @@ test('renders tool icons', () => {
 
   // Icons are emojis, so we check for the tool cards
   const toolCards = document.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(4) // Updated: now includes Text to Tokens
+  expect(toolCards.length).toBe(5) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
 
   toolCards.forEach((card) => {
     const icon = card.querySelector('.tool-icon')
@@ -202,7 +205,7 @@ test('tool cards have correct structure', () => {
   const { container } = render(ToolSwitcher)
 
   const toolCards = container.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(4) // Updated: now includes Text to Tokens
+  expect(toolCards.length).toBe(5) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
 
   toolCards.forEach((card) => {
     expect(card.querySelector('.tool-icon')).toBeTruthy()

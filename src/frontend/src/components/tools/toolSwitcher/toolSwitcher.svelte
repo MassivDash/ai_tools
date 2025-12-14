@@ -230,29 +230,6 @@
     min-height: 400px;
   }
 
-  .placeholder-tool {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    text-align: center;
-    color: var(--text-secondary, #666);
-    transition: color 0.3s ease;
-  }
-
-  .placeholder-tool p {
-    margin: 0.5rem 0;
-    font-size: 1.1rem;
-  }
-
-  .placeholder-tool .hint {
-    font-size: 0.9rem;
-    color: var(--text-tertiary, #999);
-    max-width: 500px;
-    transition: color 0.3s ease;
-  }
-
   @media screen and (max-width: 768px) {
     .tools-header h2 {
       font-size: 2rem;
