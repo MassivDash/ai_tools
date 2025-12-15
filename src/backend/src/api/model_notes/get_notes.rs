@@ -22,4 +22,3 @@ pub async fn get_model_notes(
         }
     }
 }
-

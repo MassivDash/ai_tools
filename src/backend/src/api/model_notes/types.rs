@@ -32,4 +32,3 @@ pub struct ModelNotesResponse {
 pub struct ModelNoteResponse {
     pub note: ModelNote,
 }
-

@@ -31,4 +31,3 @@ export interface ModelNoteRequest {
   tags?: string[]
   notes?: string
 }
-

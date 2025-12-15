@@ -10,9 +10,7 @@ pub async fn create_or_update_model_note(
 ) -> ActixResult<HttpResponse> {
     println!(
         "💾 Creating/updating model note for {}:{} (favorite: {:?})",
-        req.platform,
-        req.model_name,
-        req.is_favorite
+        req.platform, req.model_name, req.is_favorite
     );
 
     // Validate platform
@@ -36,16 +34,21 @@ pub async fn create_or_update_model_note(
 
     match storage.upsert_note(&note).await {
         Ok(saved_note) => {
-            println!("✅ Successfully saved model note for {}:{}", saved_note.platform, saved_note.model_name);
+            println!(
+                "✅ Successfully saved model note for {}:{}",
+                saved_note.platform, saved_note.model_name
+            );
             Ok(HttpResponse::Ok().json(ModelNoteResponse { note: saved_note }))
         }
         Err(e) => {
             println!("❌ Failed to save model note: {}", e);
-            println!("   Platform: {}, Model: {}, Favorite: {}", note.platform, note.model_name, note.is_favorite);
+            println!(
+                "   Platform: {}, Model: {}, Favorite: {}",
+                note.platform, note.model_name, note.is_favorite
+            );
             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to save model note: {}", e)
             })))
         }
     }
 }
-

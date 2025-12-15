@@ -1,8 +1,6 @@
 use actix_web::web::ServiceConfig;
 
-use crate::api::model_notes::{
-    create_or_update_model_note, delete_model_note, get_model_notes,
-};
+use crate::api::model_notes::{create_or_update_model_note, delete_model_note, get_model_notes};
 
 /// Configures all model notes related endpoints
 pub fn configure_model_notes_services(cfg: &mut ServiceConfig) {
@@ -47,4 +45,3 @@ mod tests {
         }
     }
 }
-

@@ -18,11 +18,11 @@ use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
 use crate::api::agent::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::chromadb::config::types::ChromaDBConfig;
-use crate::api::model_notes::ModelNotesStorage;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
+use crate::api::model_notes::ModelNotesStorage;
 use crate::args::collect_args::collect_args;
 use crate::cors::get_cors_options::get_cors_options;
 use crate::services::agent::configure_agent_services;

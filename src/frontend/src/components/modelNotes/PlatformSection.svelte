@@ -20,8 +20,16 @@
     isFavorite: (platform: string, modelName: string) => boolean
     getTags: (platform: string, modelName: string) => string[]
     getNotes: (platform: string, modelName: string) => string
-    toggleFavorite: (platform: string, modelName: string, modelPath?: string) => void
-    startEditing: (platform: string, modelName: string, modelPath?: string) => void
+    toggleFavorite: (
+      platform: string,
+      modelName: string,
+      modelPath?: string
+    ) => void
+    startEditing: (
+      platform: string,
+      modelName: string,
+      modelPath?: string
+    ) => void
     deleteNote: (platform: string, modelName: string) => void
     modelNotesKey: number
   }
@@ -62,7 +70,8 @@
             isFavorite={isFav}
             {tags}
             {notes}
-            onToggleFavorite={() => toggleFavorite(platform, model.name, model.path)}
+            onToggleFavorite={() =>
+              toggleFavorite(platform, model.name, model.path)}
             onEdit={() => startEditing(platform, model.name, model.path)}
             onDelete={() => deleteNote(platform, model.name)}
           />
@@ -104,4 +113,3 @@
     }
   }
 </style>
-

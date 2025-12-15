@@ -89,14 +89,16 @@ impl ModelNotesStorage {
 
         // Verify table exists
         let table_exists: Option<i64> = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='model_notes'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='model_notes'",
         )
         .fetch_optional(&pool)
         .await
         .context("Failed to verify table existence")?;
 
         if table_exists.unwrap_or(0) == 0 {
-            return Err(anyhow::anyhow!("model_notes table was not created successfully"));
+            return Err(anyhow::anyhow!(
+                "model_notes table was not created successfully"
+            ));
         }
         println!("✅ Verified model_notes table exists");
 
@@ -178,8 +180,7 @@ impl ModelNotesStorage {
 
     /// Create or update a model note
     pub async fn upsert_note(&self, note: &ModelNote) -> Result<ModelNote> {
-        let tags_json = serde_json::to_string(&note.tags)
-            .context("Failed to serialize tags")?;
+        let tags_json = serde_json::to_string(&note.tags).context("Failed to serialize tags")?;
 
         let is_favorite_int = if note.is_favorite { 1 } else { 0 };
 
@@ -232,7 +233,10 @@ impl ModelNotesStorage {
 
         if rows_affected == 0 {
             // Insert new note
-            println!("➕ Inserting new note for {}:{}", note.platform, note.model_name);
+            println!(
+                "➕ Inserting new note for {}:{}",
+                note.platform, note.model_name
+            );
             sqlx::query(
                 "INSERT INTO model_notes (platform, model_name, model_path, is_favorite, tags, notes) 
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -279,17 +283,15 @@ impl ModelNotesStorage {
 
     /// Delete a model note
     pub async fn delete_note(&self, platform: &str, model_name: &str) -> Result<bool> {
-        let rows_affected = sqlx::query(
-            "DELETE FROM model_notes WHERE platform = ?1 AND model_name = ?2",
-        )
-        .bind(platform)
-        .bind(model_name)
-        .execute(&self.pool)
-        .await
-        .context("Failed to delete model note")?
-        .rows_affected();
+        let rows_affected =
+            sqlx::query("DELETE FROM model_notes WHERE platform = ?1 AND model_name = ?2")
+                .bind(platform)
+                .bind(model_name)
+                .execute(&self.pool)
+                .await
+                .context("Failed to delete model note")?
+                .rows_affected();
 
         Ok(rows_affected > 0)
     }
 }
-

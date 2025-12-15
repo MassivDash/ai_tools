@@ -32,4 +32,3 @@ pub async fn delete_model_note(
         }
     }
 }
-
