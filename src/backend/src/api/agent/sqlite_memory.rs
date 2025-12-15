@@ -191,14 +191,55 @@ impl SqliteConversationMemory {
         Ok(messages)
     }
 
-    /// Clear a conversation
-    /// Useful for admin/debugging purposes
-    pub async fn clear_conversation(&self, conversation_id: &str) -> Result<()> {
-        sqlx::query("DELETE FROM conversations WHERE id = ?1")
+    /// Clear old messages from a conversation while keeping the conversation record
+    /// This prevents data loss when the same conversation_id is reused later
+    /// Optionally keeps the most recent N messages for context
+    pub async fn clear_conversation(
+        &self,
+        conversation_id: &str,
+        keep_recent: Option<usize>,
+    ) -> Result<()> {
+        if let Some(keep_count) = keep_recent {
+            // Keep the most recent N messages, delete the rest
+            // Find the minimum created_at timestamp of messages we want to keep (the Nth most recent)
+            // Then delete all messages with created_at less than that
+            // This is more reliable than using IDs since it's based on actual timestamps
+            let min_timestamp: Option<i64> = sqlx::query_scalar(
+                "SELECT MIN(created_at) FROM (
+                    SELECT created_at FROM messages 
+                    WHERE conversation_id = ?1 
+                    ORDER BY created_at DESC 
+                    LIMIT ?2
+                )",
+            )
             .bind(conversation_id)
-            .execute(&self.pool)
+            .bind(keep_count as i64)
+            .fetch_optional(&self.pool)
             .await
-            .context("Failed to clear conversation")?;
+            .context("Failed to find minimum timestamp of messages to keep")?;
+
+            if let Some(min_timestamp_to_keep) = min_timestamp {
+                // Delete all messages older than the oldest message we want to keep
+                sqlx::query(
+                    "DELETE FROM messages 
+                     WHERE conversation_id = ?1 
+                     AND created_at < ?2",
+                )
+                .bind(conversation_id)
+                .bind(min_timestamp_to_keep)
+                .execute(&self.pool)
+                .await
+                .context("Failed to clear old messages from conversation")?;
+            }
+            // If min_timestamp is None, there are no messages or fewer than keep_count, so nothing to delete
+        } else {
+            // Delete all messages but keep the conversation record
+            sqlx::query("DELETE FROM messages WHERE conversation_id = ?1")
+                .bind(conversation_id)
+                .execute(&self.pool)
+                .await
+                .context("Failed to clear messages from conversation")?;
+        }
 
         Ok(())
     }

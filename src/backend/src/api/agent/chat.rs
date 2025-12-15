@@ -379,16 +379,23 @@ pub async fn agent_chat(
         .await
         .unwrap_or(0);
 
-    // If conversation has more than 100 messages, clear it to prevent bloat
+    // If conversation has more than 100 messages, clear old messages to prevent bloat
+    // Keep the most recent 20 messages for context continuity
     if msg_count > 100 {
         println!(
-            "🧹 Conversation {} has {} messages, clearing to prevent bloat",
+            "🧹 Conversation {} has {} messages, clearing old messages (keeping last 20)",
             conversation_id, msg_count
         );
-        if let Err(e) = sqlite_memory.clear_conversation(&conversation_id).await {
-            println!("⚠️ Failed to clear conversation: {}", e);
+        if let Err(e) = sqlite_memory
+            .clear_conversation(&conversation_id, Some(20))
+            .await
+        {
+            println!("⚠️ Failed to clear old messages: {}", e);
         } else {
-            println!("✅ Cleared conversation {}", conversation_id);
+            println!(
+                "✅ Cleared old messages from conversation {} (kept last 20)",
+                conversation_id
+            );
         }
     }
 
