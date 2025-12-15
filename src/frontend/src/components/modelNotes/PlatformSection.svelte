@@ -16,21 +16,21 @@
     icon: string
     models: Model[]
     platform: 'llama' | 'ollama'
-    getNote: (platform: string, modelName: string) => ModelNote | null
-    isFavorite: (platform: string, modelName: string) => boolean
-    getTags: (platform: string, modelName: string) => string[]
-    getNotes: (platform: string, modelName: string) => string
+    getNote: (_platform: string, _modelName: string) => ModelNote | null
+    isFavorite: (_platform: string, _modelName: string) => boolean
+    getTags: (_platform: string, _modelName: string) => string[]
+    getNotes: (_platform: string, _modelName: string) => string
     toggleFavorite: (
-      platform: string,
-      modelName: string,
-      modelPath?: string
+      _platform: string,
+      _modelName: string,
+      _modelPath?: string
     ) => void
     startEditing: (
-      platform: string,
-      modelName: string,
-      modelPath?: string
+      _platform: string,
+      _modelName: string,
+      _modelPath?: string
     ) => void
-    deleteNote: (platform: string, modelName: string) => void
+    deleteNote: (_platform: string, _modelName: string) => void
     modelNotesKey: number
   }
 
