@@ -1,10 +1,26 @@
 <script lang="ts">
   import type { ChatMessage } from '../types'
   import MessageItem from './MessageItem.svelte'
+  import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
-  export let messages: ChatMessage[] = []
-  export let loading: boolean = false
-  export let chatContainer: HTMLDivElement
+  interface Props {
+    messages?: ChatMessage[]
+    loading?: boolean
+    chatContainer?: HTMLDivElement
+  }
+
+  let {
+    messages = $bindable([]),
+    loading = $bindable(false),
+    chatContainer = $bindable()
+  }: Props = $props()
+
+  // Only show loading indicator if there's no streaming message
+  // (i.e., when thinking/executing tools but not streaming text)
+  const hasStreamingMessage = $derived(
+    messages.some((m) => m.role === 'assistant' && m.timestamp === 0)
+  )
+  const shouldShowLoading = $derived(loading && !hasStreamingMessage)
 </script>
 
 <div class="chat-messages" bind:this={chatContainer}>
@@ -19,9 +35,12 @@
     {#each messages as message (message.id)}
       <MessageItem {message} />
     {/each}
-    {#if loading}
+    {#if shouldShowLoading}
       <div class="message assistant">
-        <div class="message-role">Assistant</div>
+        <div class="message-role">
+          <MaterialIcon name="robot" width="14" height="14" class="role-icon" />
+          <span>Assistant</span>
+        </div>
         <div class="message-content loading">
           <span class="typing-indicator">
             <span></span>
@@ -92,12 +111,20 @@
   }
 
   .message-role {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary, #666);
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .role-icon {
+    color: var(--accent-color, #2196f3);
+    flex-shrink: 0;
   }
 
   .message-content.loading {

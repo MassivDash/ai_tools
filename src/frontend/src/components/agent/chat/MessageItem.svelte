@@ -1,37 +1,97 @@
 <script lang="ts">
   import type { ChatMessage } from '../types'
   import { renderMarkdown } from '../utils/markdown'
+  import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
   export let message: ChatMessage
+
+  // Helper to get tool icon based on tool name
+  const getToolIcon = (toolName: string | undefined): string => {
+    if (!toolName) return 'wrench'
+    const name = toolName.toLowerCase()
+    if (name.includes('chromadb') || name.includes('chroma')) return 'database'
+    if (name.includes('financial')) return 'currency-usd'
+    return 'wrench'
+  }
+
+  // Helper to determine if tool message is success or error
+  const isToolSuccess = (content: string): boolean => {
+    return content.includes('✅') || content.includes('completed')
+  }
+
+  const isToolError = (content: string): boolean => {
+    return content.includes('❌') || content.includes('failed')
+  }
 </script>
 
 {#if message.role === 'status'}
   <div class="message status-message">
     <div class="status-indicator">
       {#if message.statusType === 'thinking'}
-        <span class="thinking-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-        Thinking...
+        <div class="spinning-cog">
+          <MaterialIcon name="cog" width="16" height="16" />
+        </div>
+        <span>Thinking...</span>
       {:else if message.statusType === 'calling_tool'}
-        🔧 {message.content}
+        <MaterialIcon name="wrench" width="16" height="16" />
+        <span>{message.content}</span>
       {:else if message.statusType === 'tool_executing'}
-        ⚙️ {message.content}
+        <div class="spinning-cog">
+          <MaterialIcon name="cog" width="16" height="16" />
+        </div>
+        <span>{message.content}</span>
       {:else if message.statusType === 'tool_complete'}
-        ✅ {message.content}
+        <MaterialIcon
+          name="check-circle"
+          width="16"
+          height="16"
+          class="success-icon"
+        />
+        <span>{message.content}</span>
       {:else if message.statusType === 'tool_error'}
-        ❌ {message.content}
+        <MaterialIcon
+          name="close-circle"
+          width="16"
+          height="16"
+          class="error-icon"
+        />
+        <span>{message.content}</span>
       {:else}
-        {message.content}
+        <span>{message.content}</span>
       {/if}
     </div>
   </div>
 {:else if message.role === 'tool'}
   <div class="message tool-message">
-    <div class="tool-indicator">
-      {message.content}
+    <div
+      class="tool-indicator"
+      class:success={isToolSuccess(message.content)}
+      class:error={isToolError(message.content)}
+    >
+      <MaterialIcon
+        name={getToolIcon(message.toolName)}
+        width="18"
+        height="18"
+        class="tool-icon"
+      />
+      <span class="tool-text"
+        >{message.content.replace(/✅|❌/g, '').trim()}</span
+      >
+      {#if isToolSuccess(message.content)}
+        <MaterialIcon
+          name="check-circle"
+          width="16"
+          height="16"
+          class="status-icon success-icon"
+        />
+      {:else if isToolError(message.content)}
+        <MaterialIcon
+          name="close-circle"
+          width="16"
+          height="16"
+          class="status-icon error-icon"
+        />
+      {/if}
     </div>
   </div>
 {:else}
@@ -42,7 +102,10 @@
     class:streaming={message.role === 'assistant' && message.timestamp === 0}
   >
     <div class="message-role">
-      {message.role === 'user' ? 'You' : 'Assistant'}
+      {#if message.role === 'assistant'}
+        <MaterialIcon name="robot" width="14" height="14" class="role-icon" />
+      {/if}
+      <span>{message.role === 'user' ? 'You' : 'Assistant'}</span>
     </div>
     <div
       class="message-content"
@@ -50,7 +113,11 @@
     >
       {#if message.role === 'assistant' && message.timestamp === 0}
         {@html renderMarkdown(message.content)}
-        <span class="streaming-cursor">|</span>
+        <span class="typing-indicator-inline">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
       {:else}
         {@html renderMarkdown(message.content)}
       {/if}
@@ -97,39 +164,29 @@
     border: 1px solid var(--border-color, #e0e0e0);
   }
 
-  .thinking-dots {
+  .spinning-cog {
     display: inline-flex;
-    gap: 0.2rem;
     align-items: center;
+    justify-content: center;
+    color: var(--accent-color, #2196f3);
+    animation: spin 2s linear infinite;
   }
 
-  .thinking-dots span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--text-secondary, #666);
-    animation: thinking 1.4s infinite;
-  }
-
-  .thinking-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .thinking-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-
-  @keyframes thinking {
-    0%,
-    60%,
-    100% {
-      transform: translateY(0);
-      opacity: 0.7;
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
     }
-    30% {
-      transform: translateY(-8px);
-      opacity: 1;
+    to {
+      transform: rotate(360deg);
     }
+  }
+
+  .success-icon {
+    color: #4caf50;
+  }
+
+  .error-icon {
+    color: #f44336;
   }
 
   .tool-message {
@@ -141,30 +198,76 @@
   .tool-indicator {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
     background-color: var(--bg-secondary, #f5f5f5);
-    border-radius: 20px;
-    font-size: 0.85rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
     color: var(--text-primary, #100f0f);
     border: 1px solid var(--border-color, #e0e0e0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
   }
 
-  .streaming-cursor {
-    display: inline-block;
-    animation: blink 1s infinite;
+  .tool-indicator.success {
+    background-color: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.3);
+  }
+
+  .tool-indicator.error {
+    background-color: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
+  }
+
+  .tool-icon {
     color: var(--accent-color, #2196f3);
-    font-weight: bold;
+    flex-shrink: 0;
   }
 
-  @keyframes blink {
+  .tool-text {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .status-icon {
+    flex-shrink: 0;
+  }
+
+  .typing-indicator-inline {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: center;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .typing-indicator-inline span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--accent-color, #2196f3);
+    animation: typing-dot 1.4s infinite;
+    display: inline-block;
+  }
+
+  .typing-indicator-inline span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-indicator-inline span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typing-dot {
     0%,
-    50% {
-      opacity: 1;
-    }
-    51%,
+    60%,
     100% {
-      opacity: 0;
+      transform: translateY(0);
+      opacity: 0.7;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
     }
   }
 
@@ -180,12 +283,20 @@
   }
 
   .message-role {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary, #666);
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .role-icon {
+    color: var(--accent-color, #2196f3);
+    flex-shrink: 0;
   }
 
   .message-content {
