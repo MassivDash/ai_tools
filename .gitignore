@@ -1,6 +1,7 @@
 /target
 /src/frontend/dist
 /src/backend/target
+/src/backend/data
 /src/chromadb/node_modules
 /src/chromadb/database
 syncDevil.sh
