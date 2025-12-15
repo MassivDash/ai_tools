@@ -529,7 +529,9 @@
   .header-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
     flex: 1;
     min-width: 0;
   }
@@ -766,10 +768,6 @@
     border: 1px solid var(--border-color, #e0e0e0);
   }
 
-  .message-content.markdown {
-    /* Markdown styling */
-  }
-
   .message-content.markdown :global(h1),
   .message-content.markdown :global(h2),
   .message-content.markdown :global(h3),
@@ -930,22 +928,6 @@
     color: var(--text-tertiary, #bbb);
   }
 
-  .send-button {
-    flex-shrink: 0;
-    padding: 0.75rem;
-    min-width: 2.5rem;
-    min-height: 2.5rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .send-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   @media screen and (max-width: 768px) {
     .chat-interface {
       padding: 0.5rem;
@@ -961,12 +943,6 @@
 
     .input-wrapper {
       padding: 0.5rem 0.75rem;
-    }
-
-    .header-left {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
     }
 
     .tools-section {
