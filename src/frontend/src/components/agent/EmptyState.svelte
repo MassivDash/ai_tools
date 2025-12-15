@@ -1,8 +1,8 @@
 <div class="empty-state">
   <p>🤖 AI Agent is ready</p>
   <p class="hint">
-    Click "Start Server" to launch the llama.cpp server and start chatting
-    with the AI agent
+    Click "Start Server" to launch the llama.cpp server and start chatting with
+    the AI agent
   </p>
   <p class="hint-small">Server will be available at localhost:8080</p>
 </div>
@@ -36,4 +36,3 @@
     transition: color 0.3s ease;
   }
 </style>
-

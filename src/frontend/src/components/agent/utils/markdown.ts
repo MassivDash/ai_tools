@@ -31,4 +31,3 @@ export const renderMarkdown = (content: string): string => {
     return content
   }
 }
-

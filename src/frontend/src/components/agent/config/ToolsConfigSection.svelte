@@ -60,4 +60,3 @@
     accent-color: var(--accent-color, #2196f3);
   }
 </style>
-

@@ -16,7 +16,7 @@
         <span class="tools-label">Tools:</span>
         <div class="tools-badges">
           {#each activeToolsList as tool}
-            <Badge variant="info">{formatToolName(tool)}</Badge>
+            <Badge variant="primary">{formatToolName(tool)}</Badge>
           {/each}
         </div>
       </div>
@@ -88,4 +88,3 @@
     }
   }
 </style>
-

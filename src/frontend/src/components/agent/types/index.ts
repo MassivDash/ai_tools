@@ -4,13 +4,7 @@ export interface AgentChatRequest {
 }
 
 export interface AgentStreamEvent {
-  type:
-    | 'status'
-    | 'tool_call'
-    | 'tool_result'
-    | 'text_chunk'
-    | 'done'
-    | 'error'
+  type: 'status' | 'tool_call' | 'tool_result' | 'text_chunk' | 'done' | 'error'
   status?: string
   message?: string
   tool_name?: string
@@ -75,4 +69,3 @@ export interface ChromaDBResponse<T> {
   data?: T
   error?: string
 }
-

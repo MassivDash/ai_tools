@@ -93,8 +93,7 @@
     <!-- Embedding Model Selection -->
     <div class="config-subsection">
       <div class="label-with-help">
-        <label for="embedding-model" class="custom-label"
-          >Embedding Model</label
+        <label for="embedding-model" class="custom-label">Embedding Model</label
         >
         <HelpIcon
           text="The Ollama model used to generate embeddings for query searches. Must match the model used when uploading documents."
@@ -198,4 +197,3 @@
     transition: color 0.3s ease;
   }
 </style>
-
