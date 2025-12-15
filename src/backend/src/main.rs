@@ -14,6 +14,7 @@ mod services;
 mod utils;
 
 use crate::api::agent::config::AgentConfigHandle;
+use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::llama_server::types::{
@@ -56,6 +57,13 @@ async fn main() -> std::io::Result<()> {
 
     // Shared state for agent config
     let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
+
+    // SQLite-based conversation storage (persists user/assistant messages)
+    let sqlite_memory: Arc<SqliteConversationMemory> = Arc::new(
+        SqliteConversationMemory::new("./data/conversations.db")
+            .await
+            .expect("Failed to initialize SQLite conversation memory"),
+    );
 
     // Create WebSocket state ONCE before the server (shared across all workers)
     let ws_state = Arc::new(WebSocketState::new(
@@ -121,6 +129,7 @@ async fn main() -> std::io::Result<()> {
     let chroma_address_data = web::Data::new(chroma_address.clone());
     let chromadb_config_data = chromadb_config.clone();
     let agent_config_data = agent_config.clone();
+    let sqlite_memory_data = web::Data::new(sqlite_memory.clone());
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -136,6 +145,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(chroma_address_data.clone())
             .app_data(web::Data::new(chromadb_config_data.clone()))
             .app_data(web::Data::new(agent_config_data.clone()))
+            .app_data(sqlite_memory_data.clone())
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

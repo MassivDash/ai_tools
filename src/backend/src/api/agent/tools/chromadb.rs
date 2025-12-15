@@ -1,13 +1,16 @@
+use crate::api::agent::tools::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use crate::api::agent::types::{ChromaDBToolConfig, ToolCall, ToolCallResult};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::{QueryRequest, QueryResponse};
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use serde_json::json;
 
 /// ChromaDB tool implementation
 pub struct ChromaDBTool {
     client: ChromaDBClient,
     config: ChromaDBToolConfig,
+    metadata: ToolMetadata,
 }
 
 impl ChromaDBTool {
@@ -15,11 +18,43 @@ impl ChromaDBTool {
     pub fn new(chroma_address: &str, config: ChromaDBToolConfig) -> Result<Self> {
         let client = ChromaDBClient::new(chroma_address)
             .context("Failed to create ChromaDB client for tool")?;
-        Ok(Self { client, config })
+
+        let metadata = ToolMetadata {
+            id: "1".to_string(),
+            name: "chroma db search".to_string(),
+            description: "A vector database with internal additional information you can access"
+                .to_string(),
+            keywords: vec![
+                "search".to_string(),
+                "chromadb".to_string(),
+                "vector".to_string(),
+                "database".to_string(),
+                "document".to_string(),
+                "information".to_string(),
+                "knowledge".to_string(),
+                "query".to_string(),
+                "find".to_string(),
+                "lookup".to_string(),
+                "technical".to_string(),
+                "code".to_string(),
+                "framework".to_string(),
+                "library".to_string(),
+                "person".to_string(),
+                "place".to_string(),
+                "event".to_string(),
+            ],
+            category: ToolCategory::Search,
+        };
+
+        Ok(Self {
+            client,
+            config,
+            metadata,
+        })
     }
 
-    /// Execute a ChromaDB search query
-    pub async fn search(&self, query: &str, n_results: Option<usize>) -> Result<String> {
+    /// Execute a ChromaDB search query (internal method)
+    async fn search(&self, query: &str, n_results: Option<usize>) -> Result<String> {
         let query_request = QueryRequest {
             collection: self.config.collection.clone(),
             query_texts: vec![query.to_string()],
@@ -38,9 +73,15 @@ impl ChromaDBTool {
         let formatted = format_query_results(&query_response)?;
         Ok(formatted)
     }
+}
 
-    /// Get the function definition for OpenAI-compatible API
-    pub fn get_function_definition() -> serde_json::Value {
+#[async_trait]
+impl AgentTool for ChromaDBTool {
+    fn metadata(&self) -> &ToolMetadata {
+        &self.metadata
+    }
+
+    fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "search_chromadb",
             "description": "Search a ChromaDB collection for relevant documents using semantic search. Use this tool when the user asks about: specific people, places, events, technical topics, programming frameworks/libraries (like Bevy, React, etc.), code examples, documentation, or any factual information that might be in the knowledge base. ALWAYS search for technical topics, frameworks, libraries, or code-related questions even if you have general knowledge - the knowledge base may have specific, detailed, or up-to-date information. DO NOT use this for casual greetings, small talk, or general conversation. When searching, use clear, specific queries that match the user's question. For technical topics, consider using 5-10 results to get comprehensive information.",
@@ -63,8 +104,7 @@ impl ChromaDBTool {
         })
     }
 
-    /// Execute a tool call
-    pub async fn execute_tool_call(&self, tool_call: &ToolCall) -> Result<ToolCallResult> {
+    async fn execute(&self, tool_call: &ToolCall) -> Result<ToolCallResult> {
         // Parse the function arguments
         let args: serde_json::Value = serde_json::from_str(&tool_call.function.arguments)
             .context("Failed to parse tool call arguments")?;

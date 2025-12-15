@@ -1,11 +1,14 @@
-use crate::api::agent::tools::{chromadb::ChromaDBTool, financial_data::FinancialDataTool};
+use crate::api::agent::agent_loop::{execute_agent_loop, AgentLoopConfig};
+use crate::api::agent::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::tools::{
+    chromadb::ChromaDBTool, financial_data::FinancialDataTool, registry::ToolRegistry,
+    selector::ToolSelector,
+};
 use crate::api::agent::types::{
-    AgentChatRequest, AgentChatResponse, AgentConfig, ChatCompletionRequest,
-    ChatCompletionResponse, ChatMessage, MessageRole, Tool, ToolCallResult, ToolType,
+    AgentChatRequest, AgentChatResponse, AgentConfig, ChatMessage, MessageRole, ToolType,
 };
 use crate::api::llama_server::types::Config;
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
-use anyhow::Context;
 use reqwest::Client;
 use std::sync::{Arc, Mutex};
 
@@ -99,79 +102,171 @@ pub async fn agent_chat(
     chroma_address: web::Data<String>,
     _chromadb_config: web::Data<Arc<Mutex<crate::api::chromadb::config::types::ChromaDBConfig>>>,
     llama_config: web::Data<Arc<Mutex<Config>>>,
+    sqlite_memory: web::Data<Arc<SqliteConversationMemory>>,
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
-    // Build tools for OpenAI-compatible API
-    let mut tools = Vec::new();
+    // Get or create conversation ID from SQLite
+    let conversation_id = sqlite_memory
+        .get_or_create_conversation_id(req.conversation_id.clone())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to get conversation ID: {}",
+                e
+            ))
+        })?;
 
-    // Add ChromaDB tool if configured (ChromaDB is always available if configured, not a toggle)
-    if let Some(_chromadb_config) = &config.chromadb {
-        tools.push(Tool {
-            tool_type: "function".to_string(),
-            function: serde_json::from_value(ChromaDBTool::get_function_definition())
-                .context("Failed to parse ChromaDB function definition")
-                .map_err(|e| {
-                    actix_web::error::ErrorInternalServerError(format!(
-                        "Failed to parse function definition: {}",
-                        e
-                    ))
-                })?,
-        });
+    // Build tool registry dynamically based on configuration
+    let mut tool_registry = ToolRegistry::new();
+
+    // Register ChromaDB tool if configured
+    if let Some(chromadb_tool_config) = &config.chromadb {
+        match ChromaDBTool::new(chroma_address.as_str(), chromadb_tool_config.clone()) {
+            Ok(tool) => {
+                if let Err(e) = tool_registry.register(Arc::new(tool)) {
+                    println!("⚠️ Failed to register ChromaDB tool: {}", e);
+                }
+            }
+            Err(e) => {
+                println!("⚠️ Failed to create ChromaDB tool: {}", e);
+            }
+        }
     }
 
-    // Add Financial Data tool if enabled
+    // Register Financial Data tool if enabled
     if config.enabled_tools.contains(&ToolType::FinancialData) {
-        tools.push(Tool {
-            tool_type: "function".to_string(),
-            function: serde_json::from_value(FinancialDataTool::get_function_definition())
-                .context("Failed to parse FinancialData function definition")
-                .map_err(|e| {
-                    actix_web::error::ErrorInternalServerError(format!(
-                        "Failed to parse function definition: {}",
-                        e
-                    ))
-                })?,
-        });
+        let financial_tool = FinancialDataTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
+            println!("⚠️ Failed to register Financial Data tool: {}", e);
+        }
     }
 
-    // Build messages
-    let mut messages = vec![ChatMessage {
-        role: MessageRole::System,
-        content: "You are a helpful AI assistant with access to tools. 
+    // Wrap registry in Arc for sharing
+    let tool_registry_arc = Arc::new(tool_registry);
 
-IMPORTANT GUIDELINES FOR TOOL USAGE:
-- DO NOT use tools for casual greetings, small talk, or general conversation (e.g., 'hello', 'how are you', 'how u doin', 'thanks', etc.)
-- ALWAYS use search_chromadb when the user asks about technical topics, programming frameworks/libraries (like Bevy, React, Rust, etc.), code examples, documentation, or specific implementations - even if you have general knowledge, the knowledge base may have detailed, specific, or up-to-date information
-- Use search_chromadb for questions about specific people, places, events, technical details, or documents that might be in the knowledge base
-- When you receive search results, USE THEM COMPREHENSIVELY: read through ALL the results, synthesize information from multiple documents, combine details from different sources, and provide detailed, thorough answers based on what you found
-- If search results contain relevant information, provide a comprehensive answer that incorporates details from ALL relevant results - don't just give a brief summary. Include specific examples, code snippets, explanations, and details from the documents
-- For technical topics like frameworks, libraries, or code examples, synthesize information from multiple documents to give a complete picture
-- For technical topics, use 8-10 search results to get comprehensive information
-- If search results are not relevant or don't contain useful information, simply inform the user that you couldn't find relevant information - do not mention similarity scores or technical details about the search process
-- Always respond naturally and conversationally - provide information directly without explaining how you found it
-- Do not include internal reasoning, tool call formats, similarity scores, or technical search details in your responses
-- When in doubt about technical topics, frameworks, or libraries, SEARCH - the knowledge base likely has specific information".to_string(),
+    // Build tool definitions for OpenAI-compatible API
+    let tools = tool_registry_arc.build_tool_definitions().map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Failed to build tool definitions: {}",
+            e
+        ))
+    })?;
+
+    // Log tool registry stats and verify registration
+    let tool_count = tool_registry_arc.count();
+    let all_tool_ids = tool_registry_arc.get_all_tool_ids();
+    println!(
+        "📦 Tool registry: {} tool(s) registered: {:?}",
+        tool_count, all_tool_ids
+    );
+
+    // Verify all tools are properly registered and accessible
+    for tool_id in &all_tool_ids {
+        if !tool_registry_arc.is_registered(tool_id) {
+            println!(
+                "⚠️ Warning: Tool {} marked as registered but not found in registry",
+                tool_id
+            );
+        } else if let Some(tool) = tool_registry_arc.get_tool(tool_id) {
+            // Tool exists, verify it's available
+            if !tool.is_available() {
+                println!("⚠️ Tool {} is registered but not available", tool_id);
+            }
+        }
+    }
+
+    // Get tools by category for logging
+    use crate::api::agent::tools::agent_tool::ToolCategory;
+    let search_tools = tool_registry_arc.get_tools_by_category(ToolCategory::Search);
+    let data_tools = tool_registry_arc.get_tools_by_category(ToolCategory::DataQuery);
+    if !search_tools.is_empty() || !data_tools.is_empty() {
+        println!(
+            "📊 Tools by category: {} search, {} data query",
+            search_tools.len(),
+            data_tools.len()
+        );
+    }
+
+    // Get all tools and verify they're accessible
+    let all_tools = tool_registry_arc.get_all_tools();
+    for tool in &all_tools {
+        // Verify tool is available (this uses the is_available method from the trait)
+        if !tool.is_available() {
+            println!("⚠️ Tool {} is not available", tool.metadata().name);
+        }
+    }
+
+    // Create tool selector for intelligent tool selection
+    let tool_selector = ToolSelector::new(Arc::clone(&tool_registry_arc));
+
+    // Check if this query requires tools (skip tool setup for simple greetings)
+    let requires_tools = tool_selector.requires_tools(&req.message);
+
+    // Build system prompt using tool selector
+    let system_prompt = tool_selector.build_system_prompt();
+
+    // Select most relevant tools for this query (for logging/debugging)
+    if requires_tools && !tools.is_empty() {
+        let selected_tools = tool_selector.select_tools(&req.message, Some(3));
+        println!(
+            "🎯 Selected {} relevant tool(s) for query",
+            selected_tools.len()
+        );
+    }
+    let system_prompt_clone = system_prompt.clone();
+
+    // Get conversation history from SQLite (only user/assistant messages)
+    let messages = sqlite_memory
+        .get_messages(&conversation_id)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to get conversation history: {}",
+                e
+            ))
+        })?;
+
+    // Always start with fresh system prompt
+    let mut messages_with_system = vec![ChatMessage {
+        role: MessageRole::System,
+        content: system_prompt,
         name: None,
         tool_calls: None,
         tool_call_id: None,
         reasoning_content: None,
     }];
 
-    // Add user message
-    messages.push(ChatMessage {
+    // Add conversation history from SQLite
+    messages_with_system.extend(messages);
+
+    // Add current user message
+    let user_message = ChatMessage {
         role: MessageRole::User,
         content: req.message.clone(),
         name: None,
         tool_calls: None,
         tool_call_id: None,
         reasoning_content: None,
-    });
+    };
+    messages_with_system.push(user_message.clone());
+
+    // Store user message in SQLite
+    sqlite_memory
+        .add_message(&conversation_id, user_message)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to store user message: {}",
+                e
+            ))
+        })?;
+
+    let messages = messages_with_system;
 
     // Get model name from llama_server config
     let model_name = {
         let llama_config_guard = llama_config.lock().unwrap();
-        // Use the hf_model as the model identifier, or fallback to "llama"
         llama_config_guard.hf_model.clone()
     };
 
@@ -179,264 +274,137 @@ IMPORTANT GUIDELINES FOR TOOL USAGE:
     let llama_url = "http://localhost:8080/v1/chat/completions";
     let client = Client::new();
 
-    let completion_request = ChatCompletionRequest {
-        messages: messages.clone(),
-        model: model_name,
-        temperature: Some(0.7),
-        max_tokens: Some(2000),
-        tools: if tools.is_empty() {
-            None
-        } else {
-            Some(tools.clone())
-        },
-        tool_choice: if tools.is_empty() {
-            None
-        } else {
-            Some("auto".to_string())
-        },
-    };
+    println!(
+        "🤖 Starting agent loop (conversation: {})...",
+        conversation_id
+    );
 
-    println!("🤖 Sending chat request to llama.cpp server...");
-    let response = client
-        .post(llama_url)
-        .json(&completion_request)
-        .send()
+    // Get conversation message count from SQLite
+    let conversation_msg_count = sqlite_memory
+        .message_count(&conversation_id)
         .await
-        .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!(
-                "Failed to connect to llama.cpp server: {}",
-                e
-            ))
-        })?;
+        .unwrap_or(0);
 
-    let response_status = response.status();
-    if !response_status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
+    println!(
+        "📊 Conversation history: {} messages, Tools available: {}",
+        conversation_msg_count,
+        tools.len()
+    );
+    if !tools.is_empty() {
         println!(
-            "❌ llama.cpp server error (status {}): {}",
-            response_status, error_text
+            "🔧 Available tools: {:?}",
+            tools.iter().map(|t| &t.function.name).collect::<Vec<_>>()
         );
-        return Ok(HttpResponse::BadGateway().json(AgentChatResponse {
-            success: false,
-            message: format!("llama.cpp server error: {}", error_text),
-            conversation_id: req.conversation_id.clone(),
-            tool_calls: None,
-        }));
     }
 
-    // Get response text first to debug
-    let response_text = response.text().await.map_err(|e| {
-        actix_web::error::ErrorInternalServerError(format!("Failed to read response body: {}", e))
+    // Execute agent loop - allows iterative tool use
+    let loop_config = AgentLoopConfig::default();
+    let mut loop_result = execute_agent_loop(
+        &client,
+        llama_url,
+        model_name.clone(),
+        messages.clone(),
+        tools.clone(),
+        tool_registry_arc.clone(),
+        Arc::clone(&sqlite_memory),
+        conversation_id.clone(),
+        loop_config,
+    )
+    .await
+    .map_err(|e| {
+        println!("❌ Agent loop error: {}", e);
+        actix_web::error::ErrorInternalServerError(format!("Agent loop failed: {}", e))
     })?;
 
-    println!("📥 llama.cpp response: {}", response_text);
+    // If agent got stuck, recover by restarting with clean context
+    if loop_result.stuck {
+        println!("🔄 Agent got stuck, recovering with clean context...");
 
-    // Try to parse the response
-    let completion_response: ChatCompletionResponse = serde_json::from_str(&response_text)
+        // Get clean conversation history from SQLite (only user/assistant messages)
+        let clean_messages = sqlite_memory
+            .get_messages(&conversation_id)
+            .await
+            .map_err(|e| {
+                actix_web::error::ErrorInternalServerError(format!(
+                    "Failed to get clean conversation history: {}",
+                    e
+                ))
+            })?;
+
+        // Build fresh context with system prompt + conversation history
+        let mut recovery_messages = vec![ChatMessage {
+            role: MessageRole::System,
+            content: system_prompt_clone,
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        }];
+        recovery_messages.extend(clean_messages);
+
+        // Try again with clean context and reduced max iterations
+        let recovery_config = AgentLoopConfig {
+            max_iterations: 5, // Reduced for recovery attempt
+            ..Default::default()
+        };
+
+        loop_result = execute_agent_loop(
+            &client,
+            llama_url,
+            model_name,
+            recovery_messages,
+            tools,
+            tool_registry_arc,
+            Arc::clone(&sqlite_memory),
+            conversation_id.clone(),
+            recovery_config,
+        )
+        .await
         .map_err(|e| {
-            println!("❌ Failed to parse response JSON: {}", e);
-            println!("📄 Response body: {}", response_text);
-            actix_web::error::ErrorInternalServerError(format!(
-                "Failed to parse llama.cpp response: {}. Response: {}",
-                e, response_text
-            ))
+            println!("❌ Recovery attempt failed: {}", e);
+            actix_web::error::ErrorInternalServerError(format!("Recovery failed: {}", e))
         })?;
 
-    // Handle tool calls if present
-    let mut tool_results = Vec::new();
-
-    if completion_response.choices.is_empty() {
-        println!("⚠️ No choices in llama.cpp response");
-        return Ok(HttpResponse::BadGateway().json(AgentChatResponse {
-            success: false,
-            message: "No response choices from llama.cpp server".to_string(),
-            conversation_id: req.conversation_id.clone(),
-            tool_calls: None,
-        }));
+        if loop_result.stuck {
+            println!("⚠️ Recovery attempt also got stuck, returning partial response");
+        }
     }
 
-    let final_message = if let Some(choice) = completion_response.choices.first() {
-        if let Some(tool_calls) = &choice.message.tool_calls {
-            // Execute tool calls
-            println!("🔧 Executing {} tool call(s)...", tool_calls.len());
+    // Clean the final message
+    let final_message = clean_response(&loop_result.final_message);
 
-            for tool_call in tool_calls {
-                match tool_call.function.name.as_str() {
-                    "search_chromadb" => {
-                        if let Some(chromadb_tool_config) = &config.chromadb {
-                            match ChromaDBTool::new(
-                                chroma_address.as_str(),
-                                chromadb_tool_config.clone(),
-                            ) {
-                                Ok(tool) => match tool.execute_tool_call(tool_call).await {
-                                    Ok(result) => {
-                                        tool_results.push(result.clone());
-                                        println!("✅ ChromaDB search completed");
-                                    }
-                                    Err(e) => {
-                                        println!("❌ Tool execution error: {}", e);
-                                        tool_results.push(ToolCallResult {
-                                            tool_name: "search_chromadb".to_string(),
-                                            result: format!("Error: {}", e),
-                                        });
-                                    }
-                                },
-                                Err(e) => {
-                                    println!("❌ Failed to create ChromaDB tool: {}", e);
-                                    tool_results.push(ToolCallResult {
-                                        tool_name: "search_chromadb".to_string(),
-                                        result: format!("Error: Failed to initialize tool: {}", e),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    "get_financial_data" => {
-                        match FinancialDataTool::execute_tool_call(tool_call).await {
-                            Ok(result) => {
-                                tool_results.push(result.clone());
-                                println!("✅ Financial data retrieved");
-                            }
-                            Err(e) => {
-                                println!("❌ Financial data tool error: {}", e);
-                                tool_results.push(ToolCallResult {
-                                    tool_name: "get_financial_data".to_string(),
-                                    result: format!("Error: {}", e),
-                                });
-                            }
-                        }
-                    }
-                    _ => {
-                        println!("⚠️ Unknown tool: {}", tool_call.function.name);
-                    }
-                }
-            }
+    // Check conversation size and clear if too large (prevent database bloat)
+    let msg_count = sqlite_memory
+        .message_count(&conversation_id)
+        .await
+        .unwrap_or(0);
 
-            // If we have tool results, make a follow-up call with the results
-            if !tool_results.is_empty() {
-                // Add assistant message with tool calls
-                messages.push(choice.message.clone());
-
-                // Add tool results as tool messages
-                for (i, tool_call) in tool_calls.iter().enumerate() {
-                    if let Some(result) = tool_results.get(i) {
-                        messages.push(ChatMessage {
-                            role: MessageRole::Tool,
-                            content: result.result.clone(),
-                            name: Some(tool_call.function.name.clone()),
-                            tool_calls: None,
-                            tool_call_id: Some(tool_call.id.clone()),
-                            reasoning_content: None,
-                        });
-                    }
-                }
-
-                // Get model name again for follow-up request
-                let model_name_followup = {
-                    let llama_config_guard = llama_config.lock().unwrap();
-                    llama_config_guard.hf_model.clone()
-                };
-
-                // Make a follow-up call to get the final response
-                let follow_up_request = ChatCompletionRequest {
-                    messages: messages.clone(),
-                    model: model_name_followup,
-                    temperature: Some(0.7),
-                    max_tokens: Some(2000),
-                    tools: if tools.is_empty() { None } else { Some(tools) },
-                    tool_choice: Some("none".to_string()), // Don't allow more tool calls
-                };
-
-                println!("🤖 Getting final response from llama.cpp server...");
-                let follow_up_response = client
-                    .post(llama_url)
-                    .json(&follow_up_request)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        actix_web::error::ErrorInternalServerError(format!(
-                            "Failed to connect to llama.cpp server: {}",
-                            e
-                        ))
-                    })?;
-
-                let follow_up_status = follow_up_response.status();
-                // Get response text first to debug (can only read once)
-                let follow_up_text = follow_up_response.text().await.map_err(|e| {
-                    actix_web::error::ErrorInternalServerError(format!(
-                        "Failed to read follow-up response body: {}",
-                        e
-                    ))
-                })?;
-
-                println!(
-                    "📥 llama.cpp follow-up response (status {}): {}",
-                    follow_up_status, follow_up_text
-                );
-
-                if follow_up_status.is_success() {
-                    let follow_up_completion: ChatCompletionResponse =
-                        serde_json::from_str(&follow_up_text).map_err(|e| {
-                            println!("❌ Failed to parse follow-up response JSON: {}", e);
-                            println!("📄 Follow-up response body: {}", follow_up_text);
-                            actix_web::error::ErrorInternalServerError(format!(
-                                "Failed to parse llama.cpp follow-up response: {}. Response: {}",
-                                e, follow_up_text
-                            ))
-                        })?;
-
-                    if let Some(choice) = follow_up_completion.choices.first() {
-                        let mut msg = choice.message.content.clone();
-                        if msg.is_empty() {
-                            msg = "I processed your request but got an empty response.".to_string();
-                        } else {
-                            // Clean up any internal reasoning markers or redacted content
-                            msg = clean_response(&msg);
-                        }
-                        msg
-                    } else {
-                        "No response from llama.cpp server".to_string()
-                    }
-                } else {
-                    println!(
-                        "❌ llama.cpp follow-up error (status {}): {}",
-                        follow_up_status, follow_up_text
-                    );
-                    format!("Error getting final response: {}", follow_up_text)
-                }
-            } else {
-                choice.message.content.clone()
-            }
+    // If conversation has more than 100 messages, clear it to prevent bloat
+    if msg_count > 100 {
+        println!(
+            "🧹 Conversation {} has {} messages, clearing to prevent bloat",
+            conversation_id, msg_count
+        );
+        if let Err(e) = sqlite_memory.clear_conversation(&conversation_id).await {
+            println!("⚠️ Failed to clear conversation: {}", e);
         } else {
-            let mut msg = choice.message.content.clone();
-            if msg.is_empty() {
-                msg = "I received your message but got an empty response.".to_string();
-            } else {
-                // Clean up any internal reasoning markers or redacted content
-                msg = clean_response(&msg);
-            }
-            msg
+            println!("✅ Cleared conversation {}", conversation_id);
         }
-    } else {
-        return Ok(HttpResponse::BadGateway().json(AgentChatResponse {
-            success: false,
-            message: "No choices in llama.cpp response".to_string(),
-            conversation_id: req.conversation_id.clone(),
-            tool_calls: None,
-        }));
-    };
+    }
+
+    println!(
+        "✅ Agent loop completed after {} iterations",
+        loop_result.iterations
+    );
 
     Ok(HttpResponse::Ok().json(AgentChatResponse {
         success: true,
         message: final_message,
-        conversation_id: req.conversation_id.clone(),
-        tool_calls: if tool_results.is_empty() {
+        conversation_id: Some(conversation_id),
+        tool_calls: if loop_result.tool_calls.is_empty() {
             None
         } else {
-            Some(tool_results)
+            Some(loop_result.tool_calls)
         },
     }))
 }
