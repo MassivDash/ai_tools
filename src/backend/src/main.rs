@@ -18,6 +18,7 @@ use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
 use crate::api::agent::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::chromadb::config::types::ChromaDBConfig;
+use crate::api::model_notes::ModelNotesStorage;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
@@ -28,6 +29,7 @@ use crate::services::agent::configure_agent_services;
 use crate::services::chromadb::configure_chromadb_services;
 use crate::services::converters::configure_converter_services;
 use crate::services::llama_server::configure_llama_server_services;
+use crate::services::model_notes::configure_model_notes_services;
 
 use std::process::Child;
 use std::sync::{Arc, Mutex};
@@ -64,6 +66,13 @@ async fn main() -> std::io::Result<()> {
         SqliteConversationMemory::new("./data/conversations.db")
             .await
             .expect("Failed to initialize SQLite conversation memory"),
+    );
+
+    // SQLite-based model notes storage
+    let model_notes_storage: Arc<ModelNotesStorage> = Arc::new(
+        ModelNotesStorage::new("./data/conversations.db")
+            .await
+            .expect("Failed to initialize model notes storage"),
     );
 
     // Create Agent WebSocket state for real-time agent updates
@@ -135,6 +144,7 @@ async fn main() -> std::io::Result<()> {
     let chromadb_config_data = chromadb_config.clone();
     let agent_config_data = agent_config.clone();
     let sqlite_memory_data = web::Data::new(sqlite_memory.clone());
+    let model_notes_storage_data = web::Data::new(model_notes_storage.clone());
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -152,6 +162,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(chromadb_config_data.clone()))
             .app_data(web::Data::new(agent_config_data.clone()))
             .app_data(sqlite_memory_data.clone())
+            .app_data(model_notes_storage_data.clone())
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
@@ -163,6 +174,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)
             .configure(configure_agent_services)
+            .configure(configure_model_notes_services)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)

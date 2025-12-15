@@ -25,4 +25,7 @@ npm run lint:all --prefix src/frontend/
 echo '🧪 running frontend vitest...'
 npm run test --prefix src/frontend/
 
+echo '🧪 running astro check...'
+npm run build --prefix src/frontend/
+
 echo '------ Done ------'

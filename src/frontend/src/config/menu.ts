@@ -46,6 +46,12 @@ export const menuConfig: MenuConfig = {
       icon: 'database'
     },
     {
+      label: 'Model Notes',
+      href: '/model-notes',
+      id: 'model-notes-link',
+      icon: 'note'
+    },
+    {
       label: 'Tools',
       href: '/tools',
       id: 'tools-link',

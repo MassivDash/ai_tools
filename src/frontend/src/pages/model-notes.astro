@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro'
+import ModelNotes from '../components/modelNotes/ModelNotes.svelte'
+---
+
+<Layout title='AI Tools - Model Notes'>
+  <div transition:animate='fade'>
+    <ModelNotes client:load />
+  </div>
+</Layout>
+
