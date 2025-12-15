@@ -11,7 +11,7 @@
   export let getItemSubtext: ((_item: any) => string) | undefined = undefined
   export let selectedKey: string | null = null
   export let maxHeight: string = '300px'
-  export let onselect: ((item: any) => void) | undefined = undefined
+  export let onselect: ((_item: any) => void) | undefined = undefined
 
   let searchQuery = ''
 

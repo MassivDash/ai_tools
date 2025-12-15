@@ -37,7 +37,6 @@
   let newEmbeddingModel = 'nomic-embed-text'
   // query_model is no longer used - queries always use embedding_model
   // Keeping variable for compatibility but not displaying in UI
-  let newQueryModel = ''
   let loadingModels = false
   let savingConfig = false
   let error = ''
@@ -49,7 +48,6 @@
       config = response.data
       newEmbeddingModel = config.embedding_model
       // query_model is no longer used in UI, but we keep it for API compatibility
-      newQueryModel = ''
     } catch (err: any) {
       console.error('❌ Failed to load config:', err)
     }
