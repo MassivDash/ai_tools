@@ -6,7 +6,7 @@
   import CollectionCard from './CollectionCard.svelte'
   import CreateCollection from './CreateCollection.svelte'
   import IconButton from '@ui/IconButton.svelte'
-  import RefreshIcon from '@ui/icons/RefreshIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   let loading = false
   let error = ''
@@ -134,7 +134,7 @@
         disabled={loading}
         title={loading ? 'Loading...' : 'Refresh Collections'}
       >
-        <RefreshIcon width="24" height="24" />
+        <MaterialIcon name="refresh" width="24" height="24" />
       </IconButton>
     </div>
   </div>

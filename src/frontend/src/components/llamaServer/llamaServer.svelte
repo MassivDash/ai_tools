@@ -5,10 +5,7 @@
   import LlamaConfig from './llamaConfig.svelte'
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import TerminalIcon from '../ui/icons/TerminalIcon.svelte'
-  import VmConnectIcon from '../ui/icons/VmConnectIcon.svelte'
-  import StartIcon from '../ui/icons/StartIcon.svelte'
-  import StopCircleIcon from '../ui/icons/StopCircleIcon.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
 
   interface LlamaServerStatus {
     active: boolean
@@ -109,7 +106,7 @@
         onclick={() => (showConfig = !showConfig)}
         title="Config"
       >
-        <VmConnectIcon width="32" height="32" />
+        <MaterialIcon name="server-network" width="32" height="32" />
       </Button>
       <Button
         variant="info"
@@ -117,7 +114,7 @@
         onclick={() => (showTerminal = !showTerminal)}
         title={showTerminal ? 'Hide Terminal' : 'Show Terminal'}
       >
-        <TerminalIcon width="32" height="32" />
+        <MaterialIcon name="console" width="32" height="32" />
       </Button>
       {#if serverStatus.active}
         <Button
@@ -127,7 +124,7 @@
           disabled={loading}
           title={loading ? 'Stopping...' : 'Stop Server'}
         >
-          <StopCircleIcon width="32" height="32" />
+          <MaterialIcon name="stop-circle" width="32" height="32" />
         </Button>
       {:else}
         <Button
@@ -137,7 +134,7 @@
           disabled={loading}
           title={loading ? 'Starting...' : 'Start Server'}
         >
-          <StartIcon width="32" height="32" />
+          <MaterialIcon name="play" width="32" height="32" />
         </Button>
       {/if}
     </div>

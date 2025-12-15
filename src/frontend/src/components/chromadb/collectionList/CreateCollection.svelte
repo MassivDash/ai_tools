@@ -9,8 +9,7 @@
   import { CreateCollectionRequestSchema } from '@validation/chromadb.ts'
   import Button from '@ui/Button.svelte'
   import IconButton from '@ui/IconButton.svelte'
-  import PlusIcon from '@ui/icons/PlusIcon.svelte'
-  import XIcon from '@ui/icons/XIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
   import Input from '@ui/Input.svelte'
 
   let showForm = false
@@ -98,9 +97,9 @@
     title={showForm ? 'Cancel' : 'Create Collection'}
   >
     {#if showForm}
-      <XIcon width="24" height="24" />
+      <MaterialIcon name="close" width="24" height="24" />
     {:else}
-      <PlusIcon width="24" height="24" />
+      <MaterialIcon name="plus" width="24" height="24" />
     {/if}
   </IconButton>
 
@@ -146,7 +145,7 @@
         <div class="metadata-header">
           <span class="metadata-label">Metadata (Optional)</span>
           <Button onclick={addMetadataField} type="button" variant="secondary">
-            <PlusIcon width="24" height="24" /> Add Field
+            <MaterialIcon name="plus" width="24" height="24" /> Add Field
           </Button>
         </div>
 
@@ -180,7 +179,7 @@
                   type="button"
                   title="Remove field"
                 >
-                  <XIcon width="18" height="18" />
+                  <MaterialIcon name="close" width="18" height="18" />
                 </button>
               </div>
             {/each}

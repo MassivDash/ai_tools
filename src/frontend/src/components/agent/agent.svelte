@@ -7,10 +7,8 @@
   import ChatInterface from './chatInterface.svelte'
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import TerminalIcon from '../ui/icons/TerminalIcon.svelte'
-  import VmConnectIcon from '../ui/icons/VmConnectIcon.svelte'
-  import StartIcon from '../ui/icons/StartIcon.svelte'
-  import StopCircleIcon from '../ui/icons/StopCircleIcon.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import { enabledTools as enabledToolsStore } from '../../stores/activeTools'
 
   interface LlamaServerStatus {
     active: boolean
@@ -20,6 +18,14 @@
   interface LlamaServerResponse {
     success: boolean
     message: string
+  }
+
+  interface AgentConfig {
+    enabled_tools: string[]
+    chromadb?: {
+      collection: string
+      embedding_model: string
+    }
   }
 
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
@@ -95,8 +101,30 @@
     }
   }
 
+  const loadAgentConfig = async () => {
+    try {
+      const response =
+        await axiosBackendInstance.get<AgentConfig>('agent/config')
+      const enabledToolsList = response.data.enabled_tools || []
+      const chromadbEnabled = !!response.data.chromadb
+
+      // Update enabled tools store with tools from config
+      const toolsToAdd = new Set<string>()
+      enabledToolsList.forEach((tool) => {
+        toolsToAdd.add(tool)
+      })
+      if (chromadbEnabled) {
+        toolsToAdd.add('chromadb')
+      }
+      enabledToolsStore.set(toolsToAdd)
+    } catch (err: any) {
+      console.error('❌ Failed to load agent config:', err)
+    }
+  }
+
   const handleConfigSave = () => {
-    // Config saved successfully
+    // Reload config after save to update badges
+    loadAgentConfig()
   }
 
   const handleLlamaConfigSave = () => {
@@ -105,6 +133,8 @@
 
   onMount(() => {
     statusWs.connect()
+    // Load agent config on mount to show enabled tools as badges
+    loadAgentConfig()
   })
 
   onDestroy(() => {
@@ -125,7 +155,7 @@
         }}
         title="Agent Config"
       >
-        <VmConnectIcon width="32" height="32" />
+        <MaterialIcon name="robot-confused" width="32" height="32" />
       </Button>
       <Button
         variant="info"
@@ -136,7 +166,7 @@
         }}
         title="Llama Server Config"
       >
-        <VmConnectIcon width="32" height="32" />
+        <MaterialIcon name="server-network" width="32" height="32" />
       </Button>
       <Button
         variant="info"
@@ -144,7 +174,7 @@
         onclick={() => (showTerminal = !showTerminal)}
         title={showTerminal ? 'Hide Terminal' : 'Show Terminal'}
       >
-        <TerminalIcon width="32" height="32" />
+        <MaterialIcon name="console" width="32" height="32" />
       </Button>
       {#if serverStatus.active}
         <Button
@@ -154,7 +184,7 @@
           disabled={loading}
           title={loading ? 'Stopping...' : 'Stop Server'}
         >
-          <StopCircleIcon width="32" height="32" />
+          <MaterialIcon name="stop-circle" width="32" height="32" />
         </Button>
       {:else}
         <Button
@@ -168,7 +198,7 @@
               ? 'Server is running'
               : 'Start Server'}
         >
-          <StartIcon width="32" height="32" />
+          <MaterialIcon name="play" width="32" height="32" />
         </Button>
       {/if}
     </div>
@@ -227,12 +257,13 @@
   .ai-chat {
     width: 100%;
     margin: 0;
-    padding: 0;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
     min-height: 80vh;
     background-color: var(--bg-primary, #fff);
     transition: background-color 0.3s ease;
+    box-sizing: border-box;
   }
 
   .chat-header {
@@ -240,7 +271,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 2px solid var(--border-color, #f0f0f0);
+
     transition: border-color 0.3s ease;
   }
 
@@ -291,12 +322,12 @@
     min-height: 80vh;
     position: relative;
     overflow: hidden;
+    width: 100%;
   }
 
   .terminal-sidebar {
     width: 70%;
     height: 100%;
-    border-right: 1px solid var(--border-color, #ddd);
     background-color: #1e1e1e;
     transform: translateX(-100%);
     transition:
@@ -306,10 +337,9 @@
     display: flex;
     flex-direction: column;
     position: absolute;
-    left: 0;
+    left: -2px;
     top: 0;
     bottom: 0;
-    box-shadow: 2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
   }
 
   .terminal-sidebar.visible {
@@ -327,6 +357,9 @@
     margin-right: 0;
     min-width: 0;
     width: 100%;
+    background-color: var(--bg-primary, #fff);
+    overflow: hidden;
+    padding: 0;
   }
 
   .main-content.with-terminal {
@@ -375,6 +408,12 @@
   @media screen and (max-width: 768px) {
     .ai-chat {
       min-height: 70vh;
+      padding: 1rem;
+    }
+
+    .main-content {
+      max-width: 100%;
+      border-radius: 8px;
     }
 
     .terminal-sidebar {

@@ -44,6 +44,7 @@ export default [
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
         HTMLSelectElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
         // Event types
         Event: 'readonly',
         CustomEvent: 'readonly',

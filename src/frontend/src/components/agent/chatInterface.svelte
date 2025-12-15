@@ -2,8 +2,11 @@
   import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Button from '../ui/Button.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Badge from '../ui/Badge.svelte'
   import { marked } from 'marked'
   import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
+  import { activeTools as activeToolsStore } from '../../stores/activeTools'
 
   // Configure marked and WebSocket
   onMount(() => {
@@ -62,9 +65,9 @@
     statusType?: string
   }
 
-  let messages: ChatMessage[] = []
-  let inputMessage = ''
-  let loading = false
+  let messages: ChatMessage[] = $state([])
+  let inputMessage: string = $state('')
+  let loading: boolean = $state(false)
   let error = ''
   let conversationId: string | null = null
   let chatContainer: HTMLDivElement
@@ -75,6 +78,17 @@
   const generateMessageId = () => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   }
+
+  // Subscribe to active tools store - use $derived for reactivity
+  let activeToolsSet: Set<string> = $state(new Set())
+  let activeToolsList = $derived(Array.from(activeToolsSet))
+
+  onMount(() => {
+    const unsubscribe = activeToolsStore.subscribe((tools) => {
+      activeToolsSet = tools
+    })
+    return () => unsubscribe()
+  })
 
   // WebSocket for real-time agent updates
   const agentWs = useAgentWebSocket(
@@ -105,11 +119,7 @@
     streamingMessageId = null
 
     // Scroll to bottom
-    setTimeout(() => {
-      if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight
-      }
-    }, 100)
+    setTimeout(() => scrollToBottom(true), 100)
 
     try {
       const request: AgentChatRequest = {
@@ -132,23 +142,33 @@
       }
 
       // Events will come via WebSocket only (no SSE reading to avoid duplicates)
-      // Just wait for the response to complete - WebSocket handles all events
+      // Loading will be set to false when 'done' event is received via WebSocket
+      // Don't set loading = false here, let WebSocket handle it
 
       // Scroll to bottom
-      setTimeout(() => {
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight
-        }
-      }, 100)
+      setTimeout(() => scrollToBottom(true), 100)
     } catch (err: any) {
       console.error('❌ Failed to send message:', err)
+      loading = false
       error =
         err.response?.data?.error ||
         err.response?.data?.message ||
         err.message ||
         'Failed to send message'
-    } finally {
-      loading = false
+    }
+  }
+
+  // Auto-scroll function
+  const scrollToBottom = (smooth = false) => {
+    if (chatContainer) {
+      if (smooth) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: 'smooth'
+        })
+      } else {
+        chatContainer.scrollTop = chatContainer.scrollHeight
+      }
     }
   }
 
@@ -167,15 +187,13 @@
             statusType: event.status
           })
           // Auto-scroll when status updates
-          setTimeout(() => {
-            if (chatContainer) {
-              chatContainer.scrollTop = chatContainer.scrollHeight
-            }
-          }, 10)
+          setTimeout(() => scrollToBottom(), 10)
         }
         break
 
       case 'tool_call':
+        // Tool execution is shown in messages, no need to track in store for badges
+        // Badges only show enabled tools from config
         // Remove any existing tool message for this tool
         messages = messages.filter(
           (m) => m.role !== 'tool' || m.toolName !== event.tool_name
@@ -190,6 +208,7 @@
         break
 
       case 'tool_result': {
+        // Tool execution is shown in messages, no need to track in store for badges
         // Remove status message when tool completes
         messages = messages.filter((m) => m.role !== 'status')
         // Update existing tool message or create new one
@@ -248,15 +267,12 @@
             })
           }
           // Auto-scroll during streaming
-          setTimeout(() => {
-            if (chatContainer) {
-              chatContainer.scrollTop = chatContainer.scrollHeight
-            }
-          }, 10)
+          setTimeout(() => scrollToBottom(), 10)
         }
         break
 
       case 'done':
+        loading = false
         if (event.conversation_id) {
           conversationId = event.conversation_id
         }
@@ -276,6 +292,7 @@
         break
 
       case 'error':
+        loading = false
         error = event.message || 'An error occurred'
         // Clear streaming message on error
         if (streamingMessageId) {
@@ -294,10 +311,41 @@
     }
   }
 
+  let textareaElement: HTMLTextAreaElement
+
+  const autoResize = () => {
+    if (textareaElement) {
+      textareaElement.style.height = 'auto'
+      textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 192)}px`
+    }
+  }
+
+  $effect(() => {
+    if (inputMessage) {
+      autoResize()
+    }
+  })
+
+  // Auto-scroll when messages change
+  $effect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => scrollToBottom(), 50)
+    }
+  })
+
   const clearChat = () => {
     messages = []
     conversationId = null
     error = ''
+    // Keep enabled tools from config - they should remain visible as badges
+  }
+
+  // Format tool name for display
+  const formatToolName = (toolName: string): string => {
+    return toolName
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
   }
 
   const renderMarkdown = (content: string): string => {
@@ -323,7 +371,19 @@
 
 <div class="chat-interface">
   <div class="chat-header-bar">
-    <h4>Chat</h4>
+    <div class="header-left">
+      <h4>Chat</h4>
+      {#if activeToolsList.length > 0}
+        <div class="tools-section">
+          <span class="tools-label">Tools:</span>
+          <div class="tools-badges">
+            {#each activeToolsList as tool}
+              <Badge variant="info">{formatToolName(tool)}</Badge>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
     {#if messages.length > 0}
       <Button variant="secondary" onclick={clearChat} class="clear-button">
         Clear Chat
@@ -416,22 +476,26 @@
   </div>
 
   <div class="chat-input-container">
-    <textarea
-      bind:value={inputMessage}
-      onkeypress={handleKeyPress}
-      placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-      disabled={loading}
-      class="chat-input"
-      rows="3"
-    ></textarea>
-    <Button
-      variant="primary"
-      onclick={sendMessage}
-      disabled={loading || !inputMessage.trim()}
-      class="send-button"
-    >
-      {loading ? 'Sending...' : 'Send'}
-    </Button>
+    <div class="input-wrapper">
+      <textarea
+        bind:this={textareaElement}
+        bind:value={inputMessage}
+        onkeypress={handleKeyPress}
+        oninput={autoResize}
+        placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+        disabled={loading}
+        class="chat-input"
+        rows="1"
+      ></textarea>
+      <Button
+        variant="primary"
+        onclick={sendMessage}
+        disabled={loading || !inputMessage.trim()}
+        class="send-button"
+      >
+        <MaterialIcon name="send" width="20" height="20" />
+      </Button>
+    </div>
   </div>
 </div>
 
@@ -442,6 +506,14 @@
     height: 100%;
     min-height: 80vh;
     background-color: var(--bg-primary, #fff);
+    padding: 0;
+    width: 100%;
+    max-width: 1024px;
+    margin: 0 auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    border: 1px solid var(--border-color, #e0e0e0);
+    overflow: hidden;
   }
 
   .chat-header-bar {
@@ -451,11 +523,42 @@
     padding: 1rem;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
     background-color: var(--bg-secondary, #f9f9f9);
+    gap: 1rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+    min-width: 0;
   }
 
   .chat-header-bar h4 {
     margin: 0;
     color: var(--text-primary, #100f0f);
+    white-space: nowrap;
+  }
+
+  .tools-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .tools-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #666);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .tools-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .clear-button {
@@ -478,6 +581,25 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    scroll-behavior: smooth;
+  }
+
+  .chat-messages::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .chat-messages::-webkit-scrollbar-track {
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 4px;
+  }
+
+  .chat-messages::-webkit-scrollbar-thumb {
+    background: var(--border-color, #ddd);
+    border-radius: 4px;
+  }
+
+  .chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary, #999);
   }
 
   .empty-chat {
@@ -488,6 +610,7 @@
     justify-content: center;
     color: var(--text-secondary, #666);
     text-align: center;
+    padding: 2rem;
   }
 
   .empty-chat .hint {
@@ -501,6 +624,7 @@
     flex-direction: column;
     max-width: 80%;
     animation: fadeIn 0.3s ease-in;
+    padding: 0 1rem;
   }
 
   .message.user {
@@ -760,32 +884,93 @@
   }
 
   .chat-input-container {
-    display: flex;
-    gap: 0.5rem;
-    padding: 1rem;
+    padding: 1.5rem;
     border-top: 1px solid var(--border-color, #e0e0e0);
     background-color: var(--bg-secondary, #f9f9f9);
   }
 
+  .input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    max-width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-primary, #fff);
+    border: 2px solid var(--border-color, #e0e0e0);
+    border-radius: 24px;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--accent-color, #2196f3);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  }
+
   .chat-input {
     flex: 1;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    padding: 0.5rem 0;
+    border: none;
+    background: transparent;
     font-family: inherit;
     font-size: 1rem;
-    resize: vertical;
-    min-height: 3rem;
-    max-height: 10rem;
+    resize: none;
+    min-height: 1.5rem;
+    max-height: 8rem;
+    line-height: 1.5;
+    overflow-y: auto;
+    color: var(--text-primary, #100f0f);
   }
 
   .chat-input:focus {
     outline: none;
-    border-color: var(--accent-color, #2196f3);
+  }
+
+  .chat-input::placeholder {
+    color: var(--text-tertiary, #bbb);
   }
 
   .send-button {
-    align-self: flex-end;
-    padding: 0.75rem 1.5rem;
+    flex-shrink: 0;
+    padding: 0.75rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media screen and (max-width: 768px) {
+    .chat-interface {
+      padding: 0.5rem;
+    }
+
+    .chat-messages {
+      padding: 0;
+    }
+
+    .chat-input-container {
+      padding: 1rem;
+    }
+
+    .input-wrapper {
+      padding: 0.5rem 0.75rem;
+    }
+
+    .header-left {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .tools-section {
+      width: 100%;
+    }
   }
 </style>

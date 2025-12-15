@@ -8,7 +8,7 @@
   } from '@validation/chromadb.ts'
   import Button from '@ui/Button.svelte'
   import Dropzone from '@ui/Dropzone.svelte'
-  import XIcon from '@ui/icons/XIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   export let selectedCollection: string | null = null
 
@@ -235,7 +235,7 @@
                 type="button"
                 title="Remove file"
               >
-                <XIcon width="18" height="18" />
+                <MaterialIcon name="close" width="18" height="18" />
               </button>
             </div>
           {/each}

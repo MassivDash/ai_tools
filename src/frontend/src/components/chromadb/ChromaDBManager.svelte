@@ -8,8 +8,7 @@
   import QueryInterface from './QueryInterface.svelte'
   import ChromaDBConfig from './ChromaDBConfig.svelte'
   import IconButton from '../ui/IconButton.svelte'
-  import RefreshIcon from '../ui/icons/RefreshIcon.svelte'
-  import SettingsIcon from '../ui/icons/SettingsIcon.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
   let collectionListRef: CollectionList
@@ -82,14 +81,14 @@
         onclick={() => (configPanelOpen = true)}
         title="Configure Embedding Models"
       >
-        <SettingsIcon width="24" height="24" />
+        <MaterialIcon name="cog" width="24" height="24" />
       </IconButton>
       <IconButton
         variant="info"
         onclick={checkHealth}
         title="Refresh Health Status"
       >
-        <RefreshIcon width="24" height="24" />
+        <MaterialIcon name="refresh" width="24" height="24" />
       </IconButton>
     </div>
   </div>

@@ -1,10 +1,8 @@
 <script lang="ts">
-  import Input from '../ui/Input.svelte'
   import Button from '../ui/Button.svelte'
   import SearchableList from '../ui/SearchableList.svelte'
   import HelpIcon from '../ui/HelpIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import { onMount } from 'svelte'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -71,6 +69,7 @@
         selectedCollection = ''
         selectedEmbeddingModel = ''
       }
+      // Store update is handled by parent component (agent.svelte) on mount
     } catch (err: any) {
       console.error('❌ Failed to load agent config:', err)
     }
@@ -182,6 +181,7 @@
 
       if (response.data.success) {
         await loadConfig()
+        // Store update will be handled by parent component via onSave callback
         onSave()
         onClose()
       } else {
@@ -360,7 +360,6 @@
     width: 70%;
     height: 100%;
     background-color: var(--bg-primary, #fff);
-    border-left: 1px solid var(--border-color, #ddd);
     transform: translateX(100%);
     transition:
       transform 0.3s ease-in-out,
@@ -373,7 +372,6 @@
     right: 0;
     top: 0;
     bottom: 0;
-    box-shadow: -2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
   }
 
   .config-panel.visible {

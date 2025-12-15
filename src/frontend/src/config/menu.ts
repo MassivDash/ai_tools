@@ -31,25 +31,25 @@ export const menuConfig: MenuConfig = {
       label: 'Llama Server',
       href: '/',
       id: 'home-link',
-      icon: 'codicon:copilot'
+      icon: 'server-network'
     },
     {
       label: 'Agent Chat',
       href: '/agent',
       id: 'footer-agent-link',
-      icon: 'codicon:agent'
+      icon: 'robot'
     },
     {
       label: 'Vector Database',
       href: '/database',
       id: 'database-link',
-      icon: 'codicon:database'
+      icon: 'database'
     },
     {
       label: 'Tools',
       href: '/tools',
       id: 'tools-link',
-      icon: 'codicon:tools'
+      icon: 'wrench'
     }
   ],
   footer: [

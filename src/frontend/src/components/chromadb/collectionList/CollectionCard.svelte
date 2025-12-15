@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import type { ChromaDBCollection } from '@types'
-  import XIcon from '@ui/icons/XIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   export let collection: ChromaDBCollection
   export let selected: boolean = false
@@ -43,7 +43,7 @@
       }}
       title="Delete collection"
     >
-      <XIcon width="18" height="18" />
+      <MaterialIcon name="close" width="18" height="18" />
     </button>
   </div>
 
