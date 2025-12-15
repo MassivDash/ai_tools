@@ -75,7 +75,10 @@ pub async fn upload_documents(
     // Parse multipart form data
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
-        let field_name = content_disposition.get_name().unwrap_or("");
+        let field_name = content_disposition
+            .as_ref()
+            .and_then(|cd| cd.get_name())
+            .unwrap_or("");
 
         if field_name == "collection" {
             // Read collection name
@@ -87,7 +90,8 @@ pub async fn upload_documents(
         } else if field_name == "files" {
             // Read file data
             let filename = content_disposition
-                .get_filename()
+                .as_ref()
+                .and_then(|cd| cd.get_filename())
                 .unwrap_or("unknown")
                 .to_string();
 

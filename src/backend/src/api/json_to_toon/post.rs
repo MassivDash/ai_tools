@@ -41,7 +41,7 @@ pub async fn convert_json_to_toon(
         while let Some(mut field) = multipart.try_next().await? {
             let field_name = field.name();
 
-            if field_name == "file" {
+            if field_name == Some("file") {
                 // Read file data
                 let mut data = Vec::new();
                 while let Some(chunk) = field.try_next().await? {
@@ -67,7 +67,7 @@ pub async fn convert_json_to_toon(
                         })));
                     }
                 }
-            } else if field_name == "json" {
+            } else if field_name == Some("json") {
                 // Also support pasted JSON in multipart
                 let mut bytes = Vec::new();
                 while let Some(chunk) = field.try_next().await? {
@@ -76,7 +76,7 @@ pub async fn convert_json_to_toon(
                 if let Ok(json_str) = String::from_utf8(bytes) {
                     json_data = Some(json_str);
                 }
-            } else if field_name == "count_tokens" {
+            } else if field_name == Some("count_tokens") {
                 // Read count_tokens boolean value
                 let mut bytes = Vec::new();
                 while let Some(chunk) = field.try_next().await? {

@@ -20,10 +20,13 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
     while let Some(mut field) = payload.try_next().await? {
         let field_name = field.name();
 
-        if field_name == "file" {
+        if field_name == Some("file") {
             // Get filename from content disposition
             let content_disposition = field.content_disposition();
-            if let Some(name) = content_disposition.get_filename() {
+            if let Some(name) = content_disposition
+                .as_ref()
+                .and_then(|cd| cd.get_filename())
+            {
                 filename = Some(name.to_string());
             }
 
@@ -33,7 +36,7 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
                 data.extend_from_slice(&chunk);
             }
             file_data = Some(data);
-        } else if field_name == "count_tokens" {
+        } else if field_name == Some("count_tokens") {
             // Read count_tokens boolean value
             let mut bytes = Vec::new();
             while let Some(chunk) = field.try_next().await? {

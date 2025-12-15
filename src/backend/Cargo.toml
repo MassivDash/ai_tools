@@ -10,32 +10,30 @@ actix-web = "4"
 actix-rt = "2"
 actix-files = "0.6.6"
 actix-cors = "0.7.0"
-actix-multipart = "0.6"
+actix-multipart = "0.7.2"
 actix-utils = "3.0.1"
-futures-util = "0.3.30"
-actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
-actix-session = { version = "0.10.0", features = ["cookie-session"] }
+futures-util = "0.3.31"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json"] }
 env_logger = "0.11.5"
 anyhow = "1.0"
 dotenv = "0.15.0"
-thiserror = "1.0.63"
+thiserror = "2.0.17"
 pin-project = "1.1.5"
 futures = "0.3.30"
 globset = "0.4.14"
-html-to-markdown-rs = "2.13.0"
+html-to-markdown-rs = "2.14.3"
 url = "2.5"
 regex = "1.10"
-zip = "0.6"
+zip = "6.0.0"
 tokio = { version = "1", features = ["net", "time", "rt", "macros"] }
 actix-ws = "0.3.0"
 uuid = { version = "1.15.1", features = ["v4"] }
 chroma = "0.9.0"
 tokenizers = { version = "0.22.2", features = ["http", "progressbar"] }
-pdf-extract = "0.7"
-toon = "0.1.0"
+pdf-extract = "0.10.0"
+toon = "0.1.2"
 async-trait = "0.1"
-sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
+sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio-rustls"] }
 tokio-stream = "0.1"

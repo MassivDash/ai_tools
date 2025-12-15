@@ -185,7 +185,7 @@ async fn create_zip_with_links(
 ) -> Result<Vec<u8>, String> {
     use std::collections::HashSet;
     use std::io::{Cursor, Write};
-    use zip::write::{FileOptions, ZipWriter};
+    use zip::write::{ExtendedFileOptions, FileOptions, ZipWriter};
     use zip::CompressionMethod;
 
     let zip_buffer = {
@@ -251,7 +251,7 @@ async fn create_zip_with_links(
         let main_filename = create_filename("index", main_url);
         println!("📄 Adding main page: {}", main_filename);
         zip_writer
-            .start_file(
+            .start_file::<&str, ExtendedFileOptions>(
                 &main_filename,
                 FileOptions::default().compression_method(CompressionMethod::Deflated),
             )
@@ -317,7 +317,7 @@ async fn create_zip_with_links(
                                     );
 
                                     zip_writer
-                                        .start_file(
+                                        .start_file::<&str, ExtendedFileOptions>(
                                             &link_filename,
                                             FileOptions::default()
                                                 .compression_method(CompressionMethod::Deflated),
