@@ -50,7 +50,7 @@ const { id, href, external } = Astro.props
 
   a {
     text-decoration: none;
-    color: #8b8b8b;
+    color: var(--md-on-surface-variant);
     text-transform: lowercase;
     display: flex;
     flex-direction: column;
@@ -59,7 +59,7 @@ const { id, href, external } = Astro.props
     font-size: smaller;
     transition: all 0.7s ease-in-out;
     &:hover {
-      color: #0a0909;
+      color: var(--md-on-surface);
     }
   }
 
@@ -70,9 +70,9 @@ const { id, href, external } = Astro.props
     height: 80px;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(90deg, #f6f6f6, #eeeeee, #f4f4f4, #fefefe);
+    background-color: var(--md-surface-variant);
     border-radius: 45px;
-    box-shadow: inset 0px 1px 2px 1px #1f1e1a69;
+    box-shadow: inset 0px 1px 2px 1px var(--md-shadow);
     transition: all 0.7s cubic-bezier(0, 1.5, 1, 1.5);
 
     /* Hide <p> visually but keep for screen readers */
@@ -89,26 +89,26 @@ const { id, href, external } = Astro.props
     }
 
     &:hover {
-      color: #0a0909;
-      box-shadow: inset 0px 0px 0px 0px #1f1e1a69;
+      color: var(--md-on-surface);
+      box-shadow: inset 0px 0px 0px 0px var(--md-shadow);
 
       a {
-        color: #0a0909;
+        color: var(--md-on-surface);
         transition: all 0.7s ease-in-out;
       }
 
       &:active {
-        box-shadow: inset 0px 1px 2px 3px #1f1e1a69;
+        box-shadow: inset 0px 1px 2px 3px var(--md-shadow);
       }
     }
   }
 
   .active {
     box-shadow: none;
-    color: #0a0909;
+    color: var(--md-on-primary);
     transform: scale(1);
-    filter: drop-shadow(1px 1px 1px rgba(30, 21, 21, 3.47));
-    background: linear-gradient(-90deg, #f6f6f6, #eeeeee, #f4f4f4, #fefefe);
+    filter: drop-shadow(1px 1px 1px var(--md-shadow));
+    background-color: var(--md-primary);
     position: relative;
     transitions: all 0.7s ease-in-out;
 
@@ -117,11 +117,11 @@ const { id, href, external } = Astro.props
     }
 
     &:active {
-      box-shadow: inset 0px 1px 2px 3px #1f1e1a69;
+      box-shadow: inset 0px 1px 2px 3px var(--md-shadow);
     }
 
     .logo > p {
-      color: #0a0909;
+      color: var(--md-on-primary);
       display: flex;
       margin: auto;
       position: relative;
@@ -130,7 +130,7 @@ const { id, href, external } = Astro.props
     }
 
     a {
-      color: #0a0909;
+      color: var(--md-on-primary);
       transition: all 0.7s ease-in-out;
     }
   }

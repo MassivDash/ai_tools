@@ -101,8 +101,8 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.25rem;
-    background-color: var(--bg-secondary, #f5f5f5);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background-color: var(--md-surface-variant);
+    border: 1px solid var(--md-outline-variant);
     border-radius: 12px;
     transition:
       background-color 0.3s ease,
@@ -119,7 +119,7 @@
     border: none;
     border-radius: 8px;
     background-color: transparent;
-    color: var(--text-secondary, #666);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
     transition:
       background-color 0.2s ease,
@@ -129,44 +129,24 @@
   }
 
   .theme-button:hover {
-    background-color: var(--bg-tertiary, #f9f9f9);
-    color: var(--text-primary, #100f0f);
+    background-color: var(--md-primary-container);
+    color: var(--md-on-primary-container);
     transform: scale(1.05);
   }
 
   .theme-button.active {
-    background-color: var(--accent-color, #b12424);
-    color: white;
-    box-shadow: 0 2px 4px rgba(177, 36, 36, 0.2);
+    background-color: var(--md-primary);
+    color: var(--md-on-primary);
+    box-shadow: 0 2px 4px var(--md-shadow);
   }
 
   .theme-button.active:hover {
-    background-color: var(--accent-hover, #8f1d1d);
+    background-color: var(--accent-hover);
     transform: scale(1.05);
   }
 
   .theme-button svg {
     width: 18px;
     height: 18px;
-  }
-
-  /* Dark theme adjustments */
-  :global(.dark) .theme-selector {
-    background-color: var(--bg-secondary, #2d2d2d);
-    border-color: var(--border-color, #444);
-  }
-
-  :global(.dark) .theme-button:hover {
-    background-color: var(--bg-tertiary, #252525);
-    color: var(--text-primary, #ffffff);
-  }
-
-  :global(.dark) .theme-button.active {
-    background-color: var(--accent-color, #f44336);
-    box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
-  }
-
-  :global(.dark) .theme-button.active:hover {
-    background-color: var(--accent-hover, #da190b);
   }
 </style>

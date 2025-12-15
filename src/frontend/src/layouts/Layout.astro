@@ -27,11 +27,11 @@ const { title } = Astro.props
 
     <!-- Web App Manifest -->
     <link rel='manifest' href='/site.webmanifest' />
-    <meta name='theme-color' content='#ffffff' />
+    <meta name='theme-color' content='#fffbf9' />
     <meta
       name='theme-color'
       media='(prefers-color-scheme: dark)'
-      content='#1e1e1e'
+      content='#1c1413'
     />
     <meta name='msapplication-TileColor' content='#b12424' />
 
@@ -83,60 +83,129 @@ const { title } = Astro.props
     <slot />
     <Footer />
     <style is:global>
-      /* Light theme (default) */
+      /* Material Design 3 - Light Theme */
       :root {
         --font-family: 'Noto Sans', sans-serif;
         --font-family-heading: 'Mina', sans-serif;
-        --bg-primary: #ffffff;
-        --bg-secondary: #f5f5f5;
-        --bg-tertiary: #f9f9f9;
-        --text-primary: #100f0f;
-        --text-secondary: #666;
-        --text-tertiary: #999;
-        --border-color: #e0e0e0;
-        --border-color-hover: #ccc;
-        --shadow: rgba(0, 0, 0, 0.1);
-        --accent-color: #b12424;
-        --accent-hover: #8f1d1d;
-        --gradient-bg: linear-gradient(
-          90deg,
-          #f6f6f663,
-          #eeeeeec9,
-          #f4f4f4,
-          #fefefe
-        );
+
+        /* Primary Colors */
+        --md-primary: #b12424;
+        --md-on-primary: #ffffff;
+        --md-primary-container: #ffdad6;
+        --md-on-primary-container: #410002;
+
+        /* Secondary Colors */
+        --md-secondary: #775652;
+        --md-on-secondary: #ffffff;
+        --md-secondary-container: #ffdad6;
+        --md-on-secondary-container: #2c1512;
+
+        /* Tertiary Colors */
+        --md-tertiary: #6b5d2f;
+        --md-on-tertiary: #ffffff;
+        --md-tertiary-container: #f4e0a6;
+        --md-on-tertiary-container: #231b00;
+
+        /* Error Colors */
+        --md-error: #ba1a1a;
+        --md-on-error: #ffffff;
+        --md-error-container: #ffdad6;
+        --md-on-error-container: #410002;
+
+        /* Surface Colors */
+        --md-surface: #fffbf9;
+        --md-on-surface: #201a19;
+        --md-surface-variant: #f5ddd9;
+        --md-on-surface-variant: #534341;
+
+        /* Outline Colors */
+        --md-outline: #857370;
+        --md-outline-variant: #d8c2be;
+
+        /* Background Colors */
+        --md-background: #fffbf9;
+        --md-on-background: #201a19;
+
+        /* Shadow */
+        --md-shadow: rgba(0, 0, 0, 0.2);
+
+        /* Legacy compatibility */
+        --bg-primary: var(--md-surface);
+        --bg-secondary: var(--md-surface-variant);
+        --bg-tertiary: var(--md-primary-container);
+        --text-primary: var(--md-on-surface);
+        --text-secondary: var(--md-on-surface-variant);
+        --text-tertiary: var(--md-outline);
+        --border-color: var(--md-outline-variant);
+        --border-color-hover: var(--md-outline);
+        --shadow: var(--md-shadow);
+        --accent-color: var(--md-primary);
+        --accent-hover: color-mix(in srgb, var(--md-primary) 85%, black);
       }
 
-      /* Dark theme */
+      /* Material Design 3 - Dark Theme */
       html.dark {
-        --bg-primary: #1e1e1e;
-        --bg-secondary: #2d2d2d;
-        --bg-tertiary: #252525;
-        --text-primary: #ffffff;
-        --text-secondary: #d4d4d4;
-        --text-tertiary: #858585;
-        --border-color: #444;
-        --border-color-hover: #666;
-        --shadow: rgba(0, 0, 0, 0.3);
-        --accent-color: #f44336;
-        --accent-hover: #da190b;
-        --gradient-bg: linear-gradient(
-          90deg,
-          #2d2d2d,
-          #252525,
-          #2a2a2a,
-          #1e1e1e
-        );
-      }
+        /* Primary Colors */
+        --md-primary: #9067c4; /* Slightly more saturated, vibrant purple */
+        --md-on-primary: #381e72;
+        --md-primary-container: #574288; /* More distinct container - deeper, slightly desaturated */
+        --md-on-primary-container: #eaddff;
 
+        /* Secondary Colors */
+        --md-secondary: #6200ee; /* A more vibrant, distinct secondary – leaning towards a deep indigo */
+        --md-on-secondary: #332d41;
+        --md-secondary-container: #3700b3; /* A more defined secondary container – darker, more saturated */
+        --md-on-secondary-container: #e8def8;
+
+        /* Tertiary Colors -  Using the primary and secondary as a base for harmony */
+        --md-tertiary: #81d4fa; /* A light teal-ish tone that complements the purples - MD3 often uses analogous colors */
+        --md-on-tertiary: #000000; /* Dark text for contrast */
+        --md-tertiary-container: #64b5f6; /*  Slightly darker teal */
+        --md-on-tertiary-container: #d0bcff; /* Matches primary container for consistency */
+
+        /* Error Colors */
+        --md-error: #b00020; /* A standard red-orange for error states */
+        --md-on-error: #ffffff; /* White text for contrast */
+        --md-error-container: #ff1744; /* Red-orange container */
+        --md-on-error-container: #ffdeba; /* Lighter red-orange for on-error-container */
+
+        /* Surface Colors */
+        --md-surface: #1d1b21; /* Slightly darker than the background for subtle elevation */
+        --md-on-surface: #ede0dd;
+        --md-surface-variant: #333135; /* Darker variant for more contrast */
+        --md-on-surface-variant: #d8c2be;
+
+        /* Outline Colors */
+        --md-outline: rgba(255, 255, 255, 0.15); /* Even more subtle outline */
+        --md-outline-variant: rgba(0, 0, 0, 0.08); /* Very subtle */
+
+        /* Background Colors */
+        --md-background: #1c1b1f;
+        --md-on-background: #ede0dd;
+
+        /* Shadow */
+        --md-shadow: rgba(0, 0, 0, 0.4);
+
+        /* Legacy compatibility */
+        --bg-primary: var(--md-surface);
+        --bg-secondary: var(--md-surface-variant);
+        --bg-tertiary: var(--md-primary-container);
+        --text-primary: var(--md-on-surface);
+        --text-secondary: var(--md-on-surface-variant);
+        --text-tertiary: var(--md-outline);
+        --border-color: var(--md-outline-variant);
+        --border-color-hover: var(--md-outline);
+        --shadow: var(--md-shadow);
+        --accent-color: var(--md-primary);
+        --accent-hover: color-mix(in srgb, var(--md-primary) 85%, white);
+      }
       body {
         margin: 0;
         width: 100%;
-        background: var(--gradient-bg);
         scroll-behavior: smooth;
         overflow-x: hidden;
         color: var(--text-primary);
-        background-color: var(--bg-primary);
+        background-color: var(--md-background);
         font-family: var(--font-family);
         font-optical-sizing: auto;
         transition:

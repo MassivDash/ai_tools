@@ -1,15 +1,21 @@
-/* Global dark theme styles */
-html.dark {
-  background-color: #1e1e1e;
-  color: #fff;
+/* Material Design 3 Global Styles */
+
+/* Links use primary color */
+a {
+  color: var(--md-primary);
+  transition: color 0.2s ease;
 }
 
-/* Dark theme link colors */
-.dark a {
-  color: #ff9776;
+a:hover {
+  color: var(--md-primary-container);
 }
 
-.dark a:hover {
-  color: #ffb399;
+/* Dark theme link adjustments */
+html.dark a {
+  color: var(--md-primary);
+}
+
+html.dark a:hover {
+  color: var(--md-on-primary-container);
 }
 

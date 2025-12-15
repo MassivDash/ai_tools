@@ -56,21 +56,23 @@
   }
 
   .button-success.button-icon-only {
-    background-color: #4caf50 !important;
-    color: white !important;
+    background-color: var(--md-tertiary) !important;
+    color: var(--md-on-tertiary) !important;
   }
 
   .button-success.button-icon-only:hover:not(:disabled) {
-    background-color: #45a049 !important;
+    background-color: var(--md-tertiary-container) !important;
+    color: var(--md-on-tertiary-container) !important;
   }
 
   .button-danger.button-icon-only {
-    background-color: #f44336 !important;
-    color: white !important;
+    background-color: var(--md-error) !important;
+    color: var(--md-on-error) !important;
   }
 
   .button-danger.button-icon-only:hover:not(:disabled) {
-    background-color: #da190b !important;
+    background-color: var(--md-error-container) !important;
+    color: var(--md-on-error-container) !important;
   }
 
   .button-small {
@@ -89,65 +91,67 @@
   }
 
   .button-primary {
-    background-color: var(--accent-color, #b12424);
-    color: white;
+    background-color: var(--md-primary);
+    color: var(--md-on-primary);
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
   }
 
   .button-primary:hover:not(:disabled) {
-    background-color: var(--accent-hover, #8f1d1d);
+    background-color: var(--accent-hover);
   }
 
   .button-secondary {
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--text-secondary, #666);
+    background-color: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
   }
 
   .button-secondary:hover:not(:disabled) {
-    background-color: var(--bg-tertiary, #e8e8e8);
-    color: var(--text-primary, #333);
+    background-color: var(--md-surface-variant);
+    color: var(--md-on-surface-variant);
   }
 
   .button-success {
-    background-color: #4caf50 !important;
-    color: white !important;
+    background-color: var(--md-tertiary);
+    color: var(--md-on-tertiary);
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
   }
 
   .button-success:hover:not(:disabled) {
-    background-color: #45a049 !important;
+    background-color: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
   }
 
   .button-danger {
-    background-color: #f44336 !important;
-    color: white !important;
+    background-color: var(--md-error);
+    color: var(--md-on-error);
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
   }
 
   .button-danger:hover:not(:disabled) {
-    background-color: #da190b !important;
+    background-color: var(--md-error-container);
+    color: var(--md-on-error-container);
   }
 
   .button-info {
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--text-primary, #333);
+    background-color: var(--md-surface-variant);
+    color: var(--md-on-surface-variant);
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
   }
 
   .button-info:hover:not(:disabled) {
-    background-color: var(--bg-tertiary, #e8e8e8);
-    color: var(--text-primary, #333);
+    background-color: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
   }
 
   .button-success:disabled,
@@ -157,8 +161,8 @@
   }
 
   .button:disabled:not(.button-success):not(.button-danger) {
-    background-color: var(--text-tertiary, #ccc);
-    color: var(--text-secondary, #666);
+    background-color: var(--md-outline-variant);
+    color: var(--md-on-surface-variant);
     cursor: not-allowed;
     opacity: 0.6;
     transition:
