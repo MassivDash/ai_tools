@@ -1,7 +1,7 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
+use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
 use crate::api::agent::types::{ChromaDBToolConfig, ToolCall, ToolCallResult};
 use crate::api::chromadb::client::ChromaDBClient;
-use crate::api::chromadb::types::{QueryRequest, QueryResponse};
+use crate::api::chromadb::types::QueryRequest;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
@@ -22,28 +22,6 @@ impl ChromaDBTool {
         let metadata = ToolMetadata {
             id: "1".to_string(),
             name: "chroma db search".to_string(),
-            description: "A vector database with internal additional information you can access"
-                .to_string(),
-            keywords: vec![
-                "search".to_string(),
-                "chromadb".to_string(),
-                "vector".to_string(),
-                "database".to_string(),
-                "document".to_string(),
-                "information".to_string(),
-                "knowledge".to_string(),
-                "query".to_string(),
-                "find".to_string(),
-                "lookup".to_string(),
-                "technical".to_string(),
-                "code".to_string(),
-                "framework".to_string(),
-                "library".to_string(),
-                "person".to_string(),
-                "place".to_string(),
-                "event".to_string(),
-            ],
-            category: ToolCategory::Search,
         };
 
         Ok(Self {
@@ -69,8 +47,38 @@ impl ChromaDBTool {
             .await
             .context("Failed to execute ChromaDB query")?;
 
-        // Format the results as a readable string
-        let formatted = format_query_results(&query_response)?;
+        // Format results: filter by cosine distance (distance <= 0.5 means similarity >= 0.5)
+        // For cosine distance: 0.0 = identical, 1.0 = orthogonal, 2.0 = opposite
+        const MAX_COSINE_DISTANCE: f64 = 0.5; // Equivalent to similarity >= 0.5
+
+        let mut formatted = String::new();
+        if let Some(documents) = &query_response.documents {
+            let mut count = 0;
+            for (i, doc_batch) in documents.iter().enumerate() {
+                for (j, doc) in doc_batch.iter().enumerate() {
+                    // Include if no distance available, or if distance is within threshold
+                    let include = query_response
+                        .distances
+                        .as_ref()
+                        .and_then(|dists| dists.get(i))
+                        .and_then(|batch| batch.get(j))
+                        .map(|&dist| dist <= MAX_COSINE_DISTANCE)
+                        .unwrap_or(true);
+
+                    if include {
+                        count += 1;
+                        formatted.push_str(&format!("=== Document {} ===\n{}\n\n", count, doc));
+                    }
+                }
+            }
+
+            if count == 0 {
+                formatted.push_str("No relevant documents found (similarity threshold: 0.5).");
+            }
+        } else {
+            formatted.push_str("No documents found in the collection.");
+        }
+
         Ok(formatted)
     }
 }
@@ -105,7 +113,6 @@ impl AgentTool for ChromaDBTool {
     }
 
     async fn execute(&self, tool_call: &ToolCall) -> Result<ToolCallResult> {
-        // Parse the function arguments
         let args: serde_json::Value = serde_json::from_str(&tool_call.function.arguments)
             .context("Failed to parse tool call arguments")?;
 
@@ -126,51 +133,4 @@ impl AgentTool for ChromaDBTool {
             result,
         })
     }
-}
-
-/// Format query results as a readable string
-/// Only includes results with similarity score >= 0.5 (distance <= 0.5)
-fn format_query_results(response: &QueryResponse) -> Result<String> {
-    let mut formatted = String::new();
-    const MIN_SIMILARITY: f64 = 0.5; // Minimum similarity threshold
-
-    if let Some(documents) = &response.documents {
-        let mut relevant_count = 0;
-
-        for (i, doc_batch) in documents.iter().enumerate() {
-            for (j, doc) in doc_batch.iter().enumerate() {
-                // Check similarity score
-                let should_include = if let Some(distances) = &response.distances {
-                    if let Some(dist_batch) = distances.get(i) {
-                        if let Some(dist) = dist_batch.get(j) {
-                            let similarity = 1.0 - dist;
-                            similarity >= MIN_SIMILARITY
-                        } else {
-                            true // Include if no distance available
-                        }
-                    } else {
-                        true // Include if no distance batch available
-                    }
-                } else {
-                    true // Include if no distances available
-                };
-
-                if should_include {
-                    relevant_count += 1;
-                    formatted.push_str(&format!("=== Document {} ===\n", relevant_count));
-                    formatted.push_str(doc);
-                    formatted.push_str("\n\n");
-                    // Note: Similarity scores are used internally for filtering but not shown to the agent
-                }
-            }
-        }
-
-        if relevant_count == 0 {
-            formatted.push_str("No relevant documents found. The search query did not match any documents with sufficient similarity (minimum 0.5 similarity required).");
-        }
-    } else {
-        formatted.push_str("No documents found in the collection.");
-    }
-
-    Ok(formatted)
 }

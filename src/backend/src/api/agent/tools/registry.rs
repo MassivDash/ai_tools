@@ -1,4 +1,4 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
+use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
 use crate::api::agent::types::{Tool, ToolCall, ToolCallResult};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -72,11 +72,6 @@ impl ToolRegistry {
         self.tools.values().map(Arc::clone).collect()
     }
 
-    /// Get all tool metadata
-    pub fn get_all_metadata(&self) -> Vec<&ToolMetadata> {
-        self.metadata_map.values().collect()
-    }
-
     /// Build OpenAI-compatible tool definitions for all registered tools
     pub fn build_tool_definitions(&self) -> Result<Vec<Tool>> {
         let mut definitions = Vec::new();
@@ -122,42 +117,6 @@ impl ToolRegistry {
 
         println!("✅ Found tool: {}", tool.metadata().name);
         tool.execute(tool_call).await
-    }
-
-    /// Find the most relevant tools for a given query
-    pub fn find_relevant_tools(
-        &self,
-        query: &str,
-        limit: Option<usize>,
-    ) -> Vec<(Arc<dyn AgentTool>, f64)> {
-        let mut scored_tools: Vec<(Arc<dyn AgentTool>, f64)> = self
-            .tools
-            .values()
-            .map(|tool| {
-                let score = tool.calculate_relevance(query);
-                (Arc::clone(tool), score)
-            })
-            .filter(|(_, score)| *score > 0.0) // Only include tools with some relevance
-            .collect();
-
-        // Sort by relevance score (descending)
-        scored_tools.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-        // Apply limit if specified
-        if let Some(limit) = limit {
-            scored_tools.truncate(limit);
-        }
-
-        scored_tools
-    }
-
-    /// Get tools by category
-    pub fn get_tools_by_category(&self, category: ToolCategory) -> Vec<Arc<dyn AgentTool>> {
-        self.tools
-            .values()
-            .filter(|tool| tool.metadata().category == category)
-            .map(Arc::clone)
-            .collect()
     }
 
     /// Check if a tool is registered

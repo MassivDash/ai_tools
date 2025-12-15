@@ -83,7 +83,47 @@ pub async fn execute_agent_loop(
             });
         }
 
-        // Build request - allow tools if available
+        // Build request - convert tool messages to user messages to maintain alternation
+        // (the LLM server expects alternating user/assistant and doesn't allow prefill with tool_calls)
+        let mut filtered_messages: Vec<ChatMessage> = Vec::new();
+        let mut tool_results_buffer: Vec<String> = Vec::new();
+
+        for msg in messages.iter() {
+            if matches!(msg.role, MessageRole::Tool) {
+                // Collect tool results to create a user message
+                let tool_name = msg.name.as_deref().unwrap_or("unknown");
+                tool_results_buffer.push(format!("{}: {}", tool_name, msg.content));
+            } else {
+                // If we have buffered tool results, create a user message with them
+                if !tool_results_buffer.is_empty() {
+                    let tool_results_content = tool_results_buffer.join("\n");
+                    filtered_messages.push(ChatMessage {
+                        role: MessageRole::User,
+                        content: format!("Tool results:\n{}", tool_results_content),
+                        name: None,
+                        tool_calls: None,
+                        tool_call_id: None,
+                        reasoning_content: None,
+                    });
+                    tool_results_buffer.clear();
+                }
+                filtered_messages.push(msg.clone());
+            }
+        }
+
+        // Handle any remaining tool results at the end
+        if !tool_results_buffer.is_empty() {
+            let tool_results_content = tool_results_buffer.join("\n");
+            filtered_messages.push(ChatMessage {
+                role: MessageRole::User,
+                content: format!("Tool results:\n{}", tool_results_content),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+                reasoning_content: None,
+            });
+        }
+
         let tool_choice = if !tools.is_empty() {
             Some("auto".to_string())
         } else {
@@ -91,7 +131,7 @@ pub async fn execute_agent_loop(
         };
 
         let request = ChatCompletionRequest {
-            messages: messages.clone(),
+            messages: filtered_messages,
             model: model_name.clone(),
             temperature: Some(config.temperature),
             max_tokens: Some(config.max_tokens),

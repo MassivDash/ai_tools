@@ -1,4 +1,4 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
+use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
 use crate::api::agent::types::{ToolCall, ToolCallResult};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -16,23 +16,6 @@ impl FinancialDataTool {
             metadata: ToolMetadata {
                 id: "2".to_string(),
                 name: "financial sql query".to_string(),
-                description:
-                    "A sql data query that will result in providing latest user shopping info"
-                        .to_string(),
-                keywords: vec![
-                    "financial".to_string(),
-                    "purchase".to_string(),
-                    "shopping".to_string(),
-                    "transaction".to_string(),
-                    "spending".to_string(),
-                    "buy".to_string(),
-                    "money".to_string(),
-                    "cost".to_string(),
-                    "price".to_string(),
-                    "sql".to_string(),
-                    "data".to_string(),
-                ],
-                category: ToolCategory::DataQuery,
             },
         }
     }

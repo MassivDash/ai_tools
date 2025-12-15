@@ -185,3 +185,34 @@ pub struct AgentStatusResponse {
     pub active: bool,
     pub config: AgentConfig,
 }
+
+/// Streaming event types for agent responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum AgentStreamEvent {
+    #[serde(rename = "status")]
+    Status {
+        status: String, // "thinking", "calling_tool", "tool_result", "streaming", "done"
+        message: Option<String>,
+    },
+    #[serde(rename = "tool_call")]
+    ToolCall {
+        tool_name: String,
+        arguments: String,
+    },
+    #[serde(rename = "tool_result")]
+    ToolResult {
+        tool_name: String,
+        success: bool,
+        result: Option<String>,
+    },
+    #[serde(rename = "text_chunk")]
+    TextChunk { text: String },
+    #[serde(rename = "done")]
+    Done {
+        conversation_id: Option<String>,
+        tool_calls: Option<Vec<ToolCallResult>>,
+    },
+    #[serde(rename = "error")]
+    Error { message: String },
+}

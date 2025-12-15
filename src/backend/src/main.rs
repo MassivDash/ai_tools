@@ -16,6 +16,7 @@ mod utils;
 use crate::api::agent::config::AgentConfigHandle;
 use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
+use crate::api::agent::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
@@ -64,6 +65,9 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Failed to initialize SQLite conversation memory"),
     );
+
+    // Create Agent WebSocket state for real-time agent updates
+    let agent_ws_state = Arc::new(AgentWebSocketState::new());
 
     // Create WebSocket state ONCE before the server (shared across all workers)
     let ws_state = Arc::new(WebSocketState::new(
@@ -126,6 +130,7 @@ async fn main() -> std::io::Result<()> {
     let llama_logs_data = llama_logs.clone();
     let llama_server_state_data = llama_server_state.clone();
     let ws_state_data = ws_state.clone();
+    let agent_ws_state_data = agent_ws_state.clone();
     let chroma_address_data = web::Data::new(chroma_address.clone());
     let chromadb_config_data = chromadb_config.clone();
     let agent_config_data = agent_config.clone();
@@ -142,6 +147,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(llama_logs_data.clone()))
             .app_data(web::Data::new(llama_server_state_data.clone()))
             .app_data(web::Data::new(ws_state_data.clone()))
+            .app_data(web::Data::new(agent_ws_state_data.clone()))
             .app_data(chroma_address_data.clone())
             .app_data(web::Data::new(chromadb_config_data.clone()))
             .app_data(web::Data::new(agent_config_data.clone()))
@@ -152,6 +158,7 @@ async fn main() -> std::io::Result<()> {
                 "/api/llama-server/status/ws",
                 web::get().to(status_websocket),
             )
+            .route("/api/agent/stream/ws", web::get().to(agent_websocket))
             .configure(configure_converter_services)
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)

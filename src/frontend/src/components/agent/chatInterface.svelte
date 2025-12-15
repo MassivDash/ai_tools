@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Button from '../ui/Button.svelte'
   import { marked } from 'marked'
+  import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
 
-  // Configure marked
+  // Configure marked and WebSocket
   onMount(() => {
     try {
       if (marked && typeof marked.setOptions === 'function') {
@@ -16,27 +17,49 @@
     } catch (e) {
       console.error('Failed to configure marked:', e)
     }
+    // Connect to agent WebSocket for real-time updates
+    agentWs.connect()
   })
 
-  interface ChatMessage {
-    role: 'user' | 'assistant'
-    content: string
-    timestamp: number
-  }
+  onDestroy(() => {
+    // Disconnect WebSocket when component is destroyed
+    agentWs.disconnect()
+  })
 
   interface AgentChatRequest {
     message: string
     conversation_id?: string
   }
 
-  interface AgentChatResponse {
-    success: boolean
-    message: string
+  interface AgentStreamEvent {
+    type:
+      | 'status'
+      | 'tool_call'
+      | 'tool_result'
+      | 'text_chunk'
+      | 'done'
+      | 'error'
+    status?: string
+    message?: string
+    tool_name?: string
+    arguments?: string
+    success?: boolean
+    result?: string
+    text?: string
     conversation_id?: string
     tool_calls?: Array<{
       tool_name: string
       result: string
     }>
+  }
+
+  interface ChatMessage {
+    id: string // Unique ID for each message
+    role: 'user' | 'assistant' | 'status' | 'tool'
+    content: string
+    timestamp: number
+    toolName?: string
+    statusType?: string
   }
 
   let messages: ChatMessage[] = []
@@ -45,11 +68,29 @@
   let error = ''
   let conversationId: string | null = null
   let chatContainer: HTMLDivElement
+  let currentStreamingMessage: string = ''
+  let streamingMessageId: string | null = null
+
+  // Generate unique ID for messages
+  const generateMessageId = () => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // WebSocket for real-time agent updates
+  const agentWs = useAgentWebSocket(
+    (event) => {
+      handleStreamEvent(event)
+    },
+    (err) => {
+      console.error('❌ Agent WebSocket error:', err)
+    }
+  )
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || loading) return
 
     const userMessage: ChatMessage = {
+      id: generateMessageId(),
       role: 'user',
       content: inputMessage.trim(),
       timestamp: Date.now()
@@ -60,6 +101,8 @@
     inputMessage = ''
     loading = true
     error = ''
+    currentStreamingMessage = ''
+    streamingMessageId = null
 
     // Scroll to bottom
     setTimeout(() => {
@@ -74,33 +117,29 @@
         conversation_id: conversationId || undefined
       }
 
-      const response = await axiosBackendInstance.post<AgentChatResponse>(
-        'agent/chat',
-        request
-      )
+      // Send message via WebSocket - events will come back via WebSocket
+      const baseUrl = axiosBackendInstance.defaults.baseURL || ''
+      const response = await window.fetch(`${baseUrl}/agent/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+      })
 
-      if (response.data.success) {
-        if (response.data.conversation_id) {
-          conversationId = response.data.conversation_id
-        }
-
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: response.data.message,
-          timestamp: Date.now()
-        }
-
-        messages = [...messages, assistantMessage]
-
-        // Scroll to bottom after message is added
-        setTimeout(() => {
-          if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight
-          }
-        }, 100)
-      } else {
-        error = response.data.message || 'Failed to get response'
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+
+      // Events will come via WebSocket only (no SSE reading to avoid duplicates)
+      // Just wait for the response to complete - WebSocket handles all events
+
+      // Scroll to bottom
+      setTimeout(() => {
+        if (chatContainer) {
+          chatContainer.scrollTop = chatContainer.scrollHeight
+        }
+      }, 100)
     } catch (err: any) {
       console.error('❌ Failed to send message:', err)
       error =
@@ -110,6 +149,141 @@
         'Failed to send message'
     } finally {
       loading = false
+    }
+  }
+
+  const handleStreamEvent = (event: AgentStreamEvent) => {
+    switch (event.type) {
+      case 'status':
+        if (event.message) {
+          // Always show status messages - they indicate what the agent is doing
+          // Remove any existing status message and add new one
+          messages = messages.filter((m) => m.role !== 'status')
+          messages.push({
+            id: generateMessageId(),
+            role: 'status',
+            content: event.message,
+            timestamp: Date.now(),
+            statusType: event.status
+          })
+          // Auto-scroll when status updates
+          setTimeout(() => {
+            if (chatContainer) {
+              chatContainer.scrollTop = chatContainer.scrollHeight
+            }
+          }, 10)
+        }
+        break
+
+      case 'tool_call':
+        // Remove any existing tool message for this tool
+        messages = messages.filter(
+          (m) => m.role !== 'tool' || m.toolName !== event.tool_name
+        )
+        messages.push({
+          id: generateMessageId(),
+          role: 'tool',
+          content: `Calling ${event.tool_name}...`,
+          timestamp: Date.now(),
+          toolName: event.tool_name
+        })
+        break
+
+      case 'tool_result': {
+        // Remove status message when tool completes
+        messages = messages.filter((m) => m.role !== 'status')
+        // Update existing tool message or create new one
+        const toolIndex = messages.findIndex(
+          (m) => m.role === 'tool' && m.toolName === event.tool_name
+        )
+        if (toolIndex >= 0) {
+          messages[toolIndex].content = event.success
+            ? `✅ ${event.tool_name} completed`
+            : `❌ ${event.tool_name} failed: ${event.result || 'Unknown error'}`
+        } else {
+          messages.push({
+            id: generateMessageId(),
+            role: 'tool',
+            content: event.success
+              ? `✅ ${event.tool_name} completed`
+              : `❌ ${event.tool_name} failed: ${event.result || 'Unknown error'}`,
+            timestamp: Date.now(),
+            toolName: event.tool_name
+          })
+        }
+        break
+      }
+
+      case 'text_chunk':
+        if (event.text) {
+          // Remove status message when text starts streaming
+          messages = messages.filter((m) => m.role !== 'status')
+
+          currentStreamingMessage += event.text
+          // Update or create streaming message
+          if (streamingMessageId) {
+            const existingIndex = messages.findIndex(
+              (m) => m.id === streamingMessageId
+            )
+            if (existingIndex >= 0) {
+              messages[existingIndex].content = currentStreamingMessage
+            } else {
+              // Message was removed somehow, create new one
+              streamingMessageId = generateMessageId()
+              messages.push({
+                id: streamingMessageId,
+                role: 'assistant',
+                content: currentStreamingMessage,
+                timestamp: 0 // Mark as streaming
+              })
+            }
+          } else {
+            // Create new streaming message
+            streamingMessageId = generateMessageId()
+            messages.push({
+              id: streamingMessageId,
+              role: 'assistant',
+              content: currentStreamingMessage,
+              timestamp: 0 // Mark as streaming
+            })
+          }
+          // Auto-scroll during streaming
+          setTimeout(() => {
+            if (chatContainer) {
+              chatContainer.scrollTop = chatContainer.scrollHeight
+            }
+          }, 10)
+        }
+        break
+
+      case 'done':
+        if (event.conversation_id) {
+          conversationId = event.conversation_id
+        }
+        // Remove any remaining status messages
+        messages = messages.filter((m) => m.role !== 'status')
+        // Mark streaming message as complete
+        if (streamingMessageId) {
+          const streamingIndex = messages.findIndex(
+            (m) => m.id === streamingMessageId
+          )
+          if (streamingIndex >= 0) {
+            messages[streamingIndex].timestamp = Date.now()
+          }
+          streamingMessageId = null
+        }
+        currentStreamingMessage = ''
+        break
+
+      case 'error':
+        error = event.message || 'An error occurred'
+        // Clear streaming message on error
+        if (streamingMessageId) {
+          messages = messages.filter((m) => m.id !== streamingMessageId)
+          streamingMessageId = null
+        }
+        currentStreamingMessage = ''
+        break
     }
   }
 
@@ -170,22 +344,61 @@
         </p>
       </div>
     {:else}
-      {#each messages as message (message.timestamp)}
-        <div
-          class="message"
-          class:user={message.role === 'user'}
-          class:assistant={message.role === 'assistant'}
-        >
-          <div class="message-role">
-            {message.role === 'user' ? 'You' : 'Assistant'}
+      {#each messages as message (message.id)}
+        {#if message.role === 'status'}
+          <div class="message status-message">
+            <div class="status-indicator">
+              {#if message.statusType === 'thinking'}
+                <span class="thinking-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+                Thinking...
+              {:else if message.statusType === 'calling_tool'}
+                🔧 {message.content}
+              {:else if message.statusType === 'tool_executing'}
+                ⚙️ {message.content}
+              {:else if message.statusType === 'tool_complete'}
+                ✅ {message.content}
+              {:else if message.statusType === 'tool_error'}
+                ❌ {message.content}
+              {:else}
+                {message.content}
+              {/if}
+            </div>
           </div>
+        {:else if message.role === 'tool'}
+          <div class="message tool-message">
+            <div class="tool-indicator">
+              {message.content}
+            </div>
+          </div>
+        {:else}
           <div
-            class="message-content"
-            class:markdown={message.role === 'assistant'}
+            class="message"
+            class:user={message.role === 'user'}
+            class:assistant={message.role === 'assistant'}
+            class:streaming={message.role === 'assistant' &&
+              message.timestamp === 0}
           >
-            {@html renderMarkdown(message.content)}
+            <div class="message-role">
+              {message.role === 'user' ? 'You' : 'Assistant'}
+            </div>
+            <div
+              class="message-content"
+              class:markdown={message.role === 'assistant' &&
+                message.timestamp !== 0}
+            >
+              {#if message.role === 'assistant' && message.timestamp === 0}
+                {@html renderMarkdown(message.content)}
+                <span class="streaming-cursor">|</span>
+              {:else}
+                {@html renderMarkdown(message.content)}
+              {/if}
+            </div>
           </div>
-        </div>
+        {/if}
       {/each}
       {#if loading}
         <div class="message assistant">
@@ -296,6 +509,99 @@
 
   .message.assistant {
     align-self: flex-start;
+  }
+
+  .message.streaming {
+    opacity: 0.95;
+  }
+
+  .status-message {
+    align-self: center;
+    max-width: 100%;
+    margin: 0.5rem 0;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--bg-tertiary, #f0f0f0);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #666);
+    border: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .thinking-dots {
+    display: inline-flex;
+    gap: 0.2rem;
+    align-items: center;
+  }
+
+  .thinking-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--text-secondary, #666);
+    animation: thinking 1.4s infinite;
+  }
+
+  .thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes thinking {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.7;
+    }
+    30% {
+      transform: translateY(-8px);
+      opacity: 1;
+    }
+  }
+
+  .tool-message {
+    align-self: center;
+    max-width: 100%;
+    margin: 0.5rem 0;
+  }
+
+  .tool-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--bg-secondary, #f5f5f5);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-primary, #100f0f);
+    border: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .streaming-cursor {
+    display: inline-block;
+    animation: blink 1s infinite;
+    color: var(--accent-color, #2196f3);
+    font-weight: bold;
+  }
+
+  @keyframes blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0;
+    }
   }
 
   @keyframes fadeIn {

@@ -1,16 +1,22 @@
 use crate::api::agent::agent_loop::{execute_agent_loop, AgentLoopConfig};
 use crate::api::agent::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::streaming::execute_agent_loop_streaming;
 use crate::api::agent::tools::{
     chromadb::ChromaDBTool, financial_data::FinancialDataTool, registry::ToolRegistry,
     selector::ToolSelector,
 };
 use crate::api::agent::types::{
-    AgentChatRequest, AgentChatResponse, AgentConfig, ChatMessage, MessageRole, ToolType,
+    AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage, MessageRole,
+    ToolType,
 };
+use crate::api::agent::websocket::AgentWebSocketState;
 use crate::api::llama_server::types::Config;
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
+use futures::StreamExt;
 use reqwest::Client;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// Clean response text by removing internal reasoning markers and redacted content
 fn clean_response(text: &str) -> String {
@@ -176,18 +182,6 @@ pub async fn agent_chat(
         }
     }
 
-    // Get tools by category for logging
-    use crate::api::agent::tools::agent_tool::ToolCategory;
-    let search_tools = tool_registry_arc.get_tools_by_category(ToolCategory::Search);
-    let data_tools = tool_registry_arc.get_tools_by_category(ToolCategory::DataQuery);
-    if !search_tools.is_empty() || !data_tools.is_empty() {
-        println!(
-            "📊 Tools by category: {} search, {} data query",
-            search_tools.len(),
-            data_tools.len()
-        );
-    }
-
     // Get all tools and verify they're accessible
     let all_tools = tool_registry_arc.get_all_tools();
     for tool in &all_tools {
@@ -200,20 +194,10 @@ pub async fn agent_chat(
     // Create tool selector for intelligent tool selection
     let tool_selector = ToolSelector::new(Arc::clone(&tool_registry_arc));
 
-    // Check if this query requires tools (skip tool setup for simple greetings)
-    let requires_tools = tool_selector.requires_tools(&req.message);
-
     // Build system prompt using tool selector
+    // The prompt already instructs the LLM when NOT to use tools (greetings, small talk, etc.)
+    // The LLM will decide which tools to use based on the prompt
     let system_prompt = tool_selector.build_system_prompt();
-
-    // Select most relevant tools for this query (for logging/debugging)
-    if requires_tools && !tools.is_empty() {
-        let selected_tools = tool_selector.select_tools(&req.message, Some(3));
-        println!(
-            "🎯 Selected {} relevant tool(s) for query",
-            selected_tools.len()
-        );
-    }
     let system_prompt_clone = system_prompt.clone();
 
     // Get conversation history from SQLite (only user/assistant messages)
@@ -414,4 +398,201 @@ pub async fn agent_chat(
             Some(loop_result.tool_calls)
         },
     }))
+}
+
+/// Streaming chat completion endpoint using Server-Sent Events (SSE)
+/// Also broadcasts events via WebSocket for real-time updates
+#[post("/api/agent/chat/stream")]
+pub async fn agent_chat_stream(
+    req: web::Json<AgentChatRequest>,
+    agent_config: web::Data<Arc<Mutex<AgentConfig>>>,
+    chroma_address: web::Data<String>,
+    _chromadb_config: web::Data<Arc<Mutex<crate::api::chromadb::config::types::ChromaDBConfig>>>,
+    llama_config: web::Data<Arc<Mutex<Config>>>,
+    sqlite_memory: web::Data<Arc<SqliteConversationMemory>>,
+    agent_ws_state: web::Data<Arc<AgentWebSocketState>>,
+) -> ActixResult<HttpResponse> {
+    let config = agent_config.lock().unwrap().clone();
+
+    // Get or create conversation ID
+    let conversation_id = sqlite_memory
+        .get_or_create_conversation_id(req.conversation_id.clone())
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to get conversation ID: {}",
+                e
+            ))
+        })?;
+
+    // Build tool registry (same as non-streaming endpoint)
+    let mut tool_registry = ToolRegistry::new();
+
+    if let Some(chromadb_tool_config) = &config.chromadb {
+        match ChromaDBTool::new(chroma_address.as_str(), chromadb_tool_config.clone()) {
+            Ok(tool) => {
+                if let Err(e) = tool_registry.register(Arc::new(tool)) {
+                    println!("⚠️ Failed to register ChromaDB tool: {}", e);
+                }
+            }
+            Err(e) => {
+                println!("⚠️ Failed to create ChromaDB tool: {}", e);
+            }
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::FinancialData) {
+        let financial_tool = FinancialDataTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
+            println!("⚠️ Failed to register Financial Data tool: {}", e);
+        }
+    }
+
+    let tool_registry_arc = Arc::new(tool_registry);
+    let tools = tool_registry_arc.build_tool_definitions().map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Failed to build tool definitions: {}",
+            e
+        ))
+    })?;
+
+    let tool_selector = ToolSelector::new(Arc::clone(&tool_registry_arc));
+    let system_prompt = tool_selector.build_system_prompt();
+
+    // Get conversation history
+    let messages = sqlite_memory
+        .get_messages(&conversation_id)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to get conversation history: {}",
+                e
+            ))
+        })?;
+
+    let mut messages_with_system = vec![ChatMessage {
+        role: MessageRole::System,
+        content: system_prompt,
+        name: None,
+        tool_calls: None,
+        tool_call_id: None,
+        reasoning_content: None,
+    }];
+
+    messages_with_system.extend(messages);
+
+    let user_message = ChatMessage {
+        role: MessageRole::User,
+        content: req.message.clone(),
+        name: None,
+        tool_calls: None,
+        tool_call_id: None,
+        reasoning_content: None,
+    };
+    messages_with_system.push(user_message.clone());
+
+    // Store user message
+    sqlite_memory
+        .add_message(&conversation_id, user_message)
+        .await
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to store user message: {}",
+                e
+            ))
+        })?;
+
+    let model_name = {
+        let llama_config_guard = llama_config.lock().unwrap();
+        llama_config_guard.hf_model.clone()
+    };
+
+    let llama_url = "http://localhost:8080/v1/chat/completions";
+    let client = Client::new();
+
+    // Create channel for streaming events (SSE)
+    let (tx, rx) = mpsc::unbounded_channel::<Result<AgentStreamEvent, anyhow::Error>>();
+
+    // Clone necessary data for the streaming task
+    let client_clone = client.clone();
+    let llama_url_clone = llama_url.to_string();
+    let model_name_clone = model_name.clone();
+    let tools_clone = tools.clone();
+    let tool_registry_clone = Arc::clone(&tool_registry_arc);
+    let sqlite_memory_clone = sqlite_memory.get_ref().clone();
+    let conversation_id_clone = conversation_id.clone();
+    let agent_ws_state_clone = agent_ws_state.get_ref().clone();
+    let loop_config = AgentLoopConfig::default();
+
+    // Spawn the agent loop in a background task
+    // Events will be sent to both SSE (via tx) and WebSocket (via agent_ws_state)
+    actix_rt::spawn(async move {
+        // Create a wrapper sender that broadcasts to both SSE and WebSocket
+        let tx_sse = tx.clone();
+        let agent_ws_broadcast = agent_ws_state_clone.clone();
+        let (tx_wrapper, mut rx_wrapper) =
+            mpsc::unbounded_channel::<Result<AgentStreamEvent, anyhow::Error>>();
+
+        // Spawn task to duplicate events to both SSE and WebSocket
+        actix_rt::spawn(async move {
+            while let Some(event_result) = rx_wrapper.recv().await {
+                // Broadcast to WebSocket first (if successful)
+                if let Ok(event) = &event_result {
+                    agent_ws_broadcast.broadcast(event);
+                }
+                // Send to SSE (need to handle error case)
+                match &event_result {
+                    Ok(event) => {
+                        let _ = tx_sse.send(Ok(event.clone()));
+                    }
+                    Err(e) => {
+                        let _ = tx_sse.send(Err(anyhow::anyhow!("{}", e)));
+                    }
+                }
+            }
+        });
+
+        if let Err(e) = execute_agent_loop_streaming(
+            &client_clone,
+            &llama_url_clone,
+            model_name_clone,
+            messages_with_system,
+            tools_clone,
+            tool_registry_clone,
+            sqlite_memory_clone,
+            conversation_id_clone,
+            loop_config,
+            tx_wrapper,
+        )
+        .await
+        {
+            println!("❌ Streaming agent loop error: {}", e);
+        }
+    });
+
+    // Convert events to SSE format
+    let stream = UnboundedReceiverStream::new(rx).map(
+        move |event_result| -> Result<web::Bytes, actix_web::Error> {
+            match event_result {
+                Ok(event) => {
+                    let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_string());
+                    Ok(web::Bytes::from(format!("data: {}\n\n", json)))
+                }
+                Err(e) => {
+                    let error_event = AgentStreamEvent::Error {
+                        message: e.to_string(),
+                    };
+                    let json =
+                        serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string());
+                    Ok(web::Bytes::from(format!("data: {}\n\n", json)))
+                }
+            }
+        },
+    );
+
+    Ok(HttpResponse::Ok()
+        .content_type("text/event-stream")
+        .append_header(("Cache-Control", "no-cache"))
+        .append_header(("Connection", "keep-alive"))
+        .streaming(stream))
 }

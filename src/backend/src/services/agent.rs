@@ -1,6 +1,6 @@
 use actix_web::web::ServiceConfig;
 
-use crate::api::agent::chat::agent_chat;
+use crate::api::agent::chat::{agent_chat, agent_chat_stream};
 use crate::api::agent::config::{get_agent_config, get_agent_status, post_agent_config};
 
 /// Configures all agent related endpoints
@@ -8,7 +8,8 @@ pub fn configure_agent_services(cfg: &mut ServiceConfig) {
     cfg.service(get_agent_status)
         .service(get_agent_config)
         .service(post_agent_config)
-        .service(agent_chat);
+        .service(agent_chat)
+        .service(agent_chat_stream);
 }
 
 #[cfg(test)]
