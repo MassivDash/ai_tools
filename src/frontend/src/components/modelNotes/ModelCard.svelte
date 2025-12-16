@@ -56,7 +56,7 @@
     </div>
     <div class="model-actions">
       <Button
-        variant={isFavorite ? 'warning' : 'info'}
+        variant={isFavorite ? 'primary' : 'info'}
         class="button-icon-only"
         onclick={onToggleFavorite}
         title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}

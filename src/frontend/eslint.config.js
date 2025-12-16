@@ -47,12 +47,14 @@ export default [
         HTMLTextAreaElement: 'readonly',
         // Event types
         Event: 'readonly',
+        EventListener: 'readonly',
         CustomEvent: 'readonly',
         KeyboardEvent: 'readonly',
         MouseEvent: 'readonly',
         DragEvent: 'readonly',
         MessageEvent: 'readonly',
         CloseEvent: 'readonly',
+        TouchEvent: 'readonly',
         // Node globals
         process: 'readonly',
         Buffer: 'readonly',

@@ -13,18 +13,43 @@
     ModelNoteRequest
   } from './types'
 
-  let llamaModels: LlamaModelInfo[] = []
-  let ollamaModels: OllamaModelInfo[] = []
-  let modelNotes: Map<string, ModelNote> = new Map()
-  let modelNotesKey = 0
-  let loading = false
-  let error = ''
-  let selectedPlatform: 'llama' | 'ollama' | 'all' = 'all'
-  let showFavoritesOnly = false
-  let searchQuery = ''
-  let editingNote: ModelNote | null = null
-  let editingTags = ''
-  let editingNotes = ''
+  let llamaModels: LlamaModelInfo[] = $state([])
+  let ollamaModels: OllamaModelInfo[] = $state([])
+  let modelNotes: Map<string, ModelNote> = $state(new Map())
+  let modelNotesKey = $state(0)
+  let loading = $state(false)
+  let error = $state('')
+  let selectedPlatform: 'llama' | 'ollama' | 'all' = $state('all')
+  let showFavoritesOnly = $state(false)
+  let searchQuery = $state('')
+  let minSize = $state(0)
+  let maxSize = $state(100)
+  let editingNote: ModelNote | null = $state(null)
+  let editingTags = $state('')
+  let editingNotes = $state('')
+
+  // Ensure size filter values are always valid numbers
+  $effect(() => {
+    // Only fix invalid values, don't change valid ones
+    if (typeof minSize !== 'number' || isNaN(minSize)) {
+      minSize = 0
+    } else if (minSize < 0) {
+      minSize = 0
+    }
+
+    if (typeof maxSize !== 'number' || isNaN(maxSize)) {
+      maxSize = 100
+    } else if (maxSize > 100) {
+      maxSize = 100
+    }
+
+    // Ensure minSize doesn't exceed maxSize
+    if (minSize > maxSize) {
+      const temp = minSize
+      minSize = Math.max(0, maxSize)
+      maxSize = Math.min(100, temp)
+    }
+  })
 
   const getModelKey = (platform: string, modelName: string): string => {
     return `${platform}:${modelName}`
@@ -52,6 +77,34 @@
     modelNotesKey
     const note = getNote(platform, modelName)
     return note?.notes || ''
+  }
+
+  // Normalize size to bytes
+  const normalizeSizeToBytes = (size: number | string | undefined): number => {
+    if (!size) return 0
+
+    // If it's already a number (llama.cpp), return it
+    if (typeof size === 'number') {
+      return size
+    }
+
+    // If it's a string (ollama), parse it (e.g., "4.7 GB", "657 MB")
+    const sizeStr = size.trim().toUpperCase()
+    const match = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/)
+    if (!match) return 0
+
+    const value = parseFloat(match[1])
+    const unit = match[2]
+
+    const multipliers: Record<string, number> = {
+      B: 1,
+      KB: 1024,
+      MB: 1024 * 1024,
+      GB: 1024 * 1024 * 1024,
+      TB: 1024 * 1024 * 1024 * 1024
+    }
+
+    return value * (multipliers[unit] || 1)
   }
 
   const loadModels = async () => {
@@ -229,6 +282,31 @@
       )
     }
 
+    // Filter by size (convert to GB for comparison)
+    // Default to showing all models (0-100GB range)
+    const currentMin =
+      typeof minSize === 'number' && !isNaN(minSize) ? minSize : 0
+    const currentMax =
+      typeof maxSize === 'number' && !isNaN(maxSize) ? maxSize : 100
+
+    // Only apply size filter if NOT at full range (0-100)
+    // This ensures all models show by default
+    if (currentMin !== 0 || currentMax !== 100) {
+      filtered = filtered.filter((m) => {
+        // Always include models without size information
+        if (!m.size) return true
+
+        const sizeBytes = normalizeSizeToBytes(m.size)
+        // Include models with invalid/zero size
+        if (sizeBytes === 0) return true
+
+        const sizeGB = sizeBytes / (1024 * 1024 * 1024)
+        // Filter by size range
+        return sizeGB >= currentMin && sizeGB <= currentMax
+      })
+    }
+    // If at default (0-100), don't filter - show all models
+
     return filtered
   }
 
@@ -247,6 +325,31 @@
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((m) => m.name.toLowerCase().includes(query))
     }
+
+    // Filter by size (convert to GB for comparison)
+    // Default to showing all models (0-100GB range)
+    const currentMin =
+      typeof minSize === 'number' && !isNaN(minSize) ? minSize : 0
+    const currentMax =
+      typeof maxSize === 'number' && !isNaN(maxSize) ? maxSize : 100
+
+    // Only apply size filter if NOT at full range (0-100)
+    // This ensures all models show by default
+    if (currentMin !== 0 || currentMax !== 100) {
+      filtered = filtered.filter((m) => {
+        // Always include models without size information
+        if (!m.size) return true
+
+        const sizeBytes = normalizeSizeToBytes(m.size)
+        // Include models with invalid/zero size
+        if (sizeBytes === 0) return true
+
+        const sizeGB = sizeBytes / (1024 * 1024 * 1024)
+        // Filter by size range
+        return sizeGB >= currentMin && sizeGB <= currentMax
+      })
+    }
+    // If at default (0-100), don't filter - show all models
 
     return filtered
   }
@@ -272,7 +375,13 @@
     <div class="error">{error}</div>
   {/if}
 
-  <ModelFilters bind:selectedPlatform bind:showFavoritesOnly bind:searchQuery />
+  <ModelFilters
+    bind:selectedPlatform
+    bind:showFavoritesOnly
+    bind:searchQuery
+    bind:minSize
+    bind:maxSize
+  />
 
   {#if loading}
     <div class="loading">Loading models...</div>
