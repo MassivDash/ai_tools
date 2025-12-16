@@ -52,9 +52,12 @@ export const getToolIconFromMetadata = async (
     const tool = tools.find(
       (t) =>
         t.name.toLowerCase() === toolName.toLowerCase() ||
-        t.tool_type.toLowerCase().replace('_', ' ') === toolName.toLowerCase() ||
+        t.tool_type.toLowerCase().replace('_', ' ') ===
+          toolName.toLowerCase() ||
         toolName.toLowerCase().includes(t.name.toLowerCase()) ||
-        toolName.toLowerCase().includes(t.tool_type.toLowerCase().replace('_', ''))
+        toolName
+          .toLowerCase()
+          .includes(t.tool_type.toLowerCase().replace('_', ''))
     )
 
     if (tool && tool.icon) {
@@ -62,7 +65,10 @@ export const getToolIconFromMetadata = async (
     }
   } catch (err) {
     // Fall back to pattern matching if fetch fails
-    console.warn('⚠️ Could not fetch tool metadata, using pattern matching:', err)
+    console.warn(
+      '⚠️ Could not fetch tool metadata, using pattern matching:',
+      err
+    )
   }
 
   // Fall back to pattern matching
@@ -80,13 +86,21 @@ export const getToolIcon = (toolName: string | undefined): string => {
   const name = toolName.toLowerCase()
 
   // Match by function name patterns
-  if (name.includes('check_website') || name.includes('website_check') || name.includes('website')) {
+  if (
+    name.includes('check_website') ||
+    name.includes('website_check') ||
+    name.includes('website')
+  ) {
     return 'web'
   }
   if (name.includes('financial') || name.includes('sql_query')) {
     return 'currency-usd'
   }
-  if (name.includes('chromadb') || name.includes('chroma') || name.includes('database')) {
+  if (
+    name.includes('chromadb') ||
+    name.includes('chroma') ||
+    name.includes('database')
+  ) {
     return 'database'
   }
   if (name.includes('search') || name.includes('query')) {
@@ -110,7 +124,11 @@ export const getToolIcon = (toolName: string | undefined): string => {
   if (name.includes('send') || name.includes('post')) {
     return 'send'
   }
-  if (name.includes('get') || name.includes('fetch') || name.includes('retrieve')) {
+  if (
+    name.includes('get') ||
+    name.includes('fetch') ||
+    name.includes('retrieve')
+  ) {
     return 'download'
   }
 
@@ -132,4 +150,3 @@ export const clearToolsCache = () => {
   toolsCache = null
   toolsCachePromise = null
 }
-

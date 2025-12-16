@@ -40,7 +40,6 @@ impl ToolCategory {
             ToolCategory::Utility => "wrench",
         }
     }
-
 }
 
 /// Tool metadata for registration and selection

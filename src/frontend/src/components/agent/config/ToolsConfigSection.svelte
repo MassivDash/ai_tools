@@ -29,7 +29,7 @@
   })
 
   $: toolEnabled = (toolType: string) => {
-    // tool_type from backend (e.g., 'financial_data', 'website_check') 
+    // tool_type from backend (e.g., 'financial_data', 'website_check')
     // matches enabled_tools format (snake_case ToolType enum values)
     return enabledTools.includes(toolType)
   }
