@@ -147,9 +147,13 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background-color: #1e1e1e;
+    background-color: var(--md-surface);
     border-radius: 4px;
     overflow: hidden;
+    border: 1px solid var(--md-outline-variant);
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .terminal-header {
@@ -157,15 +161,19 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem 1rem;
-    background-color: #2d2d2d;
-    border-bottom: 1px solid #444;
+    background-color: var(--md-surface-variant);
+    border-bottom: 1px solid var(--md-outline-variant);
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .terminal-header h4 {
     margin: 0;
-    color: #fff;
+    color: var(--md-on-surface);
     font-size: 0.9rem;
     font-weight: 600;
+    transition: color 0.3s ease;
   }
 
   .header-status {
@@ -199,6 +207,8 @@
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
     line-height: 1.4;
+    background-color: var(--md-surface);
+    transition: background-color 0.3s ease;
   }
 
   .log-line {
@@ -209,24 +219,28 @@
   }
 
   .log-line.stdout {
-    color: #d4d4d4;
+    color: var(--md-on-surface);
+    transition: color 0.3s ease;
   }
 
   .log-line.stderr {
-    color: #f48771;
+    color: var(--md-error);
+    transition: color 0.3s ease;
   }
 
   .log-timestamp {
-    color: #858585;
+    color: var(--md-on-surface-variant);
     flex-shrink: 0;
     min-width: 80px;
+    transition: color 0.3s ease;
   }
 
   .log-source {
-    color: #858585;
+    color: var(--md-on-surface-variant);
     flex-shrink: 0;
     min-width: 70px;
     font-weight: 600;
+    transition: color 0.3s ease;
   }
 
   .log-text {
@@ -236,10 +250,11 @@
   }
 
   .empty-logs {
-    color: #858585;
+    color: var(--md-on-surface-variant);
     text-align: center;
     padding: 2rem;
     font-style: italic;
+    transition: color 0.3s ease;
   }
 
   /* Scrollbar styling */
@@ -248,15 +263,17 @@
   }
 
   .terminal-content::-webkit-scrollbar-track {
-    background: #1e1e1e;
+    background: var(--md-surface-variant);
+    transition: background-color 0.3s ease;
   }
 
   .terminal-content::-webkit-scrollbar-thumb {
-    background: #444;
+    background: var(--md-outline);
     border-radius: 4px;
+    transition: background-color 0.3s ease;
   }
 
   .terminal-content::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: var(--md-outline-variant);
   }
 </style>

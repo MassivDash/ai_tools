@@ -2,8 +2,8 @@
   import Button from '../ui/Button.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
 
-  export let showConfig: boolean = false
-  export let showLlamaConfig: boolean = false
+  export const showConfig: boolean = false
+  export const showLlamaConfig: boolean = false
   export let showTerminal: boolean = false
   export let onToggleConfig: () => void
   export let onToggleLlamaConfig: () => void

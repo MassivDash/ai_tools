@@ -33,8 +33,8 @@
     e.stopPropagation()
   }
 
-  let tagsInputId = `tags-${note.id || Math.random()}`
-  let notesTextareaId = `notes-${note.id || Math.random()}`
+  const tagsInputId = $derived(`tags-${note.id || Math.random()}`)
+  const notesTextareaId = $derived(`notes-${note.id || Math.random()}`)
 </script>
 
 <div
@@ -42,12 +42,14 @@
   role="dialog"
   aria-modal="true"
   aria-labelledby="modal-title"
+  tabindex="-1"
   onclick={onClose}
   onkeydown={handleOverlayKeydown}
 >
   <div
     class="modal"
     role="document"
+    tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={handleModalKeydown}
   >
