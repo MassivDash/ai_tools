@@ -8,4 +8,4 @@ chroma_address = "http://localhost:8000"
 # cookie_domain = ".spaceout.pl"  # Uncomment for production to enable subdomain cookie sharing
 
 [public_keys]
-public_api_url = "http://localhost:8080/api"
+public_api_url = "http://localhost:8081/api"
