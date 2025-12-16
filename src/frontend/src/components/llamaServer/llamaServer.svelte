@@ -6,6 +6,7 @@
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import PageSubHeader from '../ui/PageSubHeader.svelte'
 
   interface LlamaServerStatus {
     active: boolean
@@ -97,9 +98,8 @@
 </script>
 
 <div class="ai-chat">
-  <div class="chat-header">
-    <h3>Llama.cpp Server</h3>
-    <div class="header-actions">
+  <PageSubHeader title="Llama.cpp Server">
+    {#snippet actions()}
       <Button
         variant="info"
         class="button-icon-only"
@@ -137,8 +137,8 @@
           <MaterialIcon name="play" width="32" height="32" />
         </Button>
       {/if}
-    </div>
-  </div>
+    {/snippet}
+  </PageSubHeader>
 
   {#if error}
     <div class="error">{error}</div>
@@ -196,40 +196,6 @@
     transition: background-color 0.3s ease;
   }
 
-  .chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 2px solid var(--border-color, #f0f0f0);
-    transition: border-color 0.3s ease;
-  }
-
-  .chat-header h3 {
-    margin: 0;
-    color: var(--text-primary, #100f0f);
-    font-size: 1.5rem;
-    transition: color 0.3s ease;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .header-actions :global(.button-icon-only) {
-    padding: 0.75rem !important;
-    min-width: 3rem !important;
-    min-height: 3rem !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .header-actions :global(.button-icon-only) :global(svg) {
-    flex-shrink: 0;
-  }
 
   .error {
     padding: 0.75rem;

@@ -7,8 +7,9 @@
   import DocumentUpload from './DocumentUpload.svelte'
   import QueryInterface from './QueryInterface.svelte'
   import ChromaDBConfig from './ChromaDBConfig.svelte'
-  import IconButton from '../ui/IconButton.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import PageSubHeader from '../ui/PageSubHeader.svelte'
+  import Button from '../ui/Button.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
   let collectionListRef: CollectionList
@@ -57,44 +58,48 @@
 </script>
 
 <div class="chromadb-manager">
-  <div class="status-bar">
-    <div class="health-status">
-      <span
-        class="status-indicator"
-        class:healthy={healthStatus?.chromadb.connected}
-        class:unhealthy={!healthStatus?.chromadb.connected}
-      >
-        {healthStatus?.chromadb.connected ? '🟢' : '🔴'}
-      </span>
-      <span class="status-text">
-        {healthStatus?.chromadb.connected
-          ? 'ChromaDB Connected'
-          : 'ChromaDB Disconnected'}
-      </span>
-      {#if healthStatus}
-        <span class="version">v{healthStatus.version}</span>
-      {/if}
-    </div>
-    <div class="status-actions">
-      <IconButton
+  <PageSubHeader title="ChromaDB">
+    {#snippet leftContent()}
+      <div class="health-status">
+        <span
+          class="status-indicator"
+          class:healthy={healthStatus?.chromadb.connected}
+          class:unhealthy={!healthStatus?.chromadb.connected}
+        >
+          {healthStatus?.chromadb.connected ? '🟢' : '🔴'}
+        </span>
+        <span class="status-text">
+          {healthStatus?.chromadb.connected
+            ? 'ChromaDB Connected'
+            : 'ChromaDB Disconnected'}
+        </span>
+        {#if healthStatus}
+          <span class="version">v{healthStatus.version}</span>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet actions()}
+      <Button
         variant="info"
+        class="button-icon-only"
         onclick={() => (configPanelOpen = true)}
         title="Configure Embedding Models"
       >
-        <MaterialIcon name="cog" width="24" height="24" />
-      </IconButton>
-      <IconButton
+        <MaterialIcon name="cog" width="32" height="32" />
+      </Button>
+      <Button
         variant="info"
+        class="button-icon-only"
         onclick={checkHealth}
         title="Refresh Health Status"
       >
-        <MaterialIcon name="refresh" width="24" height="24" />
-      </IconButton>
-    </div>
-  </div>
+        <MaterialIcon name="refresh" width="32" height="32" />
+      </Button>
+    {/snippet}
+  </PageSubHeader>
 
   <div class="content-area" class:has-config={configPanelOpen}>
-    <div class="manager-content" class:with-config={configPanelOpen}>
+    <div class="manager-content">
       <div class="left-panel">
         <CollectionList bind:this={collectionListRef} />
       </div>
@@ -143,26 +148,6 @@
     display: flex;
     flex-direction: column;
     overflow: visible;
-  }
-
-  .status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease;
-  }
-
-  .status-actions {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
   }
 
   .health-status {
@@ -221,6 +206,7 @@
     gap: 1.5rem;
     width: 100%;
     min-width: 0;
+    transition: margin-right 0.3s ease-in-out;
   }
 
   .left-panel,

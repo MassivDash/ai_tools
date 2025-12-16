@@ -6,6 +6,7 @@
   import ModelFilters from './ModelFilters.svelte'
   import ModelEditModal from './ModelEditModal.svelte'
   import PlatformSection from './PlatformSection.svelte'
+  import PageSubHeader from '../ui/PageSubHeader.svelte'
   import type {
     LlamaModelInfo,
     OllamaModelInfo,
@@ -361,15 +362,14 @@
 </script>
 
 <div class="model-notes">
-  <div class="header">
-    <h2>Model Notes</h2>
-    <div class="header-actions">
+  <PageSubHeader title="Model Notes">
+    {#snippet actions()}
       <Button variant="info" onclick={loadModels} disabled={loading}>
         <MaterialIcon name="refresh" width="20" height="20" />
         Refresh Models
       </Button>
-    </div>
-  </div>
+    {/snippet}
+  </PageSubHeader>
 
   {#if error}
     <div class="error">{error}</div>
@@ -443,24 +443,6 @@
     margin: 0 auto;
   }
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border-color, #f0f0f0);
-  }
-
-  .header h2 {
-    margin: 0;
-    color: var(--text-primary, #100f0f);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
 
   .error {
     padding: 0.75rem;

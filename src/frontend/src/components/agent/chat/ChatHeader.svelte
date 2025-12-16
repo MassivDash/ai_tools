@@ -35,9 +35,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
     background-color: var(--bg-secondary, #f9f9f9);
     gap: 1rem;
+    transition: background-color 0.3s ease;
   }
 
   .header-left {

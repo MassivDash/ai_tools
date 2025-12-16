@@ -207,7 +207,6 @@
   .ai-chat {
     width: 100%;
     margin: 0;
-    padding: 2rem;
     display: flex;
     flex-direction: column;
     min-height: 80vh;
