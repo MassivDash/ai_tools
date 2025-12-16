@@ -74,19 +74,19 @@ jobs:
       - name: Run Project Build
         run: cargo run -- --build --prod-astro-build=true
       - name: Package Artifacts (Linux)
-        if: matrix.os == 'linux-latest'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           zip -r artifacts_linux.zip .
           mkdir -p artifacts
           mv artifacts_linux.zip artifacts/
       - name: Package Artifacts (Mac)
-        if: matrix.os == 'macOs-latest'
+        if: matrix.os == 'macOS-latest'
         run: |
           zip -r artifacts_macos.zip .
           mkdir -p artifacts
           mv artifacts_macos.zip artifacts/
       - name: Package Artifacts (Windows)
-        if: matrix.os == 'window-latest'
+        if: matrix.os == 'windows-latest'
         run: |
           Compress-Archive -Path . -DestinationPath artifacts\artifacts_windows.zip
           mkdir artifacts
@@ -100,6 +100,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Download Artifacts
@@ -110,6 +112,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           draft: false
           tag_name: v0.1.0.${{github.run_number}}

@@ -208,15 +208,8 @@
     overflow-y: auto;
     padding: 0.75rem 1rem;
     font-family:
-      'SF Mono',
-      'Monaco',
-      'Inconsolata',
-      'Roboto Mono',
-      'Source Code Pro',
-      Menlo,
-      Consolas,
-      'DejaVu Sans Mono',
-      monospace;
+      'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro',
+      Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     font-size: 0.875rem;
     line-height: 1.6;
     background-color: var(--md-surface);
