@@ -2,17 +2,28 @@
   import type { ChatMessage } from '../types'
   import { renderMarkdown } from '../utils/markdown'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import { getToolIconFromMetadata, getToolIcon } from '../utils/toolIcons'
 
-  export let message: ChatMessage
-
-  // Helper to get tool icon based on tool name
-  const getToolIcon = (toolName: string | undefined): string => {
-    if (!toolName) return 'wrench'
-    const name = toolName.toLowerCase()
-    if (name.includes('chromadb') || name.includes('chroma')) return 'database'
-    if (name.includes('financial')) return 'currency-usd'
-    return 'wrench'
+  interface Props {
+    message: ChatMessage
   }
+
+  let { message }: Props = $props()
+
+  // Track tool icon for this message
+  let toolIcon: string = $state('wrench')
+
+  // Load tool icon when component mounts or tool name changes
+  $effect(() => {
+    if (message.toolName) {
+      // Set a fallback immediately using pattern matching
+      toolIcon = getToolIcon(message.toolName)
+      // Then try to get icon from metadata (will update if different)
+      getToolIconFromMetadata(message.toolName).then((icon) => {
+        toolIcon = icon
+      })
+    }
+  })
 
   // Helper to get file icon based on attachment type
   const getFileIcon = (type: string): string => {
@@ -84,12 +95,7 @@
       class:success={isToolSuccess(message.content)}
       class:error={isToolError(message.content)}
     >
-      <MaterialIcon
-        name={getToolIcon(message.toolName)}
-        width="18"
-        height="18"
-        class="tool-icon"
-      />
+      <MaterialIcon name={toolIcon} width="18" height="18" class="tool-icon" />
       <span class="tool-text"
         >{message.content.replace(/✅|❌/g, '').trim()}</span
       >
@@ -417,6 +423,48 @@
   .message-content.markdown :global(a) {
     color: var(--accent-color, #2196f3);
     text-decoration: underline;
+  }
+
+  .message-content.markdown :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9em;
+    max-width: 100%;
+    display: table;
+    table-layout: auto;
+  }
+
+  /* Wrap table in scrollable container for mobile */
+  .message-content.markdown {
+    overflow-x: auto;
+  }
+
+  .message-content.markdown :global(th),
+  .message-content.markdown :global(td) {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border: 1px solid var(--border-color, #e0e0e0);
+    word-wrap: break-word;
+  }
+
+  .message-content.markdown :global(th) {
+    background-color: var(--bg-tertiary, #f0f0f0);
+    font-weight: 600;
+    color: var(--text-primary, #100f0f);
+  }
+
+  .message-content.markdown :global(td) {
+    background-color: var(--bg-primary, #fff);
+    color: var(--text-primary, #100f0f);
+  }
+
+  .message-content.markdown :global(tr:nth-child(even) td) {
+    background-color: var(--bg-secondary, #f5f5f5);
+  }
+
+  .message-content.markdown :global(tr:hover td) {
+    background-color: var(--bg-tertiary, #f0f0f0);
   }
 
   .attachments-display {

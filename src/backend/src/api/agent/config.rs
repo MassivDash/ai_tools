@@ -69,6 +69,8 @@ pub async fn post_agent_config(
     }))
 }
 
+use crate::api::agent::tools::agent_tool::ToolCategory;
+
 /// Tool metadata for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolInfo {
@@ -76,12 +78,19 @@ pub struct ToolInfo {
     pub name: String,
     pub tool_type: ToolType,
     pub description: String,
+    pub category: ToolCategory,
+    pub icon: String, // Material Icon name
 }
 
 /// Get list of all available tools
+/// This returns all possible tools (not just enabled ones) so the frontend can show them
 #[get("/api/agent/tools")]
 pub async fn get_available_tools() -> ActixResult<HttpResponse> {
-    // List all available tools (excluding ChromaDB which is special)
+    use crate::api::agent::tools::agent_tool::ToolCategory;
+    use crate::api::agent::types::ToolType;
+
+    // Return all available tools with their metadata
+    // This includes all tools that can be enabled, not just currently enabled ones
     let tools = vec![
         ToolInfo {
             id: "2".to_string(),
@@ -89,6 +98,8 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             tool_type: ToolType::FinancialData,
             description: "Get financial data including recent purchases and transactions"
                 .to_string(),
+            category: ToolCategory::Financial,
+            icon: ToolCategory::Financial.icon_name().to_string(),
         },
         ToolInfo {
             id: "3".to_string(),
@@ -97,7 +108,11 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             description:
                 "Fetch a website URL, convert it to markdown, and provide the content for analysis"
                     .to_string(),
+            category: ToolCategory::Web,
+            icon: ToolCategory::Web.icon_name().to_string(),
         },
+        // Note: ChromaDB is special and only appears when configured, so we don't include it here
+        // The frontend should handle ChromaDB separately based on configuration
     ];
 
     Ok(HttpResponse::Ok().json(tools))

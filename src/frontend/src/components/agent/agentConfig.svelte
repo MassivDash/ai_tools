@@ -30,6 +30,7 @@
     try {
       const response =
         await axiosBackendInstance.get<AgentConfig>('agent/config')
+      // Backend returns enabled_tools as string[] (ToolType enum serialized to snake_case)
       enabledTools = response.data.enabled_tools || []
 
       // ChromaDB is now separate from enabled_tools
@@ -43,6 +44,7 @@
         selectedEmbeddingModel = ''
       }
       // Store update is handled by parent component (agent.svelte) on mount
+      console.log('📋 Loaded agent config - enabled tools:', enabledTools)
     } catch (err: any) {
       console.error('❌ Failed to load agent config:', err)
     }
@@ -133,8 +135,10 @@
     }
 
     try {
+      // Ensure enabled_tools are in the correct format (snake_case matching ToolType enum)
+      // Backend expects: ['financial_data', 'website_check'] etc.
       const payload = {
-        enabled_tools: enabledTools,
+        enabled_tools: enabledTools, // Already in correct format from tool.tool_type
         chromadb: chromadbEnabled
           ? {
               collection: selectedCollection,
@@ -142,6 +146,8 @@
             }
           : undefined
       }
+
+      console.log('💾 Saving agent config:', payload)
 
       const response = await axiosBackendInstance.post<AgentConfigResponse>(
         'agent/config',

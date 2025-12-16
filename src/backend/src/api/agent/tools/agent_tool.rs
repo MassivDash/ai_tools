@@ -1,7 +1,47 @@
 use crate::api::agent::types::{ToolCall, ToolCallResult};
 use anyhow::Result;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+/// Tool category with associated Material Icon name
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolCategory {
+    /// Web/Internet related tools (web icon)
+    Web,
+    /// Financial/Money related tools (currency-usd icon)
+    Financial,
+    /// Database/Storage related tools (database icon)
+    Database,
+    /// Search/Query related tools (magnify icon)
+    Search,
+    /// File operations (file-document icon)
+    File,
+    /// Communication tools (send icon)
+    Communication,
+    /// Development/Code tools (code-tags icon)
+    Development,
+    /// General/Utility tools (wrench icon)
+    Utility,
+}
+
+impl ToolCategory {
+    /// Get the Material Icon name for this category
+    pub fn icon_name(&self) -> &'static str {
+        match self {
+            ToolCategory::Web => "web",
+            ToolCategory::Financial => "currency-usd",
+            ToolCategory::Database => "database",
+            ToolCategory::Search => "magnify",
+            ToolCategory::File => "file-document",
+            ToolCategory::Communication => "send",
+            ToolCategory::Development => "code-tags",
+            ToolCategory::Utility => "wrench",
+        }
+    }
+
+}
 
 /// Tool metadata for registration and selection
 #[derive(Debug, Clone)]

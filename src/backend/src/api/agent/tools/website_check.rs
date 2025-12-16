@@ -58,8 +58,8 @@ impl WebsiteCheckTool {
             extract_body: true,
             enable_preprocessing: true,
             remove_navigation: true,
-            remove_forms: false, // Keep forms as they might be relevant
-            preprocessing_preset: Some("standard".to_string()),
+            remove_forms: true, // Keep forms as they might be relevant
+            preprocessing_preset: Some("aggressive".to_string()),
             follow_links: false, // Only convert the main page
         };
 

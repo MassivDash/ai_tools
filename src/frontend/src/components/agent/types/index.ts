@@ -78,11 +78,23 @@ export interface ChromaDBResponse<T> {
   error?: string
 }
 
+export type ToolCategory =
+  | 'web'
+  | 'financial'
+  | 'database'
+  | 'search'
+  | 'file'
+  | 'communication'
+  | 'development'
+  | 'utility'
+
 export interface ToolInfo {
   id: string
   name: string
   tool_type: 'financial_data' | 'website_check' | 'chroma_db'
   description: string
+  category: ToolCategory
+  icon: string // Material Icon name
 }
 
 export interface ModelCapabilities {
