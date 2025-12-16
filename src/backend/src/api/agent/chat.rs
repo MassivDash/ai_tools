@@ -3,7 +3,7 @@ use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::streaming::execute_agent_loop_streaming;
 use crate::api::agent::tools::{
     chromadb::ChromaDBTool, financial_data::FinancialDataTool, registry::ToolRegistry,
-    selector::ToolSelector,
+    selector::ToolSelector, website_check::WebsiteCheckTool,
 };
 use crate::api::agent::types::{
     AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage, MessageRole,
@@ -145,6 +145,14 @@ pub async fn agent_chat(
         let financial_tool = FinancialDataTool::new();
         if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
             println!("⚠️ Failed to register Financial Data tool: {}", e);
+        }
+    }
+
+    // Register Website Check tool if enabled
+    if config.enabled_tools.contains(&ToolType::WebsiteCheck) {
+        let website_tool = WebsiteCheckTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
+            println!("⚠️ Failed to register Website Check tool: {}", e);
         }
     }
 
@@ -445,6 +453,13 @@ pub async fn agent_chat_stream(
         let financial_tool = FinancialDataTool::new();
         if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
             println!("⚠️ Failed to register Financial Data tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::WebsiteCheck) {
+        let website_tool = WebsiteCheckTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
+            println!("⚠️ Failed to register Website Check tool: {}", e);
         }
     }
 

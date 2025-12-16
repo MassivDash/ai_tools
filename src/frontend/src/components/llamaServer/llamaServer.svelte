@@ -196,7 +196,6 @@
     transition: background-color 0.3s ease;
   }
 
-
   .error {
     padding: 0.75rem;
     margin: 0 1rem;

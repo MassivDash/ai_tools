@@ -69,3 +69,10 @@ export interface ChromaDBResponse<T> {
   data?: T
   error?: string
 }
+
+export interface ToolInfo {
+  id: string
+  name: string
+  tool_type: 'financial_data' | 'website_check' | 'chroma_db'
+  description: string
+}

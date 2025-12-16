@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum ToolType {
     ChromaDB,
     FinancialData,
+    WebsiteCheck,
     // Future tools can be added here
 }
 

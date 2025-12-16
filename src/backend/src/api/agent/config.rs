@@ -2,6 +2,7 @@ use crate::api::agent::types::{
     AgentConfig, AgentConfigRequest, AgentConfigResponse, AgentStatusResponse, ToolType,
 };
 use actix_web::{get, post, web, HttpResponse, Result as ActixResult};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
 /// Shared state for agent configuration
@@ -64,4 +65,38 @@ pub async fn post_agent_config(
         success: true,
         message: "Agent configuration updated successfully".to_string(),
     }))
+}
+
+/// Tool metadata for API responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolInfo {
+    pub id: String,
+    pub name: String,
+    pub tool_type: ToolType,
+    pub description: String,
+}
+
+/// Get list of all available tools
+#[get("/api/agent/tools")]
+pub async fn get_available_tools() -> ActixResult<HttpResponse> {
+    // List all available tools (excluding ChromaDB which is special)
+    let tools = vec![
+        ToolInfo {
+            id: "2".to_string(),
+            name: "financial sql query".to_string(),
+            tool_type: ToolType::FinancialData,
+            description: "Get financial data including recent purchases and transactions"
+                .to_string(),
+        },
+        ToolInfo {
+            id: "3".to_string(),
+            name: "website check".to_string(),
+            tool_type: ToolType::WebsiteCheck,
+            description:
+                "Fetch a website URL, convert it to markdown, and provide the content for analysis"
+                    .to_string(),
+        },
+    ];
+
+    Ok(HttpResponse::Ok().json(tools))
 }

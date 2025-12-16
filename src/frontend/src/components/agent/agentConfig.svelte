@@ -21,7 +21,6 @@
   let chromadbEnabled = false
   let selectedCollection = ''
   let selectedEmbeddingModel = ''
-  let financialDataEnabled = false
   let loadingCollections = false
   let loadingModels = false
   let savingConfig = false
@@ -32,7 +31,6 @@
       const response =
         await axiosBackendInstance.get<AgentConfig>('agent/config')
       enabledTools = response.data.enabled_tools || []
-      financialDataEnabled = enabledTools.includes('financial_data')
 
       // ChromaDB is now separate from enabled_tools
       if (response.data.chromadb) {
@@ -105,10 +103,6 @@
       enabledTools = enabledTools.filter((t) => t !== tool)
     } else {
       enabledTools = [...enabledTools, tool]
-    }
-
-    if (tool === 'financial_data') {
-      financialDataEnabled = enabledTools.includes('financial_data')
     }
   }
 
@@ -200,7 +194,7 @@
       onModelSelect={handleModelSelect}
     />
 
-    <ToolsConfigSection {financialDataEnabled} onToggle={handleToolToggle} />
+    <ToolsConfigSection {enabledTools} onToggle={handleToolToggle} />
   </div>
   <div class="config-footer">
     <Button variant="secondary" onclick={onClose}>Cancel</Button>

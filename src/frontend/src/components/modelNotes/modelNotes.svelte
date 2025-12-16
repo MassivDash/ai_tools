@@ -443,7 +443,6 @@
     margin: 0 auto;
   }
 
-
   .error {
     padding: 0.75rem;
     margin-bottom: 1rem;
