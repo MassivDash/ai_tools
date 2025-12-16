@@ -15,7 +15,7 @@
 
   let llamaModels: LlamaModelInfo[] = $state([])
   let ollamaModels: OllamaModelInfo[] = $state([])
-  let modelNotes: Map<string, ModelNote> = $state(new Map())
+  let modelNotesData: Map<string, ModelNote> = $state(new Map())
   let modelNotesKey = $state(0)
   let loading = $state(false)
   let error = $state('')
@@ -58,7 +58,7 @@
   const getNote = (platform: string, modelName: string): ModelNote | null => {
     modelNotesKey
     const key = getModelKey(platform, modelName)
-    return modelNotes.get(key) || null
+    return modelNotesData.get(key) || null
   }
 
   const isFavorite = (platform: string, modelName: string): boolean => {
@@ -140,7 +140,7 @@
         const key = getModelKey(note.platform, note.model_name)
         newNotes.set(key, note)
       }
-      modelNotes = newNotes
+      modelNotesData = newNotes
       modelNotesKey++
     } catch (err: any) {
       console.error('❌ Failed to load model notes:', err)
@@ -170,8 +170,8 @@
         noteRequest
       )
       const key = getModelKey(platform, modelName)
-      modelNotes.set(key, response.data.note)
-      modelNotes = new Map(modelNotes)
+      modelNotesData.set(key, response.data.note)
+      modelNotesData = new Map(modelNotesData)
       modelNotesKey++
       error = ''
     } catch (err: any) {
@@ -226,8 +226,8 @@
         noteRequest
       )
       const key = getModelKey(platform, modelName)
-      modelNotes.set(key, response.data.note)
-      modelNotes = new Map(modelNotes)
+      modelNotesData.set(key, response.data.note)
+      modelNotesData = new Map(modelNotesData)
       modelNotesKey++
       editingNote = null
       editingTags = ''
@@ -252,8 +252,8 @@
         `model-notes/${platform}/${encodeURIComponent(modelName)}`
       )
       const key = getModelKey(platform, modelName)
-      modelNotes.delete(key)
-      modelNotes = new Map(modelNotes)
+      modelNotesData.delete(key)
+      modelNotesData = new Map(modelNotesData)
       modelNotesKey++
     } catch (err: any) {
       console.error('❌ Failed to delete note:', err)
