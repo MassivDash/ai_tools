@@ -102,9 +102,9 @@ impl AgentTool for ChromaDBTool {
                     },
                     "n_results": {
                         "type": "integer",
-                        "description": "Number of results to return (default: 10 for technical queries, 5 for general queries, max: 20). Use more results (8-10) for technical topics, frameworks, libraries, or when you need comprehensive information. Use fewer (3-5) for simple factual questions.",
+                        "description": "Number of results to return (default: 5 for technical queries, 3 for general queries, max: 10). Use more results (8-10) for technical topics, frameworks, libraries, or when you need comprehensive information. Use fewer (3-5) for simple factual questions.",
                         "minimum": 1,
-                        "maximum": 20
+                        "maximum": 10
                     }
                 },
                 "required": ["query"]
