@@ -28,7 +28,7 @@ jobs:
       - name: Install protoc (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          choco install protobuf -y
+          choco install protoc -y
       - name: Install rust dependencies
         run: |
           cargo install cargo-watch
