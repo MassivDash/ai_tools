@@ -1,10 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import ModelNotesComponent from '../components/modelNotes/modelNotes.svelte'
+import ModelNotesC from '../components/modelNotes/modelNotes.svelte'
 ---
 
 <Layout title='AI Tools - Model Notes'>
   <div transition:animate='fade'>
-    <ModelNotesComponent client:load />
+    {
+      (
+        //@ts-ignore}}
+        <ModelNotesC client:load />
+      )
+    }
   </div>
 </Layout>
