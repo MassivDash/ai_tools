@@ -177,6 +177,78 @@ pub async fn convert_url_to_markdown(
     }
 }
 
+/// Helper function to create a safe and unique filename from link text or URL
+fn create_unique_filename(
+    link_text: &str,
+    url: &str,
+    used_filenames: &mut std::collections::HashSet<String>,
+) -> String {
+    // First, try to use the link text if it's meaningful
+    let mut base_filename = if !link_text.is_empty() && link_text.len() < 100 {
+        // Sanitize link text: remove special chars, keep alphanumeric, spaces, hyphens, underscores
+        link_text
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                    c
+                } else if c.is_whitespace() {
+                    ' '
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<&str>>()
+            .join("_")
+            .to_lowercase()
+    } else {
+        // Fall back to URL path if link text is empty or too long
+        let parsed = Url::parse(url).ok();
+        parsed
+            .as_ref()
+            .and_then(|u| u.path_segments())
+            .and_then(|mut segments| segments.next_back())
+            .unwrap_or("index")
+            .to_string()
+    };
+
+    // Clean up the filename - remove any remaining invalid chars
+    base_filename = base_filename
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+        .collect::<String>();
+
+    if base_filename.is_empty() {
+        base_filename = "index".to_string();
+    }
+
+    // Truncate if too long (leave room for counter suffix)
+    if base_filename.len() > 90 {
+        base_filename = base_filename.chars().take(90).collect();
+    }
+
+    // Remove .md extension if present (we'll add it later)
+    let base_without_ext = if base_filename.ends_with(".md") {
+        base_filename.strip_suffix(".md").unwrap_or(&base_filename).to_string()
+    } else {
+        base_filename
+    };
+
+    // Generate unique filename by appending counter if needed
+    let mut filename = format!("{}.md", base_without_ext);
+    let mut counter = 1;
+    while used_filenames.contains(&filename) {
+        filename = format!("{}_{}.md", base_without_ext, counter);
+        counter += 1;
+    }
+
+    // Mark this filename as used
+    used_filenames.insert(filename.clone());
+
+    filename
+}
+
 /// Creates a zip file containing the main page and all internal links (1st level only)
 async fn create_zip_with_links(
     main_url: &str,
@@ -192,63 +264,11 @@ async fn create_zip_with_links(
         let mut buffer = Vec::new();
         let mut zip_writer = ZipWriter::new(Cursor::new(&mut buffer));
 
-        // Helper function to create a safe filename from link text or URL
-        let create_filename = |link_text: &str, url: &str| -> String {
-            // First, try to use the link text if it's meaningful
-            let mut filename = if !link_text.is_empty() && link_text.len() < 100 {
-                // Sanitize link text: remove special chars, keep alphanumeric, spaces, hyphens, underscores
-                link_text
-                    .chars()
-                    .map(|c| {
-                        if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
-                            c
-                        } else if c.is_whitespace() {
-                            ' '
-                        } else {
-                            '_'
-                        }
-                    })
-                    .collect::<String>()
-                    .split_whitespace()
-                    .collect::<Vec<&str>>()
-                    .join("_")
-                    .to_lowercase()
-            } else {
-                // Fall back to URL path if link text is empty or too long
-                let parsed = Url::parse(url).ok();
-                parsed
-                    .as_ref()
-                    .and_then(|u| u.path_segments())
-                    .and_then(|mut segments| segments.next_back())
-                    .unwrap_or("index")
-                    .to_string()
-            };
-
-            // Clean up the filename - remove any remaining invalid chars
-            filename = filename
-                .chars()
-                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
-                .collect::<String>();
-
-            if filename.is_empty() {
-                filename = "index".to_string();
-            }
-
-            // Truncate if too long
-            if filename.len() > 100 {
-                filename = filename.chars().take(100).collect();
-            }
-
-            // Ensure .md extension
-            if !filename.ends_with(".md") {
-                filename.push_str(".md");
-            }
-
-            filename
-        };
+        // Track used filenames to ensure uniqueness
+        let mut used_filenames = HashSet::new();
 
         // Add main page to zip
-        let main_filename = create_filename("index", main_url);
+        let main_filename = create_unique_filename("index", main_url, &mut used_filenames);
         println!("📄 Adding main page: {}", main_filename);
         zip_writer
             .start_file::<&str, ExtendedFileOptions>(
@@ -309,12 +329,24 @@ async fn create_zip_with_links(
                                 &config_no_follow,
                             ) {
                                 Ok(link_result) => {
-                                    let link_filename =
-                                        create_filename(&link.link_text, &link.full_url);
+                                    let link_filename = create_unique_filename(
+                                        &link.link_text,
+                                        &link.full_url,
+                                        &mut used_filenames,
+                                    );
                                     println!(
                                         "✅ Adding link page: {} (from link text: '{}')",
                                         link_filename, link.link_text
                                     );
+
+                                    // Verify content is not empty before writing
+                                    if link_result.markdown.is_empty() {
+                                        println!(
+                                            "⚠️  Link {} produced empty markdown, skipping",
+                                            link.full_url
+                                        );
+                                        continue;
+                                    }
 
                                     zip_writer
                                         .start_file::<&str, ExtendedFileOptions>(
@@ -328,6 +360,12 @@ async fn create_zip_with_links(
                                     zip_writer
                                         .write_all(link_result.markdown.as_bytes())
                                         .map_err(|e| format!("Failed to write to zip: {}", e))?;
+                                    
+                                    println!(
+                                        "✅ Successfully wrote {} bytes to {}",
+                                        link_result.markdown.len(),
+                                        link_filename
+                                    );
                                 }
                                 Err(e) => {
                                     println!("⚠️  Failed to convert link {}: {}", link.full_url, e);
