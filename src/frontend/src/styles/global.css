@@ -2,20 +2,13 @@
 
 /* Links use primary color */
 a {
-  color: var(--md-primary);
+  color: var(--md-primary-container);
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: var(--md-primary-container);
-}
-
-/* Dark theme link adjustments */
-html.dark a {
-  color: var(--md-primary);
-}
-
-html.dark a:hover {
   color: var(--md-on-primary-container);
 }
+
+
 

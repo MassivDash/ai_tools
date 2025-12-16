@@ -217,14 +217,6 @@
     }
   }
 
-  .success-icon {
-    color: #4caf50;
-  }
-
-  .error-icon {
-    color: #f44336;
-  }
-
   .tool-message {
     align-self: center;
     max-width: 100%;
@@ -255,18 +247,9 @@
     border-color: rgba(244, 67, 54, 0.3);
   }
 
-  .tool-icon {
-    color: var(--accent-color, #2196f3);
-    flex-shrink: 0;
-  }
-
   .tool-text {
     flex: 1;
     font-weight: 500;
-  }
-
-  .status-icon {
-    flex-shrink: 0;
   }
 
   .typing-indicator-inline {
@@ -328,11 +311,6 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-  }
-
-  .role-icon {
-    color: var(--accent-color, #2196f3);
-    flex-shrink: 0;
   }
 
   .message-content {
