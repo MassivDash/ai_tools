@@ -230,7 +230,10 @@ fn create_unique_filename(
 
     // Remove .md extension if present (we'll add it later)
     let base_without_ext = if base_filename.ends_with(".md") {
-        base_filename.strip_suffix(".md").unwrap_or(&base_filename).to_string()
+        base_filename
+            .strip_suffix(".md")
+            .unwrap_or(&base_filename)
+            .to_string()
     } else {
         base_filename
     };
@@ -360,7 +363,7 @@ async fn create_zip_with_links(
                                     zip_writer
                                         .write_all(link_result.markdown.as_bytes())
                                         .map_err(|e| format!("Failed to write to zip: {}", e))?;
-                                    
+
                                     println!(
                                         "✅ Successfully wrote {} bytes to {}",
                                         link_result.markdown.len(),

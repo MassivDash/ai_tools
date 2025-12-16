@@ -222,9 +222,60 @@
     z-index: 10;
     min-width: 400px;
     max-width: 500px;
+    max-height: 400px;
+    overflow-y: auto;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
+  }
+
+  /* Custom scrollbar styling - Webkit browsers (Chrome, Safari, Edge) */
+  .form-container::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .form-container::-webkit-scrollbar-track {
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+    border-radius: 10px;
+    margin: 4px 0;
+  }
+
+  .form-container::-webkit-scrollbar-thumb {
+    background: var(--border-color, rgba(0, 0, 0, 0.3));
+    border-radius: 10px;
+    border: 2px solid var(--bg-primary);
+    transition: background-color 0.2s ease;
+  }
+
+  .form-container::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color-hover, rgba(0, 0, 0, 0.5));
+  }
+
+  /* Custom scrollbar styling - Firefox */
+  .form-container {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color, rgba(0, 0, 0, 0.3))
+      var(--bg-secondary, rgba(0, 0, 0, 0.05));
+  }
+
+  /* Dark theme scrollbar adjustments */
+  @media (prefers-color-scheme: dark) {
+    .form-container::-webkit-scrollbar-track {
+      background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+    }
+
+    .form-container::-webkit-scrollbar-thumb {
+      background: var(--border-color, rgba(255, 255, 255, 0.3));
+    }
+
+    .form-container::-webkit-scrollbar-thumb:hover {
+      background: var(--border-color-hover, rgba(255, 255, 255, 0.5));
+    }
+
+    .form-container {
+      scrollbar-color: var(--border-color, rgba(255, 255, 255, 0.3))
+        var(--bg-secondary, rgba(255, 255, 255, 0.05));
+    }
   }
 
   .form-container h3 {

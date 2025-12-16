@@ -148,19 +148,21 @@
     flex-direction: column;
     height: 100%;
     background-color: var(--md-surface);
-    border-radius: 4px;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--md-outline-variant);
+    box-shadow: 0 2px 8px var(--md-shadow, rgba(0, 0, 0, 0.1));
     transition:
       background-color 0.3s ease,
-      border-color 0.3s ease;
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
   }
 
   .terminal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
     background-color: var(--md-surface-variant);
     border-bottom: 1px solid var(--md-outline-variant);
     transition:
@@ -171,8 +173,9 @@
   .terminal-header h4 {
     margin: 0;
     color: var(--md-on-surface);
-    font-size: 0.9rem;
+    font-size: 0.9375rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
     transition: color 0.3s ease;
   }
 
@@ -203,19 +206,42 @@
   .terminal-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    line-height: 1.4;
+    padding: 0.75rem 1rem;
+    font-family:
+      'SF Mono',
+      'Monaco',
+      'Inconsolata',
+      'Roboto Mono',
+      'Source Code Pro',
+      Menlo,
+      Consolas,
+      'DejaVu Sans Mono',
+      monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
     background-color: var(--md-surface);
-    transition: background-color 0.3s ease;
+    color: var(--md-on-surface);
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  /* Dark theme: make terminal background darker for better terminal feel */
+  html.dark .terminal-content {
+    background-color: color-mix(in srgb, var(--md-surface) 95%, black);
+  }
+
+  /* Light theme: slightly off-white for better readability */
+  html:not(.dark) .terminal-content {
+    background-color: color-mix(in srgb, var(--md-surface) 98%, white);
   }
 
   .log-line {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
     word-wrap: break-word;
+    align-items: flex-start;
   }
 
   .log-line.stdout {
@@ -224,22 +250,36 @@
   }
 
   .log-line.stderr {
-    color: var(--md-error);
+    color: var(--md-tertiary);
     transition: color 0.3s ease;
+  }
+
+  /* Dark theme: use a softer warning color for stderr */
+  html.dark .log-line.stderr {
+    color: #ffab40; /* Amber/orange warning color for dark theme */
+  }
+
+  /* Light theme: use a muted warning color for stderr */
+  html:not(.dark) .log-line.stderr {
+    color: #d97706; /* Muted orange/amber for light theme */
   }
 
   .log-timestamp {
     color: var(--md-on-surface-variant);
     flex-shrink: 0;
-    min-width: 80px;
+    min-width: 85px;
+    font-size: 0.8125rem;
+    opacity: 0.8;
     transition: color 0.3s ease;
   }
 
   .log-source {
     color: var(--md-on-surface-variant);
     flex-shrink: 0;
-    min-width: 70px;
-    font-weight: 600;
+    min-width: 75px;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    opacity: 0.75;
     transition: color 0.3s ease;
   }
 
@@ -247,6 +287,7 @@
     flex: 1;
     white-space: pre-wrap;
     word-break: break-word;
+    font-size: 0.875rem;
   }
 
   .empty-logs {
@@ -254,26 +295,57 @@
     text-align: center;
     padding: 2rem;
     font-style: italic;
+    opacity: 0.7;
     transition: color 0.3s ease;
   }
 
-  /* Scrollbar styling */
+  /* Custom scrollbar styling - Webkit browsers (Chrome, Safari, Edge) */
   .terminal-content::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
   }
 
   .terminal-content::-webkit-scrollbar-track {
-    background: var(--md-surface-variant);
+    background: var(--md-surface-variant, rgba(0, 0, 0, 0.05));
+    border-radius: 10px;
+    margin: 4px 0;
     transition: background-color 0.3s ease;
   }
 
   .terminal-content::-webkit-scrollbar-thumb {
-    background: var(--md-outline);
-    border-radius: 4px;
-    transition: background-color 0.3s ease;
+    background: var(--md-outline, rgba(0, 0, 0, 0.3));
+    border-radius: 10px;
+    border: 2px solid var(--md-surface);
+    transition: background-color 0.2s ease;
   }
 
   .terminal-content::-webkit-scrollbar-thumb:hover {
-    background: var(--md-outline-variant);
+    background: var(--md-outline-variant, rgba(0, 0, 0, 0.5));
+  }
+
+  /* Custom scrollbar styling - Firefox */
+  .terminal-content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-outline, rgba(0, 0, 0, 0.3))
+      var(--md-surface-variant, rgba(0, 0, 0, 0.05));
+  }
+
+  /* Dark theme scrollbar adjustments */
+  @media (prefers-color-scheme: dark) {
+    .terminal-content::-webkit-scrollbar-track {
+      background: var(--md-surface-variant, rgba(255, 255, 255, 0.05));
+    }
+
+    .terminal-content::-webkit-scrollbar-thumb {
+      background: var(--md-outline, rgba(255, 255, 255, 0.3));
+    }
+
+    .terminal-content::-webkit-scrollbar-thumb:hover {
+      background: var(--md-outline-variant, rgba(255, 255, 255, 0.5));
+    }
+
+    .terminal-content {
+      scrollbar-color: var(--md-outline, rgba(255, 255, 255, 0.3))
+        var(--md-surface-variant, rgba(255, 255, 255, 0.05));
+    }
   }
 </style>
