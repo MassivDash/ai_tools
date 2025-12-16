@@ -14,6 +14,22 @@
     return 'wrench'
   }
 
+  // Helper to get file icon based on attachment type
+  const getFileIcon = (type: string): string => {
+    switch (type) {
+      case 'text':
+        return 'note-text'
+      case 'pdf':
+        return 'file-pdf-box'
+      case 'image':
+        return 'image'
+      case 'audio':
+        return 'microphone'
+      default:
+        return 'file'
+    }
+  }
+
   // Helper to determine if tool message is success or error
   const isToolSuccess = (content: string): boolean => {
     return content.includes('✅') || content.includes('completed')
@@ -111,6 +127,20 @@
       class="message-content"
       class:markdown={message.role === 'assistant' && message.timestamp !== 0}
     >
+      {#if message.attachments && message.attachments.length > 0}
+        <div class="attachments-display">
+          {#each message.attachments as attachment (attachment.name)}
+            <div class="attachment-icon">
+              <MaterialIcon
+                name={getFileIcon(attachment.type)}
+                width="20"
+                height="20"
+              />
+              <span class="attachment-label">{attachment.name}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
       {#if message.role === 'assistant' && message.timestamp === 0}
         {@html renderMarkdown(message.content)}
         <span class="typing-indicator-inline">
@@ -118,7 +148,7 @@
           <span></span>
           <span></span>
         </span>
-      {:else}
+      {:else if message.content && message.content !== 'Sent files'}
         {@html renderMarkdown(message.content)}
       {/if}
     </div>
@@ -387,5 +417,37 @@
   .message-content.markdown :global(a) {
     color: var(--accent-color, #2196f3);
     text-decoration: underline;
+  }
+
+  .attachments-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .attachment-icon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-tertiary, #f0f0f0);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: var(--text-primary, #100f0f);
+  }
+
+  .message.user .attachment-icon {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+
+  .attachment-label {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

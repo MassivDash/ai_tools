@@ -7,7 +7,8 @@
     ChatMessage,
     AgentChatRequest,
     AgentStreamEvent,
-    ModelCapabilities
+    ModelCapabilities,
+    FileAttachment
   } from './types'
   import { generateMessageId } from './utils/formatting'
   import ChatHeader from './chat/ChatHeader.svelte'
@@ -28,7 +29,13 @@
   let activeToolsList = $derived(Array.from(activeToolsSet))
 
   // Model capabilities
-  let modelCapabilities: ModelCapabilities = $state({ vision: false, audio: false })
+  let modelCapabilities: ModelCapabilities = $state({
+    vision: false,
+    audio: false
+  })
+
+  // Track attachments from ChatInput
+  let currentAttachments: FileAttachment[] = $state([])
 
   onMount(() => {
     const unsubscribe = activeToolsStore.subscribe((tools) => {
@@ -74,18 +81,44 @@
   })
 
   const sendMessage = async () => {
-    if (!inputMessage.trim() || loading) return
+    if ((!inputMessage.trim() && currentAttachments.length === 0) || loading)
+      return
+
+    // Build message content with attachments
+    let messageContent = inputMessage.trim()
+    let messageToSend = messageContent
+
+    // Include attachment content in the message for backend
+    if (currentAttachments.length > 0) {
+      const attachmentTexts: string[] = []
+      for (const att of currentAttachments) {
+        if (att.type === 'text' && att.content) {
+          attachmentTexts.push(`\n\n[File: ${att.name}]\n${att.content}\n\n`)
+        } else if (att.type === 'pdf' && att.content) {
+          attachmentTexts.push(`\n\n[PDF: ${att.name}]\n${att.content}\n\n`)
+        } else if (att.type === 'image' && att.content) {
+          attachmentTexts.push(`\n\n![${att.name}](${att.content})\n\n`)
+        } else if (att.type === 'audio' && att.content) {
+          attachmentTexts.push(`\n\n[Audio File: ${att.name}]\n\n`)
+        }
+      }
+      messageToSend = messageContent + attachmentTexts.join('')
+    }
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
       role: 'user',
-      content: inputMessage.trim(),
-      timestamp: Date.now()
+      content: messageContent || 'Sent files',
+      timestamp: Date.now(),
+      attachments:
+        currentAttachments.length > 0 ? [...currentAttachments] : undefined
     }
 
     messages = [...messages, userMessage]
-    const currentInput = inputMessage.trim()
+    const currentInput = messageToSend
     inputMessage = ''
+    // Clear attachments after building message (ChatInput will also clear them)
+    currentAttachments = []
     loading = true
     error = ''
     currentStreamingMessage = ''
@@ -315,6 +348,9 @@
     {modelCapabilities}
     onSend={sendMessage}
     onInputChange={handleInputChange}
+    onAttachmentsChange={(attachments) => {
+      currentAttachments = attachments
+    }}
   />
 </div>
 

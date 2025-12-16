@@ -19,6 +19,13 @@ export interface AgentStreamEvent {
   }>
 }
 
+export interface FileAttachment {
+  name: string
+  type: 'text' | 'pdf' | 'image' | 'audio'
+  content?: string // For text/pdf, store the content
+  size?: number
+}
+
 export interface ChatMessage {
   id: string // Unique ID for each message
   role: 'user' | 'assistant' | 'status' | 'tool'
@@ -26,6 +33,7 @@ export interface ChatMessage {
   timestamp: number
   toolName?: string
   statusType?: string
+  attachments?: FileAttachment[]
 }
 
 export interface LlamaServerStatus {
