@@ -285,7 +285,10 @@
 <style>
   .html-to-markdown {
     width: 100%;
+    max-width: 100%;
     padding: 1rem;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   h3 {
@@ -380,6 +383,8 @@
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
     margin-top: 1rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .input-section,
@@ -387,6 +392,10 @@
     display: flex;
     flex-direction: column;
     min-height: 500px;
+    max-height: 500px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .section-header {
@@ -413,6 +422,12 @@
     resize: none;
     background-color: var(--bg-primary, white);
     color: var(--text-primary, #333);
+    width: 100%;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    overflow-x: hidden;
+    overflow-y: auto;
     transition:
       border-color 0.3s ease,
       background-color 0.3s ease,
@@ -450,7 +465,7 @@
     border: 1px solid var(--border-color, #ddd);
     border-radius: 4px;
     padding: 1rem;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: auto;
     font-family:
       'Menlo', 'Monaco', 'Lucida Console', 'Liberation Mono',
@@ -459,8 +474,12 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
     color: var(--text-primary, #333);
     margin: 0;
+    width: 100%;
+    box-sizing: border-box;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease,
@@ -469,6 +488,10 @@
 
   .markdown-output code {
     font-family: inherit;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   .download-button {
