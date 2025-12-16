@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import SearchableList from '../../ui/SearchableList.svelte'
   import HelpIcon from '../../ui/HelpIcon.svelte'
+  import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { Collection, ModelInfo } from '../types'
+  import type { ModelNote } from '../../modelNotes/types'
 
   export let chromadbEnabled: boolean = false
   export let collections: Collection[] = []
@@ -13,6 +16,29 @@
   export let onToggle: () => void
   export let onCollectionSelect: (collection: Collection) => void
   export let onModelSelect: (model: ModelInfo) => void
+
+  let modelNotes: Map<string, ModelNote> = new Map()
+
+  const loadModelNotes = async () => {
+    try {
+      const response = await axiosBackendInstance.get<{ notes: ModelNote[] }>(
+        'model-notes'
+      )
+      const notesMap = new Map<string, ModelNote>()
+      for (const note of response.data.notes) {
+        if (note.platform === 'ollama' && note.model_name) {
+          notesMap.set(note.model_name, note)
+        }
+      }
+      modelNotes = notesMap
+    } catch (err: any) {
+      console.error('❌ Failed to load model notes:', err)
+    }
+  }
+
+  onMount(() => {
+    loadModelNotes().catch(console.error)
+  })
 
   const getCollectionKey = (collection: Collection) => collection.id
   const getCollectionLabel = (collection: Collection) => collection.name
@@ -35,6 +61,30 @@
       parts.push(model.modified)
     }
     return parts.join(' • ')
+  }
+
+  // Get model note for Ollama model (matched by name)
+  const getModelNote = (model: ModelInfo): ModelNote | null => {
+    return modelNotes.get(model.name) || null
+  }
+
+  const getModelFavorite = (model: ModelInfo): boolean => {
+    const note = getModelNote(model)
+    return note?.is_favorite || false
+  }
+
+  const getModelTags = (model: ModelInfo): string[] => {
+    const note = getModelNote(model)
+    return note?.tags || []
+  }
+
+  const getModelNotes = (model: ModelInfo): string => {
+    const note = getModelNote(model)
+    if (!note?.notes) return ''
+    // Return a preview (first 100 chars)
+    return note.notes.length > 100
+      ? note.notes.substring(0, 100) + '...'
+      : note.notes
   }
 </script>
 
@@ -109,6 +159,9 @@
           getItemKey={getModelKey}
           getItemLabel={getModelLabel}
           getItemSubtext={getModelSubtext}
+          getItemFavorite={getModelFavorite}
+          getItemTags={getModelTags}
+          getItemNotes={getModelNotes}
           selectedKey={selectedEmbeddingModel || null}
           onselect={onModelSelect}
         />

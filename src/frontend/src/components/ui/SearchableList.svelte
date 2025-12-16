@@ -1,4 +1,6 @@
 <script lang="ts">
+  import MaterialIcon from './MaterialIcon.svelte'
+
   export let items: any[] = []
   export let searchPlaceholder: string = 'Search...'
   export let emptyMessage: string = 'No items found'
@@ -9,6 +11,9 @@
   export let getItemLabel: (_item: any) => string = (_item) =>
     String(_item.name || _item.label || _item)
   export let getItemSubtext: ((_item: any) => string) | undefined = undefined
+  export let getItemFavorite: ((_item: any) => boolean) | undefined = undefined
+  export let getItemTags: ((_item: any) => string[]) | undefined = undefined
+  export let getItemNotes: ((_item: any) => string) | undefined = undefined
   export let selectedKey: string | null = null
   export let maxHeight: string = '300px'
   export let onselect: ((_item: any) => void) | undefined = undefined
@@ -62,9 +67,31 @@
             class:selected={selectedKey === getItemKey(item, index)}
             onclick={() => handleItemClick(item)}
           >
-            <div class="item-label">{getItemLabel(item)}</div>
+            <div class="item-header">
+              <div class="item-label">
+                {#if getItemFavorite && getItemFavorite(item)}
+                  <MaterialIcon
+                    name="star"
+                    width="16"
+                    height="16"
+                    class="favorite-icon"
+                  />
+                {/if}
+                <span>{getItemLabel(item)}</span>
+              </div>
+            </div>
             {#if getItemSubtext !== undefined}
               <div class="item-subtext">{getItemSubtext(item)}</div>
+            {/if}
+            {#if getItemTags && getItemTags(item).length > 0}
+              <div class="item-tags">
+                {#each getItemTags(item) as tag}
+                  <span class="tag">{tag}</span>
+                {/each}
+              </div>
+            {/if}
+            {#if getItemNotes && getItemNotes(item)}
+              <div class="item-notes">{getItemNotes(item)}</div>
             {/if}
           </button>
         {/each}
@@ -172,11 +199,22 @@
     border-bottom: none;
   }
 
+  .item-header {
+    margin-bottom: 0.25rem;
+  }
+
   .item-label {
     font-weight: 600;
     color: var(--text-primary, #333);
-    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     transition: color 0.3s ease;
+  }
+
+  .item-label :global(.favorite-icon) {
+    color: var(--accent-color, #b12424);
+    flex-shrink: 0;
   }
 
   .item-subtext {
@@ -186,6 +224,44 @@
     justify-content: space-between;
     align-items: center;
     transition: color 0.3s ease;
+    margin-top: 0.25rem;
+  }
+
+  .item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .tag {
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-secondary, #f5ddd9);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--text-primary, #100f0f);
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  .item-notes {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #666);
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 4px;
+    max-height: 3rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    transition:
+      color 0.3s ease,
+      background-color 0.3s ease;
   }
 
   .empty-message {

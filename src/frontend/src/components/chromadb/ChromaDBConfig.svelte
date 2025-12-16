@@ -8,6 +8,7 @@
     ChromaDBConfigRequestSchema,
     buildChromaDBConfigPayload
   } from '@validation/chromadbConfig.ts'
+  import type { ModelNote } from '../modelNotes/types'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -30,6 +31,7 @@
   }
 
   let localModels: ModelInfo[] = []
+  let modelNotes: Map<string, ModelNote> = new Map()
   let config: ConfigResponse = {
     embedding_model: 'nomic-embed-text',
     query_model: 'nomic-embed-text'
@@ -69,10 +71,31 @@
     }
   }
 
+  const loadModelNotes = async () => {
+    try {
+      const response = await axiosBackendInstance.get<{ notes: ModelNote[] }>(
+        'model-notes'
+      )
+      const notesMap = new Map<string, ModelNote>()
+      for (const note of response.data.notes) {
+        if (note.platform === 'ollama') {
+          // Use model_name as key for Ollama models
+          if (note.model_name) {
+            notesMap.set(note.model_name, note)
+          }
+        }
+      }
+      modelNotes = notesMap
+    } catch (err: any) {
+      console.error('❌ Failed to load model notes:', err)
+    }
+  }
+
   $: if (isOpen) {
     // Load config and models when modal opens
     loadConfig().catch(console.error)
     loadModels().catch(console.error)
+    loadModelNotes().catch(console.error)
   }
 
   const handleEmbeddingModelSelect = (model: ModelInfo) => {
@@ -145,6 +168,30 @@
     }
     return parts.join(' • ')
   }
+
+  // Get model note for Ollama model (matched by name)
+  const getModelNote = (model: ModelInfo): ModelNote | null => {
+    return modelNotes.get(model.name) || null
+  }
+
+  const getModelFavorite = (model: ModelInfo): boolean => {
+    const note = getModelNote(model)
+    return note?.is_favorite || false
+  }
+
+  const getModelTags = (model: ModelInfo): string[] => {
+    const note = getModelNote(model)
+    return note?.tags || []
+  }
+
+  const getModelNotes = (model: ModelInfo): string => {
+    const note = getModelNote(model)
+    if (!note?.notes) return ''
+    // Return a preview (first 100 chars)
+    return note.notes.length > 100
+      ? note.notes.substring(0, 100) + '...'
+      : note.notes
+  }
 </script>
 
 <div class="config-panel" class:visible={isOpen}>
@@ -190,6 +237,9 @@
           getItemKey={getModelKey}
           getItemLabel={getModelLabel}
           getItemSubtext={getModelSubtext}
+          getItemFavorite={getModelFavorite}
+          getItemTags={getModelTags}
+          getItemNotes={getModelNotes}
           selectedKey={(() => {
             const selected = localModels.find(
               (m) => m.name === newEmbeddingModel

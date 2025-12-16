@@ -21,28 +21,56 @@
     onClose,
     onSave
   }: Props = $props()
+
+  const handleOverlayKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClose()
+    }
+  }
+
+  const handleModalKeydown = (e: KeyboardEvent) => {
+    e.stopPropagation()
+  }
+
+  let tagsInputId = `tags-${note.id || Math.random()}`
+  let notesTextareaId = `notes-${note.id || Math.random()}`
 </script>
 
-<div class="modal-overlay" onclick={onClose}>
-  <div class="modal" onclick={(e) => e.stopPropagation()}>
+<div
+  class="modal-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-title"
+  onclick={onClose}
+  onkeydown={handleOverlayKeydown}
+>
+  <div
+    class="modal"
+    role="document"
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={handleModalKeydown}
+  >
     <div class="modal-header">
-      <h3>Edit Notes: {note.model_name}</h3>
+      <h3 id="modal-title">Edit Notes: {note.model_name}</h3>
       <Button variant="info" class="button-icon-only" onclick={onClose}>
         <MaterialIcon name="close" width="24" height="24" />
       </Button>
     </div>
     <div class="modal-content">
       <div class="form-group">
-        <label>Tags (comma-separated):</label>
+        <label for={tagsInputId}>Tags (comma-separated):</label>
         <Input
+          id={tagsInputId}
           type="text"
           bind:value={tags}
           placeholder="e.g., coding, nlp, small"
         />
       </div>
       <div class="form-group">
-        <label>Notes:</label>
+        <label for={notesTextareaId}>Notes:</label>
         <textarea
+          id={notesTextareaId}
           bind:value={notes}
           placeholder="Add your notes about this model..."
           rows="6"

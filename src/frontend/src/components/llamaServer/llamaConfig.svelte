@@ -9,6 +9,7 @@
     LlamaConfigRequestSchema,
     buildLlamaConfigPayload
   } from '../../validation/llamaConfig.ts'
+  import type { ModelNote } from '../modelNotes/types'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -42,6 +43,7 @@
   }
 
   let localModels: ModelInfo[] = []
+  let modelNotes: Map<string, ModelNote> = new Map()
   let config: ConfigResponse = { hf_model: '', ctx_size: 10240 }
   let newHfModel = ''
   let newCtxSize = 10240
@@ -111,10 +113,32 @@
     }
   }
 
+  const loadModelNotes = async () => {
+    try {
+      const response = await axiosBackendInstance.get<{ notes: ModelNote[] }>(
+        'model-notes'
+      )
+      const notesMap = new Map<string, ModelNote>()
+      for (const note of response.data.notes) {
+        if (note.platform === 'llama') {
+          // Create key from model_name or model_path
+          const key = note.model_name || note.model_path || ''
+          if (key) {
+            notesMap.set(key, note)
+          }
+        }
+      }
+      modelNotes = notesMap
+    } catch (err: any) {
+      console.error('❌ Failed to load model notes:', err)
+    }
+  }
+
   $: if (isOpen) {
     // Load config and models when modal opens
     loadConfig().catch(console.error)
     loadModels().catch(console.error)
+    loadModelNotes().catch(console.error)
   }
 
   const handleModelSelect = (model: ModelInfo) => {
@@ -200,6 +224,46 @@
     }
     return parts.join(' • ')
   }
+
+  // Find matching note for a model
+  const getModelNote = (model: ModelInfo): ModelNote | null => {
+    // Try matching by name first
+    let note = modelNotes.get(model.name)
+    if (note) return note
+
+    // Try matching by path
+    if (model.path) {
+      note = modelNotes.get(model.path)
+      if (note) return note
+    }
+
+    // Try matching by hf_format
+    if (model.hf_format) {
+      note = modelNotes.get(model.hf_format)
+      if (note) return note
+    }
+
+    return null
+  }
+
+  const getModelFavorite = (model: ModelInfo): boolean => {
+    const note = getModelNote(model)
+    return note?.is_favorite || false
+  }
+
+  const getModelTags = (model: ModelInfo): string[] => {
+    const note = getModelNote(model)
+    return note?.tags || []
+  }
+
+  const getModelNotes = (model: ModelInfo): string => {
+    const note = getModelNote(model)
+    if (!note?.notes) return ''
+    // Return a preview (first 100 chars)
+    return note.notes.length > 100
+      ? note.notes.substring(0, 100) + '...'
+      : note.notes
+  }
 </script>
 
 <div class="config-panel" class:visible={isOpen}>
@@ -244,6 +308,9 @@
           getItemKey={getModelKey}
           getItemLabel={getModelLabel}
           getItemSubtext={getModelSubtext}
+          getItemFavorite={getModelFavorite}
+          getItemTags={getModelTags}
+          getItemNotes={getModelNotes}
           selectedKey={(() => {
             const selected = localModels.find(
               (m) => (m.hf_format || m.path) === newHfModel

@@ -167,7 +167,7 @@
     white-space: nowrap;
   }
 
-  .star-icon {
+  .model-name :global(.star-icon) {
     color: var(--accent-color, #b12424);
     flex-shrink: 0;
   }
