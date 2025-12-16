@@ -1,7 +1,9 @@
 use crate::api::agent::types::{
-    AgentConfig, AgentConfigRequest, AgentConfigResponse, AgentStatusResponse, ToolType,
+    AgentConfig, AgentConfigRequest, AgentConfigResponse, AgentStatusResponse, ModelCapabilities,
+    ModelPropsResponse, ToolType,
 };
 use actix_web::{get, post, web, HttpResponse, Result as ActixResult};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -99,4 +101,50 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     ];
 
     Ok(HttpResponse::Ok().json(tools))
+}
+
+/// Get model capabilities from llama server /props endpoint
+#[get("/api/agent/model-capabilities")]
+pub async fn get_model_capabilities() -> ActixResult<HttpResponse> {
+    let client = Client::new();
+    let llama_url = "http://localhost:8080/props";
+
+    match client.get(llama_url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<ModelPropsResponse>().await {
+                    Ok(props) => {
+                        println!(
+                            "📊 Model capabilities: vision={}, audio={}",
+                            props.modalities.vision, props.modalities.audio
+                        );
+                        Ok(HttpResponse::Ok().json(props.modalities))
+                    }
+                    Err(e) => {
+                        println!("⚠️ Failed to parse model props: {}", e);
+                        // Return default capabilities if parsing fails
+                        Ok(HttpResponse::Ok().json(ModelCapabilities {
+                            vision: false,
+                            audio: false,
+                        }))
+                    }
+                }
+            } else {
+                println!("⚠️ Llama server returned error: {}", response.status());
+                // Return default capabilities if server is not available
+                Ok(HttpResponse::Ok().json(ModelCapabilities {
+                    vision: false,
+                    audio: false,
+                }))
+            }
+        }
+        Err(e) => {
+            println!("⚠️ Failed to connect to llama server: {}", e);
+            // Return default capabilities if connection fails
+            Ok(HttpResponse::Ok().json(ModelCapabilities {
+                vision: false,
+                audio: false,
+            }))
+        }
+    }
 }

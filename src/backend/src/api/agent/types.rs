@@ -187,6 +187,25 @@ pub struct AgentStatusResponse {
     pub config: AgentConfig,
 }
 
+/// Model capabilities from llama server /props endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelCapabilities {
+    pub vision: bool,
+    pub audio: bool,
+}
+
+/// Model props response from llama server
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelPropsResponse {
+    pub modalities: ModelCapabilities,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_alias: Option<String>,
+    // We ignore other fields by using #[serde(flatten)] with a catch-all
+    // But for simplicity, we'll just extract what we need
+}
+
 /// Streaming event types for agent responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]

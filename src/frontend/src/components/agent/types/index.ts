@@ -76,3 +76,8 @@ export interface ToolInfo {
   tool_type: 'financial_data' | 'website_check' | 'chroma_db'
   description: string
 }
+
+export interface ModelCapabilities {
+  vision: boolean
+  audio: boolean
+}

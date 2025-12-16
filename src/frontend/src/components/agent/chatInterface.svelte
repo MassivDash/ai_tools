@@ -3,7 +3,12 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
   import { activeTools as activeToolsStore } from '../../stores/activeTools'
-  import type { ChatMessage, AgentChatRequest, AgentStreamEvent } from './types'
+  import type {
+    ChatMessage,
+    AgentChatRequest,
+    AgentStreamEvent,
+    ModelCapabilities
+  } from './types'
   import { generateMessageId } from './utils/formatting'
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
@@ -21,6 +26,9 @@
   // Subscribe to active tools store - use $derived for reactivity
   let activeToolsSet: Set<string> = $state(new Set())
   let activeToolsList = $derived(Array.from(activeToolsSet))
+
+  // Model capabilities
+  let modelCapabilities: ModelCapabilities = $state({ vision: false, audio: false })
 
   onMount(() => {
     const unsubscribe = activeToolsStore.subscribe((tools) => {
@@ -42,7 +50,23 @@
   onMount(() => {
     // Connect to agent WebSocket for real-time updates
     agentWs.connect()
+    // Fetch model capabilities
+    fetchModelCapabilities()
   })
+
+  const fetchModelCapabilities = async () => {
+    try {
+      const response = await axiosBackendInstance.get<ModelCapabilities>(
+        'agent/model-capabilities'
+      )
+      modelCapabilities = response.data
+      console.log('📊 Model capabilities:', modelCapabilities)
+    } catch (err: any) {
+      console.error('⚠️ Failed to fetch model capabilities:', err)
+      // Default to no capabilities if fetch fails
+      modelCapabilities = { vision: false, audio: false }
+    }
+  }
 
   onDestroy(() => {
     // Disconnect WebSocket when component is destroyed
@@ -288,6 +312,7 @@
   <ChatInput
     bind:inputMessage
     {loading}
+    {modelCapabilities}
     onSend={sendMessage}
     onInputChange={handleInputChange}
   />
