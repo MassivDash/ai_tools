@@ -94,7 +94,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: build-artifacts-${{ matrix.os }}
           path: artifacts/
 
   release:
@@ -108,6 +108,7 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: build-artifacts
+          pattern: build-artifacts-*
           path: artifacts/
       - name: Release
         uses: softprops/action-gh-release@v2
