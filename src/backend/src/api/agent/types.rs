@@ -233,6 +233,8 @@ pub enum AgentStreamEvent {
     Done {
         conversation_id: Option<String>,
         tool_calls: Option<Vec<ToolCallResult>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        usage: Option<Usage>,
     },
     #[serde(rename = "error")]
     Error { message: String },

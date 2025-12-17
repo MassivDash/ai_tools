@@ -13,6 +13,9 @@
   // Track tool icon for this message
   let toolIcon: string = $state('wrench')
 
+  // Reference to message content container
+  let messageContentElement: HTMLDivElement = $state()
+
   // Load tool icon when component mounts or tool name changes
   $effect(() => {
     if (message.toolName) {
@@ -24,6 +27,119 @@
       })
     }
   })
+
+  // Add copy buttons to code blocks only after message is complete (not during streaming)
+  $effect(() => {
+    // Only run for completed messages (timestamp !== 0 means message is done)
+    // Skip streaming messages (timestamp === 0) to avoid interfering with rendering
+    const isComplete =
+      message.role === 'assistant' ? message.timestamp !== 0 : true
+    const isUserOrAssistant =
+      message.role === 'assistant' || message.role === 'user'
+
+    if (
+      messageContentElement &&
+      isUserOrAssistant &&
+      message.content &&
+      isComplete
+    ) {
+      // Wait a bit after message is complete to ensure all markdown is fully rendered
+      const timeoutId = setTimeout(() => {
+        addCopyButtonsToCodeBlocks(messageContentElement)
+      }, 200)
+
+      return () => {
+        clearTimeout(timeoutId)
+      }
+    }
+  })
+
+  const addCopyButtonsToCodeBlocks = (container: HTMLElement) => {
+    // Remove existing copy buttons first to avoid duplicates
+    const existingButtons = container.querySelectorAll('.code-copy-button')
+    existingButtons.forEach((btn) => btn.remove())
+
+    // Remove has-copy-button class from all pre elements
+    const allPres = container.querySelectorAll('pre.has-copy-button')
+    allPres.forEach((pre) => pre.classList.remove('has-copy-button'))
+
+    // Find all pre elements (code blocks)
+    const preElements = container.querySelectorAll('pre')
+
+    preElements.forEach((pre) => {
+      if (pre.classList.contains('has-copy-button')) {
+        return // Already processed
+      }
+      pre.classList.add('has-copy-button')
+
+      // Get the code element inside
+      const codeElement = pre.querySelector('code')
+      if (!codeElement) {
+        return // No code element found
+      }
+
+      // Create copy button
+      const copyButton = document.createElement('button')
+      copyButton.className = 'code-copy-button'
+      copyButton.setAttribute('aria-label', 'Copy code')
+      copyButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      `
+
+      // Position button
+      pre.style.position = 'relative'
+      copyButton.style.position = 'absolute'
+      copyButton.style.top = '0.5rem'
+      copyButton.style.right = '0.5rem'
+      copyButton.style.padding = '0.375rem'
+      copyButton.style.background = 'var(--bg-primary, #fff)'
+      copyButton.style.border = '1px solid var(--border-color, #e0e0e0)'
+      copyButton.style.borderRadius = '4px'
+      copyButton.style.cursor = 'pointer'
+      copyButton.style.display = 'flex'
+      copyButton.style.alignItems = 'center'
+      copyButton.style.justifyContent = 'center'
+      copyButton.style.opacity = '0.7'
+      copyButton.style.transition = 'opacity 0.2s'
+      copyButton.style.zIndex = '10'
+
+      // Hover effect
+      copyButton.addEventListener('mouseenter', () => {
+        copyButton.style.opacity = '1'
+      })
+      copyButton.addEventListener('mouseleave', () => {
+        copyButton.style.opacity = '0.7'
+      })
+
+      // Copy functionality
+      copyButton.addEventListener('click', async () => {
+        const textToCopy =
+          codeElement.textContent || codeElement.innerText || ''
+        try {
+          await window.navigator.clipboard.writeText(textToCopy)
+          // Visual feedback
+          const originalHTML = copyButton.innerHTML
+          copyButton.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          `
+          copyButton.style.color = '#4caf50'
+          setTimeout(() => {
+            copyButton.innerHTML = originalHTML
+            copyButton.style.color = ''
+          }, 2000)
+        } catch (err) {
+          console.error('Failed to copy code:', err)
+        }
+      })
+
+      pre.appendChild(copyButton)
+    })
+  }
 
   // Helper to get file icon based on attachment type
   const getFileIcon = (type: string): string => {
@@ -132,6 +248,7 @@
     <div
       class="message-content"
       class:markdown={message.role === 'assistant' && message.timestamp !== 0}
+      bind:this={messageContentElement}
     >
       {#if message.attachments && message.attachments.length > 0}
         <div class="attachments-display">
@@ -383,6 +500,11 @@
     border-radius: 4px;
     overflow-x: auto;
     margin: 0.5rem 0;
+    position: relative;
+  }
+
+  .message-content.markdown :global(pre:hover .code-copy-button) {
+    opacity: 1;
   }
 
   .message-content.markdown :global(pre code) {

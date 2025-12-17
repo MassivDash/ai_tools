@@ -17,6 +17,11 @@ export interface AgentStreamEvent {
     tool_name: string
     result: string
   }>
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
 }
 
 export interface FileAttachment {

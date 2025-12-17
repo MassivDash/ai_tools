@@ -34,6 +34,15 @@
     audio: false
   })
 
+  // Model name and token info
+  let modelName: string = $state('')
+  let ctxSize: number = $state(0)
+  let tokenUsage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  } | null = $state(null)
+
   // Track attachments from ChatInput
   let currentAttachments: FileAttachment[] = $state([])
 
@@ -59,6 +68,8 @@
     agentWs.connect()
     // Fetch model capabilities
     fetchModelCapabilities()
+    // Fetch model name and context size
+    fetchModelInfo()
   })
 
   const fetchModelCapabilities = async () => {
@@ -72,6 +83,22 @@
       console.error('⚠️ Failed to fetch model capabilities:', err)
       // Default to no capabilities if fetch fails
       modelCapabilities = { vision: false, audio: false }
+    }
+  }
+
+  const fetchModelInfo = async () => {
+    try {
+      const response = await axiosBackendInstance.get<{
+        hf_model: string
+        ctx_size: number
+      }>('llama-server/config')
+      modelName = response.data.hf_model || 'Unknown'
+      ctxSize = response.data.ctx_size || 0
+      console.log('🤖 Model info:', { modelName, ctxSize })
+    } catch (err: any) {
+      console.error('⚠️ Failed to fetch model info:', err)
+      modelName = 'Unknown'
+      ctxSize = 0
     }
   }
 
@@ -282,6 +309,10 @@
         if (event.conversation_id) {
           conversationId = event.conversation_id
         }
+        // Update token usage if provided
+        if (event.usage) {
+          tokenUsage = event.usage
+        }
         // Remove any remaining status messages
         messages = messages.filter((m) => m.role !== 'status')
         // Mark streaming message as complete
@@ -314,6 +345,7 @@
     messages = []
     conversationId = null
     error = ''
+    tokenUsage = null
     // Keep enabled tools from config - they should remain visible as badges
   }
 
@@ -334,6 +366,7 @@
     {activeToolsList}
     hasMessages={messages.length > 0}
     onClear={clearChat}
+    {modelName}
   />
 
   {#if error}
@@ -352,6 +385,14 @@
       currentAttachments = attachments
     }}
   />
+
+  {#if tokenUsage}
+    <div class="token-display">
+      {ctxSize > 0
+        ? `${tokenUsage.total_tokens} / ${ctxSize} (${Math.round((tokenUsage.total_tokens / ctxSize) * 100)}%)`
+        : `${tokenUsage.total_tokens} tokens`}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -379,9 +420,23 @@
     font-size: 0.9rem;
   }
 
+  .token-display {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #666);
+    text-align: center;
+    background-color: var(--bg-secondary, #f9f9f9);
+    border-top: 1px solid var(--border-color, #e0e0e0);
+  }
+
   @media screen and (max-width: 768px) {
     .chat-interface {
       padding: 0.5rem;
+    }
+
+    .token-display {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
     }
   }
 </style>

@@ -6,11 +6,17 @@
   export let activeToolsList: string[] = []
   export let hasMessages: boolean = false
   export let onClear: () => void
+  export let modelName: string = ''
 </script>
 
 <div class="chat-header-bar">
   <div class="header-left">
-    <h4>Chat</h4>
+    <div class="header-top">
+      <h4>Chat</h4>
+      {#if modelName}
+        <span class="model-name">{modelName}</span>
+      {/if}
+    </div>
     {#if activeToolsList.length > 0}
       <div class="tools-section">
         <span class="tools-label">Tools:</span>
@@ -50,10 +56,26 @@
     min-width: 0;
   }
 
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
   .chat-header-bar h4 {
     margin: 0;
     color: var(--text-primary, #100f0f);
     white-space: nowrap;
+  }
+
+  .model-name {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #666);
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    background-color: var(--bg-tertiary, #f0f0f0);
+    border-radius: 4px;
   }
 
   .tools-section {

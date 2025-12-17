@@ -28,6 +28,7 @@ pub async fn execute_agent_loop_streaming(
 ) -> Result<()> {
     let mut tool_results = Vec::new();
     let mut iterations = 0;
+    let mut total_usage: Option<crate::api::agent::types::Usage> = None;
 
     loop {
         iterations += 1;
@@ -65,6 +66,7 @@ pub async fn execute_agent_loop_streaming(
                 } else {
                     Some(tool_results)
                 },
+                usage: total_usage,
             }));
             break;
         }
@@ -170,6 +172,17 @@ pub async fn execute_agent_loop_streaming(
                 break;
             }
         };
+
+        // Accumulate token usage
+        if let Some(usage) = &completion_response.usage {
+            if let Some(ref mut total) = total_usage {
+                total.prompt_tokens += usage.prompt_tokens;
+                total.completion_tokens += usage.completion_tokens;
+                total.total_tokens += usage.total_tokens;
+            } else {
+                total_usage = Some(usage.clone());
+            }
+        }
 
         if completion_response.choices.is_empty() {
             let _ = tx.send(Ok(AgentStreamEvent::Error {
@@ -343,6 +356,7 @@ pub async fn execute_agent_loop_streaming(
                 } else {
                     Some(tool_results)
                 },
+                usage: total_usage,
             }));
             break;
         }
