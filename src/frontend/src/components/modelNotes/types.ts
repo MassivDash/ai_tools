@@ -17,6 +17,7 @@ export interface ModelNote {
   model_name: string
   model_path?: string
   is_favorite: boolean
+  is_default: boolean
   tags: string[]
   notes?: string
   created_at?: number
@@ -28,6 +29,7 @@ export interface ModelNoteRequest {
   model_name: string
   model_path?: string
   is_favorite?: boolean
+  is_default?: boolean
   tags?: string[]
   notes?: string
 }

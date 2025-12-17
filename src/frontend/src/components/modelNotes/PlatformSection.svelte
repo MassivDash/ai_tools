@@ -18,6 +18,7 @@
     platform: 'llama' | 'ollama'
     getNote: (_platform: string, _modelName: string) => ModelNote | null
     isFavorite: (_platform: string, _modelName: string) => boolean
+    isDefault: (_platform: string, _modelName: string) => boolean
     getTags: (_platform: string, _modelName: string) => string[]
     getNotes: (_platform: string, _modelName: string) => string
     toggleFavorite: (
@@ -28,7 +29,8 @@
     startEditing: (
       _platform: string,
       _modelName: string,
-      _modelPath?: string
+      _modelPath?: string,
+      _hfFormat?: string
     ) => void
     deleteNote: (_platform: string, _modelName: string) => void
     modelNotesKey: number
@@ -41,6 +43,7 @@
     platform,
     getNote,
     isFavorite,
+    isDefault,
     getTags,
     getNotes,
     toggleFavorite,
@@ -61,6 +64,7 @@
         {#key `${model.name}-${modelNotesKey}`}
           {@const note = getNote(platform, model.name)}
           {@const isFav = isFavorite(platform, model.name)}
+          {@const isDef = isDefault(platform, model.name)}
           {@const tags = getTags(platform, model.name)}
           {@const notes = getNotes(platform, model.name)}
           <ModelCard
@@ -68,12 +72,38 @@
             {platform}
             {note}
             isFavorite={isFav}
+            isDefault={isDef}
             {tags}
             {notes}
-            onToggleFavorite={() =>
-              toggleFavorite(platform, model.name, model.path)}
-            onEdit={() => startEditing(platform, model.name, model.path)}
-            onDelete={() => deleteNote(platform, model.name)}
+            onToggleFavorite={() => {
+              // For llama, use hf_format if available; for ollama, just use name
+              const identifier =
+                platform === 'llama' && model.hf_format
+                  ? model.hf_format
+                  : model.name
+              // Only pass path for llama models (ollama models don't have path)
+              const modelPath = platform === 'llama' ? model.path : undefined
+              toggleFavorite(platform, identifier, modelPath)
+            }}
+            onEdit={() => {
+              // For llama models, pass hf_format if available; for ollama, just use name
+              const identifier =
+                platform === 'llama' && model.hf_format
+                  ? model.hf_format
+                  : model.name
+              // Only pass path for llama models (ollama models don't have path)
+              const modelPath = platform === 'llama' ? model.path : undefined
+              const hfFormat =
+                platform === 'llama' ? model.hf_format : undefined
+              startEditing(platform, identifier, modelPath, hfFormat)
+            }}
+            onDelete={() => {
+              // For llama, try both hf_format and name; for ollama, just use name
+              if (platform === 'llama' && model.hf_format) {
+                deleteNote(platform, model.hf_format)
+              }
+              deleteNote(platform, model.name)
+            }}
           />
         {/key}
       {/each}

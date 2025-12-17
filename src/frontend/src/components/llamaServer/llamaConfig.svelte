@@ -45,7 +45,8 @@
   let localModels: ModelInfo[] = []
   let modelNotes: Map<string, ModelNote> = new Map()
   let config: ConfigResponse = { hf_model: '', ctx_size: 10240 }
-  let newHfModel = ''
+  let newHfModel = '' // Display value (filename)
+  let newHfModelBackend = '' // Backend value (path or hf_format)
   let newCtxSize = 10240
   // Advanced options
   let newThreads: number | '' = ''
@@ -74,13 +75,28 @@
     return `${size.toFixed(2)} ${units[unitIndex]}`
   }
 
+  // Extract filename from path, or return as-is if not a path
+  const extractFilename = (pathOrName: string): string => {
+    if (!pathOrName) return ''
+    // Check if it looks like a path (contains / or \)
+    if (pathOrName.includes('/') || pathOrName.includes('\\')) {
+      // Extract just the filename
+      const parts = pathOrName.split(/[/\\]/)
+      return parts[parts.length - 1] || pathOrName
+    }
+    return pathOrName
+  }
+
   const loadConfig = async () => {
     try {
       const response = await axiosBackendInstance.get<ConfigResponse>(
         'llama-server/config'
       )
       config = response.data
-      newHfModel = config.hf_model
+      // Store backend value (full path or hf_format)
+      newHfModelBackend = config.hf_model
+      // Extract filename from path if it's a full path for display
+      newHfModel = extractFilename(config.hf_model)
       newCtxSize = config.ctx_size
       newThreads = config.threads ?? ''
       newThreadsBatch = config.threads_batch ?? ''
@@ -141,8 +157,25 @@
     loadModelNotes().catch(console.error)
   }
 
+  // Sync backend value when user types manually (if not matching a model from list)
+  $: {
+    // If newHfModel doesn't match any model name, assume it's a manual entry
+    const matchingModel = localModels.find((m) => m.name === newHfModel)
+    if (!matchingModel && newHfModel && newHfModel !== extractFilename(newHfModelBackend)) {
+      // User typed something manually, use it as backend value
+      newHfModelBackend = newHfModel
+    }
+  }
+
   const handleModelSelect = (model: ModelInfo) => {
-    newHfModel = model.hf_format || model.path
+    // Display the model name (filename)
+    newHfModel = model.name
+    // Store the backend value (hf_format preferred, fallback to path)
+    newHfModelBackend = model.hf_format || model.path || model.name
+    // Also set the model path if available for the --model flag
+    if (model.path) {
+      newModel = model.path
+    }
   }
 
   const handleSave = async () => {
@@ -158,8 +191,10 @@
 
     try {
       // Build payload using helper function
+      // Use backend value if available, otherwise use display value
+      const hfModelValue = newHfModelBackend || newHfModel
       const payload = buildLlamaConfigPayload({
-        hf_model: newHfModel,
+        hf_model: hfModelValue,
         ctx_size: newCtxSize,
         threads: newThreads,
         threads_batch: newThreadsBatch,
@@ -312,8 +347,14 @@
           getItemTags={getModelTags}
           getItemNotes={getModelNotes}
           selectedKey={(() => {
+            // Match by name (filename) or by backend value (path/hf_format)
             const selected = localModels.find(
-              (m) => (m.hf_format || m.path) === newHfModel
+              (m) =>
+                m.name === newHfModel ||
+                m.path === newHfModelBackend ||
+                m.hf_format === newHfModelBackend ||
+                extractFilename(m.path) === newHfModel ||
+                extractFilename(newHfModelBackend) === m.name
             )
             if (!selected) return null
             // Use path as key (should be unique), fallback to name

@@ -28,6 +28,7 @@
   let editingNote: ModelNote | null = $state(null)
   let editingTags = $state('')
   let editingNotes = $state('')
+  let editingIsDefault = $state(false)
 
   // Ensure size filter values are always valid numbers
   $effect(() => {
@@ -78,6 +79,12 @@
     modelNotesKey
     const note = getNote(platform, modelName)
     return note?.notes || ''
+  }
+
+  const isDefault = (platform: string, modelName: string): boolean => {
+    modelNotesKey
+    const note = getNote(platform, modelName)
+    return note?.is_default || false
   }
 
   // Normalize size to bytes
@@ -138,8 +145,21 @@
       )
       const newNotes = new Map<string, ModelNote>()
       for (const note of response.data.notes) {
+        // Store by model_name (which is hf_format for llama defaults, or filename for others)
         const key = getModelKey(note.platform, note.model_name)
         newNotes.set(key, note)
+        // Also store by filename for llama models if we have both (for backward compatibility)
+        if (note.platform === 'llama' && note.model_path) {
+          // Extract filename from path for lookup
+          const filename = note.model_path.split(/[/\\]/).pop() || note.model_name
+          if (filename !== note.model_name) {
+            const filenameKey = getModelKey(note.platform, filename)
+            // Only set if not already set (prefer hf_format key)
+            if (!newNotes.has(filenameKey)) {
+              newNotes.set(filenameKey, note)
+            }
+          }
+        }
       }
       modelNotesData = newNotes
       modelNotesKey++
@@ -186,19 +206,36 @@
   const startEditing = (
     platform: string,
     modelName: string,
-    modelPath?: string
+    modelPath?: string,
+    hfFormat?: string
   ) => {
-    const note = getNote(platform, modelName)
+    // For llama models, check if there's a note by hf_format first
+    let note = null
+    if (platform === 'llama' && hfFormat) {
+      note = getNote(platform, hfFormat)
+    }
+    if (!note) {
+      note = getNote(platform, modelName)
+    }
+    
+    // For llama default models, use hf_format as model_name
+    // For non-default or ollama, use the filename/model name
+    const storedModelName = note?.is_default && platform === 'llama' && hfFormat
+      ? hfFormat
+      : (note?.model_name || modelName)
+    
     editingNote = {
       platform,
-      model_name: modelName,
+      model_name: storedModelName,
       model_path: modelPath,
       is_favorite: note?.is_favorite || false,
+      is_default: note?.is_default || false,
       tags: note?.tags || [],
       notes: note?.notes || ''
     }
     editingTags = editingNote.tags.join(', ')
     editingNotes = editingNote.notes || ''
+    editingIsDefault = editingNote.is_default
   }
 
   const saveNote = async () => {
@@ -209,11 +246,27 @@
       .map((t) => t.trim())
       .filter((t) => t.length > 0)
 
+    // For llama default models, model_name should be in HuggingFace format (user/model:quant)
+    // For ollama, model_name is just the model name
+    // For non-default models, we can keep model_path for reference
+    // For llama default models, ensure we use hf_format if available
+    let finalModelName = editingNote.model_name
+    if (editingIsDefault && editingNote.platform === 'llama') {
+      // Find the model to get its hf_format
+      const model = llamaModels.find(m => m.name === editingNote.model_name || m.hf_format === editingNote.model_name)
+      if (model?.hf_format) {
+        finalModelName = model.hf_format
+      }
+    }
+    
     const noteRequest: ModelNoteRequest = {
       platform: editingNote.platform,
-      model_name: editingNote.model_name,
-      model_path: editingNote.model_path,
+      model_name: finalModelName, // hf_format for llama defaults, name for others
+      // For default models, don't store the path - just the name in HuggingFace format
+      // Backend will handle downloading/caching automatically
+      model_path: editingIsDefault ? undefined : editingNote.model_path,
       is_favorite: editingNote.is_favorite,
+      is_default: editingIsDefault,
       tags,
       notes: editingNotes.trim() || undefined
     }
@@ -233,6 +286,7 @@
       editingNote = null
       editingTags = ''
       editingNotes = ''
+      editingIsDefault = false
     } catch (err: any) {
       console.error('❌ Failed to save note:', err)
       error = err.response?.data?.error || err.message || 'Failed to save note'
@@ -243,6 +297,7 @@
     editingNote = null
     editingTags = ''
     editingNotes = ''
+    editingIsDefault = false
   }
 
   const deleteNote = async (platform: string, modelName: string) => {
@@ -391,13 +446,66 @@
       icon="server-network"
       models={filteredLlamaModels()}
       platform="llama"
-      {getNote}
-      {isFavorite}
-      {getTags}
-      {getNotes}
-      {toggleFavorite}
-      {startEditing}
-      {deleteNote}
+      getNote={(platform, modelName) => {
+        // For llama, try to find note by hf_format first, then by filename
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        if (model?.hf_format) {
+          const hfNote = getNote(platform, model.hf_format)
+          if (hfNote) return hfNote
+        }
+        return getNote(platform, modelName)
+      }}
+      isFavorite={(platform, modelName) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        if (model?.hf_format) {
+          const hfNote = getNote(platform, model.hf_format)
+          if (hfNote?.is_favorite) return true
+        }
+        return isFavorite(platform, modelName)
+      }}
+      isDefault={(platform, modelName) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        if (model?.hf_format) {
+          const hfNote = getNote(platform, model.hf_format)
+          if (hfNote?.is_default) return true
+        }
+        return isDefault(platform, modelName)
+      }}
+      getTags={(platform, modelName) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        if (model?.hf_format) {
+          const hfNote = getNote(platform, model.hf_format)
+          if (hfNote) return hfNote.tags
+        }
+        return getTags(platform, modelName)
+      }}
+      getNotes={(platform, modelName) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        if (model?.hf_format) {
+          const hfNote = getNote(platform, model.hf_format)
+          if (hfNote) return hfNote.notes || ''
+        }
+        return getNotes(platform, modelName)
+      }}
+      toggleFavorite={(platform, modelName, modelPath) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        const identifier = model?.hf_format || modelName
+        toggleFavorite(platform, identifier, modelPath)
+      }}
+      startEditing={(platform, modelName, modelPath) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        // Pass hf_format if available
+        const hfFormat = model?.hf_format
+        startEditing(platform, modelName, modelPath, hfFormat)
+      }}
+      deleteNote={(platform, modelName) => {
+        const model = filteredLlamaModels().find(m => m.name === modelName)
+        // Try both hf_format and filename
+        if (model?.hf_format) {
+          deleteNote(platform, model.hf_format)
+        }
+        deleteNote(platform, modelName)
+      }}
       {modelNotesKey}
     />
 
@@ -408,6 +516,7 @@
       platform="ollama"
       {getNote}
       {isFavorite}
+      {isDefault}
       {getTags}
       {getNotes}
       {toggleFavorite}
@@ -429,6 +538,7 @@
       bind:tags={editingTags}
       bind:notes={editingNotes}
       bind:isFavorite={editingNote.is_favorite}
+      bind:isDefault={editingIsDefault}
       onClose={cancelEditing}
       onSave={saveNote}
     />

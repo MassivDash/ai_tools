@@ -59,6 +59,7 @@ impl ModelNotesStorage {
                 model_name TEXT NOT NULL,
                 model_path TEXT,
                 is_favorite INTEGER NOT NULL DEFAULT 0,
+                is_default INTEGER NOT NULL DEFAULT 0,
                 tags TEXT,
                 notes TEXT,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -108,7 +109,7 @@ impl ModelNotesStorage {
     /// Get all model notes
     pub async fn get_all_notes(&self) -> Result<Vec<ModelNote>> {
         let rows = sqlx::query(
-            "SELECT id, platform, model_name, model_path, is_favorite, tags, notes, created_at, updated_at 
+            "SELECT id, platform, model_name, model_path, is_favorite, is_default, tags, notes, created_at, updated_at 
              FROM model_notes 
              ORDER BY is_favorite DESC, updated_at DESC",
         )
@@ -118,7 +119,7 @@ impl ModelNotesStorage {
 
         let mut notes = Vec::new();
         for row in rows {
-            let tags_json: Option<String> = row.get(5);
+            let tags_json: Option<String> = row.get(6);
             let tags: Vec<String> = if let Some(json) = tags_json {
                 serde_json::from_str(&json).unwrap_or_default()
             } else {
@@ -131,10 +132,11 @@ impl ModelNotesStorage {
                 model_name: row.get(2),
                 model_path: row.get(3),
                 is_favorite: row.get::<i64, _>(4) != 0,
+                is_default: row.get::<i64, _>(5) != 0,
                 tags,
-                notes: row.get(6),
-                created_at: Some(row.get(7)),
-                updated_at: Some(row.get(8)),
+                notes: row.get(7),
+                created_at: Some(row.get(8)),
+                updated_at: Some(row.get(9)),
             });
         }
 
@@ -144,7 +146,7 @@ impl ModelNotesStorage {
     /// Get a specific model note by platform and model name
     pub async fn get_note(&self, platform: &str, model_name: &str) -> Result<Option<ModelNote>> {
         let row = sqlx::query(
-            "SELECT id, platform, model_name, model_path, is_favorite, tags, notes, created_at, updated_at 
+            "SELECT id, platform, model_name, model_path, is_favorite, is_default, tags, notes, created_at, updated_at 
              FROM model_notes 
              WHERE platform = ?1 AND model_name = ?2",
         )
@@ -155,7 +157,7 @@ impl ModelNotesStorage {
         .context("Failed to fetch model note")?;
 
         if let Some(row) = row {
-            let tags_json: Option<String> = row.get(5);
+            let tags_json: Option<String> = row.get(6);
             let tags: Vec<String> = if let Some(json) = tags_json {
                 serde_json::from_str(&json).unwrap_or_default()
             } else {
@@ -168,10 +170,11 @@ impl ModelNotesStorage {
                 model_name: row.get(2),
                 model_path: row.get(3),
                 is_favorite: row.get::<i64, _>(4) != 0,
+                is_default: row.get::<i64, _>(5) != 0,
                 tags,
-                notes: row.get(6),
-                created_at: Some(row.get(7)),
-                updated_at: Some(row.get(8)),
+                notes: row.get(7),
+                created_at: Some(row.get(8)),
+                updated_at: Some(row.get(9)),
             }))
         } else {
             Ok(None)
@@ -179,30 +182,78 @@ impl ModelNotesStorage {
     }
 
     /// Create or update a model note
+    /// Uses a transaction to ensure atomicity when setting default models
     pub async fn upsert_note(&self, note: &ModelNote) -> Result<ModelNote> {
         let tags_json = serde_json::to_string(&note.tags).context("Failed to serialize tags")?;
 
         let is_favorite_int = if note.is_favorite { 1 } else { 0 };
+        let is_default_int = if note.is_default { 1 } else { 0 };
 
         println!(
-            "🔍 Upserting note: platform={}, model={}, favorite={}, tags={}, notes={:?}, path={:?}",
-            note.platform, note.model_name, is_favorite_int, tags_json, note.notes, note.model_path
+            "🔍 Upserting note: platform={}, model={}, favorite={}, default={}, tags={}, notes={:?}, path={:?}",
+            note.platform, note.model_name, is_favorite_int, is_default_int, tags_json, note.notes, note.model_path
         );
 
-        // Try to update first - only update model_path if it's provided
-        let rows_affected = if note.model_path.is_some() {
+        // Start transaction to ensure atomicity
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .context("Failed to start transaction")?;
+
+        // Step 1: If setting this model as default, unset all other defaults for the same platform
+        if note.is_default {
             sqlx::query(
                 "UPDATE model_notes 
-                 SET is_favorite = ?3, tags = ?4, notes = ?5, model_path = ?6, updated_at = strftime('%s', 'now')
+                 SET is_default = 0 
+                 WHERE platform = ?1 AND model_name != ?2",
+            )
+            .bind(&note.platform)
+            .bind(&note.model_name)
+            .execute(&mut *tx)
+            .await
+            .context("Failed to unset other defaults")?;
+            println!("✅ Unset other defaults for platform: {}", note.platform);
+        }
+
+        // Step 2: Try to update existing note
+        // For default models, always clear model_path (store only name)
+        // For non-default models, update model_path if provided
+        let rows_affected = if note.is_default {
+            // Default model: clear model_path, store only name
+            sqlx::query(
+                "UPDATE model_notes 
+                 SET is_favorite = ?3, is_default = ?4, tags = ?5, notes = ?6, model_path = NULL, updated_at = strftime('%s', 'now')
                  WHERE platform = ?1 AND model_name = ?2",
             )
             .bind(&note.platform)
             .bind(&note.model_name)
             .bind(is_favorite_int)
+            .bind(is_default_int)
+            .bind(&tags_json)
+            .bind(&note.notes)
+            .execute(&mut *tx)
+            .await
+            .context(format!(
+                "Failed to update model note for {}:{}",
+                note.platform, note.model_name
+            ))?
+            .rows_affected()
+        } else if note.model_path.is_some() {
+            // Non-default model with path: update path
+            sqlx::query(
+                "UPDATE model_notes 
+                 SET is_favorite = ?3, is_default = ?4, tags = ?5, notes = ?6, model_path = ?7, updated_at = strftime('%s', 'now')
+                 WHERE platform = ?1 AND model_name = ?2",
+            )
+            .bind(&note.platform)
+            .bind(&note.model_name)
+            .bind(is_favorite_int)
+            .bind(is_default_int)
             .bind(&tags_json)
             .bind(&note.notes)
             .bind(&note.model_path)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .context(format!(
                 "Failed to update model note for {}:{}",
@@ -210,17 +261,19 @@ impl ModelNotesStorage {
             ))?
             .rows_affected()
         } else {
+            // Non-default model without path: don't update path
             sqlx::query(
                 "UPDATE model_notes 
-                 SET is_favorite = ?3, tags = ?4, notes = ?5, updated_at = strftime('%s', 'now')
+                 SET is_favorite = ?3, is_default = ?4, tags = ?5, notes = ?6, updated_at = strftime('%s', 'now')
                  WHERE platform = ?1 AND model_name = ?2",
             )
             .bind(&note.platform)
             .bind(&note.model_name)
             .bind(is_favorite_int)
+            .bind(is_default_int)
             .bind(&tags_json)
             .bind(&note.notes)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .context(format!(
                 "Failed to update model note for {}:{}",
@@ -231,23 +284,30 @@ impl ModelNotesStorage {
 
         println!("📊 Update affected {} rows", rows_affected);
 
+        // Step 3: If no rows were updated, insert new note
         if rows_affected == 0 {
-            // Insert new note
             println!(
                 "➕ Inserting new note for {}:{}",
                 note.platform, note.model_name
             );
+            // For default models, don't store model_path (NULL)
+            let model_path_for_insert = if note.is_default {
+                None
+            } else {
+                note.model_path.as_ref()
+            };
             sqlx::query(
-                "INSERT INTO model_notes (platform, model_name, model_path, is_favorite, tags, notes) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO model_notes (platform, model_name, model_path, is_favorite, is_default, tags, notes) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             )
             .bind(&note.platform)
             .bind(&note.model_name)
-            .bind(&note.model_path)
+            .bind(model_path_for_insert)
             .bind(is_favorite_int)
+            .bind(is_default_int)
             .bind(&tags_json)
             .bind(&note.notes)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .context(format!(
                 "Failed to insert model note for {}:{}",
@@ -257,6 +317,10 @@ impl ModelNotesStorage {
         } else {
             println!("✅ Updated existing note");
         }
+
+        // Commit transaction
+        tx.commit().await.context("Failed to commit transaction")?;
+        println!("✅ Transaction committed");
 
         // Fetch the updated/inserted note
         match self.get_note(&note.platform, &note.model_name).await {
@@ -293,5 +357,43 @@ impl ModelNotesStorage {
                 .rows_affected();
 
         Ok(rows_affected > 0)
+    }
+
+    /// Get the default model for a platform
+    pub async fn get_default_model(&self, platform: &str) -> Result<Option<ModelNote>> {
+        let row = sqlx::query(
+            "SELECT id, platform, model_name, model_path, is_favorite, is_default, tags, notes, created_at, updated_at 
+             FROM model_notes 
+             WHERE platform = ?1 AND is_default = 1
+             LIMIT 1",
+        )
+        .bind(platform)
+        .fetch_optional(&self.pool)
+        .await
+        .context("Failed to fetch default model")?;
+
+        if let Some(row) = row {
+            let tags_json: Option<String> = row.get(6);
+            let tags: Vec<String> = if let Some(json) = tags_json {
+                serde_json::from_str(&json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+
+            Ok(Some(ModelNote {
+                id: Some(row.get(0)),
+                platform: row.get(1),
+                model_name: row.get(2),
+                model_path: row.get(3),
+                is_favorite: row.get::<i64, _>(4) != 0,
+                is_default: row.get::<i64, _>(5) != 0,
+                tags,
+                notes: row.get(7),
+                created_at: Some(row.get(8)),
+                updated_at: Some(row.get(9)),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }

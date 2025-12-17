@@ -7,6 +7,7 @@ pub struct ModelNote {
     pub model_name: String,
     pub model_path: Option<String>, // For llama models
     pub is_favorite: bool,
+    pub is_default: bool,
     pub tags: Vec<String>,
     pub notes: Option<String>,
     pub created_at: Option<i64>,
@@ -19,6 +20,7 @@ pub struct ModelNoteRequest {
     pub model_name: String,
     pub model_path: Option<String>,
     pub is_favorite: Option<bool>,
+    pub is_default: Option<bool>,
     pub tags: Option<Vec<String>>,
     pub notes: Option<String>,
 }

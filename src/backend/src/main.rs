@@ -20,6 +20,7 @@ use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
 use crate::api::agent::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::chromadb::config::types::ChromaDBConfig;
+use crate::api::default_configs::DefaultConfigsStorage;
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
@@ -50,20 +51,6 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| "http://localhost:8000".to_string());
     println!("🔗 ChromaDB address: {}", chroma_address);
 
-    // Shared state for llama server process
-    let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
-    let llama_config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
-    let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
-    let llama_server_state: ServerStateHandle =
-        Arc::new(Mutex::new(ServerState { is_ready: false }));
-
-    // Shared state for ChromaDB config
-    let chromadb_config: Arc<Mutex<ChromaDBConfig>> =
-        Arc::new(Mutex::new(ChromaDBConfig::default()));
-
-    // Shared state for agent config
-    let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
-
     // SQLite-based conversation storage (persists user/assistant messages)
     let sqlite_memory: Arc<SqliteConversationMemory> = Arc::new(
         SqliteConversationMemory::new("./data/conversations.db")
@@ -77,6 +64,55 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Failed to initialize model notes storage"),
     );
+
+    // SQLite-based default configs storage (separate from model notes)
+    let default_configs_storage: Arc<DefaultConfigsStorage> = Arc::new(
+        DefaultConfigsStorage::new("./data/conversations.db")
+            .await
+            .expect("Failed to initialize default configs storage"),
+    );
+
+    // Initialize llama config with default from storage or fallback to hardcoded
+    let mut llama_config_init = Config::default();
+    if let Ok(Some(default_config)) = default_configs_storage.get_llama_default().await {
+        llama_config_init.hf_model = default_config.hf_model.clone();
+        println!(
+            "✅ Using default Llama model from config: {}",
+            default_config.hf_model
+        );
+    } else {
+        println!(
+            "ℹ️  No default Llama model set, using hardcoded: {}",
+            llama_config_init.hf_model
+        );
+    }
+    let llama_config: Arc<Mutex<Config>> = Arc::new(Mutex::new(llama_config_init));
+
+    // Shared state for llama server process
+    let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
+    let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+    let llama_server_state: ServerStateHandle =
+        Arc::new(Mutex::new(ServerState { is_ready: false }));
+
+    // Initialize ChromaDB config with default from storage or fallback to hardcoded
+    let mut chromadb_config_init = ChromaDBConfig::default();
+    if let Ok(Some(default_config)) = default_configs_storage.get_chromadb_default().await {
+        chromadb_config_init.embedding_model = default_config.embedding_model.clone();
+        chromadb_config_init.query_model = default_config.embedding_model.clone();
+        println!(
+            "✅ Using default ChromaDB model from config: {}",
+            default_config.embedding_model
+        );
+    } else {
+        println!(
+            "ℹ️  No default ChromaDB model set, using hardcoded: {}",
+            chromadb_config_init.embedding_model
+        );
+    }
+    let chromadb_config: Arc<Mutex<ChromaDBConfig>> = Arc::new(Mutex::new(chromadb_config_init));
+
+    // Shared state for agent config
+    let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
 
     // Create Agent WebSocket state for real-time agent updates
     let agent_ws_state = Arc::new(AgentWebSocketState::new());
@@ -148,6 +184,7 @@ async fn main() -> std::io::Result<()> {
     let agent_config_data = agent_config.clone();
     let sqlite_memory_data = web::Data::new(sqlite_memory.clone());
     let model_notes_storage_data = web::Data::new(model_notes_storage.clone());
+    let default_configs_storage_data = web::Data::new(default_configs_storage.clone());
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -166,6 +203,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(agent_config_data.clone()))
             .app_data(sqlite_memory_data.clone())
             .app_data(model_notes_storage_data.clone())
+            .app_data(default_configs_storage_data.clone())
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

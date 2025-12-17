@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '../ui/Button.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Logo from '../ui/icons/Logo.svelte'
   import type { ModelNote } from './types'
 
   interface Props {
@@ -14,6 +15,7 @@
     platform: 'llama' | 'ollama'
     note: ModelNote | null
     isFavorite: boolean
+    isDefault: boolean
     tags: string[]
     notes: string
     onToggleFavorite: () => void
@@ -26,6 +28,7 @@
     platform,
     note,
     isFavorite,
+    isDefault,
     tags,
     notes,
     onToggleFavorite,
@@ -46,11 +49,19 @@
   }
 </script>
 
-<div class="model-card" class:favorite={isFavorite}>
+<div class="model-card" class:favorite={isFavorite} class:default={isDefault}>
   <div class="model-header">
     <div class="model-name">
       {#if isFavorite}
         <MaterialIcon name="star" width="20" height="20" class="star-icon" />
+      {/if}
+      {#if isDefault}
+        <MaterialIcon
+          name={platform === 'llama' ? 'server-network' : 'database'}
+          width="20"
+          height="20"
+          class="default-icon"
+        />
       {/if}
       <span>{model.name}</span>
     </div>
@@ -87,42 +98,51 @@
       {/if}
     </div>
   </div>
-  <div class="model-info">
-    {#if platform === 'llama'}
-      <div class="info-row">
-        <span class="label">Size:</span>
-        <span>{formatFileSize(model.size as number)}</span>
-      </div>
-      {#if model.hf_format}
-        <div class="info-row">
-          <span class="label">HF Format:</span>
-          <span>{model.hf_format}</span>
+  <div class="model-content">
+    {#if isDefault}
+      <div class="logo-column">
+        <div class="default-logo-sidebar">
+          <Logo />
         </div>
-      {/if}
-    {:else}
-      {#if model.size}
+      </div>
+    {/if}
+    <div class="info-column">
+      {#if platform === 'llama'}
         <div class="info-row">
           <span class="label">Size:</span>
-          <span>{model.size}</span>
+          <span>{formatFileSize(model.size as number)}</span>
+        </div>
+        {#if model.hf_format}
+          <div class="info-row">
+            <span class="label">HF Format:</span>
+            <span>{model.hf_format}</span>
+          </div>
+        {/if}
+      {:else}
+        {#if model.size}
+          <div class="info-row">
+            <span class="label">Size:</span>
+            <span>{model.size}</span>
+          </div>
+        {/if}
+        {#if model.modified}
+          <div class="info-row">
+            <span class="label">Modified:</span>
+            <span>{model.modified}</span>
+          </div>
+        {/if}
+      {/if}
+      {#if tags.length > 0}
+        <div class="tags">
+          {#each tags as tag}
+            <span class="tag">{tag}</span>
+          {/each}
         </div>
       {/if}
-      {#if model.modified}
-        <div class="info-row">
-          <span class="label">Modified:</span>
-          <span>{model.modified}</span>
-        </div>
+      {#if notes}
+        <div class="notes-preview">{notes}</div>
       {/if}
-    {/if}
-    {#if tags.length > 0}
-      <div class="tags">
-        {#each tags as tag}
-          <span class="tag">{tag}</span>
-        {/each}
-      </div>
-    {/if}
-    {#if notes}
-      <div class="notes-preview">{notes}</div>
-    {/if}
+    </div>
   </div>
 </div>
 
@@ -142,6 +162,16 @@
   .model-card.favorite {
     border-color: var(--accent-color, #b12424);
     background: var(--bg-tertiary, #ffdad6);
+  }
+
+  .model-card.default {
+    border-left: 4px solid var(--accent-color, #b12424);
+  }
+
+  .model-name :global(.default-icon) {
+    color: var(--accent-color, #b12424);
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 2px rgba(177, 36, 36, 0.5));
   }
 
   .model-header {
@@ -183,7 +213,57 @@
     min-height: 2.5rem !important;
   }
 
-  .model-info {
+  .logo-container {
+    display: flex;
+    justify-content: center;
+    margin: 0.75rem 0;
+    padding: 0.5rem 0;
+  }
+
+  .default-logo {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .default-logo :global(svg) {
+    width: 100%;
+    height: 100%;
+    color: var(--accent-color, #b12424);
+    opacity: 0.8;
+  }
+
+  .model-content {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .logo-column {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 0.25rem;
+  }
+
+  .default-logo-sidebar {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .default-logo-sidebar :global(svg) {
+    width: 100%;
+    height: 100%;
+    color: var(--accent-color, #b12424);
+    opacity: 0.8;
+  }
+
+  .info-column {
+    flex: 1;
     font-size: 0.9rem;
     color: var(--text-secondary, #666);
   }

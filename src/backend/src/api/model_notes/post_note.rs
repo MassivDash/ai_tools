@@ -20,12 +20,21 @@ pub async fn create_or_update_model_note(
         })));
     }
 
+    // For default models, don't store the path - just the name
+    // Backend will handle downloading/caching automatically
+    let model_path = if req.is_default.unwrap_or(false) {
+        None
+    } else {
+        req.model_path.clone()
+    };
+
     let note = ModelNote {
         id: None,
         platform: req.platform.clone(),
         model_name: req.model_name.clone(),
-        model_path: req.model_path.clone(),
+        model_path,
         is_favorite: req.is_favorite.unwrap_or(false),
+        is_default: req.is_default.unwrap_or(false),
         tags: req.tags.clone().unwrap_or_default(),
         notes: req.notes.clone(),
         created_at: None,

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::api::default_configs::{DefaultConfigsStorage, LlamaDefaultConfig};
 use crate::api::llama_server::types::Config;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -31,15 +32,34 @@ pub struct ConfigResponse {
 pub async fn post_update_config(
     body: web::Json<ConfigRequest>,
     config: web::Data<Arc<Mutex<Config>>>,
+    default_configs: web::Data<Arc<DefaultConfigsStorage>>,
 ) -> ActixResult<HttpResponse> {
-    let mut config_guard = config.lock().unwrap();
-
+    // Handle hf_model update and save to default configs (drop lock before await)
     if let Some(hf_model) = &body.hf_model {
         if !hf_model.trim().is_empty() {
-            config_guard.hf_model = hf_model.trim().to_string();
-            println!("📝 Updated HF model to: {}", config_guard.hf_model);
+            let hf_model_trimmed = hf_model.trim().to_string();
+            {
+                let mut config_guard = config.lock().unwrap();
+                config_guard.hf_model = hf_model_trimmed.clone();
+                println!("📝 Updated HF model to: {}", config_guard.hf_model);
+            } // Drop lock here
+
+            // Save as default config (hf_model is primary) - lock is dropped
+            if let Err(e) = default_configs
+                .set_llama_default(&LlamaDefaultConfig {
+                    hf_model: hf_model_trimmed.clone(),
+                })
+                .await
+            {
+                println!("⚠️  Failed to save llama default config: {}", e);
+            } else {
+                println!("✅ Saved llama default config");
+            }
         }
     }
+
+    // Update other config fields (no await points here)
+    let mut config_guard = config.lock().unwrap();
 
     if let Some(ctx_size) = body.ctx_size {
         if ctx_size > 0 {
@@ -120,13 +140,23 @@ mod tests {
     use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 
+    // Helper to create a test default_configs storage with in-memory database
+    async fn create_test_default_configs() -> Arc<DefaultConfigsStorage> {
+        let storage = DefaultConfigsStorage::new(":memory:")
+            .await
+            .expect("Failed to create test default configs storage");
+        Arc::new(storage)
+    }
+
     #[actix_web::test]
     async fn test_post_update_config_hf_model() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+        let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(config.clone()))
+                .app_data(web::Data::new(default_configs))
                 .service(post_update_config),
         )
         .await;
@@ -164,10 +194,12 @@ mod tests {
     #[actix_web::test]
     async fn test_post_update_config_multiple_fields() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
+        let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(config.clone()))
+                .app_data(web::Data::new(default_configs))
                 .service(post_update_config),
         )
         .await;
@@ -208,10 +240,12 @@ mod tests {
     async fn test_post_update_config_empty_hf_model_ignored() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
         let original_model = config.lock().unwrap().hf_model.clone();
+        let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(config.clone()))
+                .app_data(web::Data::new(default_configs))
                 .service(post_update_config),
         )
         .await;
@@ -246,10 +280,12 @@ mod tests {
     async fn test_post_update_config_invalid_ctx_size_ignored() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
         let original_ctx_size = config.lock().unwrap().ctx_size;
+        let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(config.clone()))
+                .app_data(web::Data::new(default_configs))
                 .service(post_update_config),
         )
         .await;
