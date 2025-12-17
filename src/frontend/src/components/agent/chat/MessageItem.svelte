@@ -3,6 +3,7 @@
   import { renderMarkdown } from '../utils/markdown'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
   import { getToolIconFromMetadata, getToolIcon } from '../utils/toolIcons'
+  import { icons } from '@iconify-json/mdi'
 
   interface Props {
     message: ChatMessage
@@ -78,16 +79,29 @@
         return // No code element found
       }
 
-      // Create copy button
+      // Create copy button with Material Icon
       const copyButton = document.createElement('button')
       copyButton.className = 'code-copy-button'
       copyButton.setAttribute('aria-label', 'Copy code')
-      copyButton.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-      `
+
+      // Get Material Design icon data for copy icon
+      const copyIconData = icons.icons['content-copy']
+      const iconViewBox = `0 0 ${icons.width || 24} ${icons.height || 24}`
+
+      if (copyIconData) {
+        copyButton.innerHTML = `
+          <svg width="16" height="16" viewBox="${iconViewBox}" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            ${copyIconData.body}
+          </svg>
+        `
+      } else {
+        // Fallback if icon not found
+        copyButton.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+        `
+      }
 
       // Position button
       pre.style.position = 'relative'
@@ -103,8 +117,9 @@
       copyButton.style.alignItems = 'center'
       copyButton.style.justifyContent = 'center'
       copyButton.style.opacity = '0.7'
-      copyButton.style.transition = 'opacity 0.2s'
+      copyButton.style.transition = 'opacity 0.2s, color 0.2s'
       copyButton.style.zIndex = '10'
+      copyButton.style.color = 'var(--text-primary, #100f0f)'
 
       // Hover effect
       copyButton.addEventListener('mouseenter', () => {
@@ -120,17 +135,30 @@
           codeElement.textContent || codeElement.innerText || ''
         try {
           await window.navigator.clipboard.writeText(textToCopy)
-          // Visual feedback
+          // Visual feedback - show checkmark icon
+          const checkIconData = icons.icons['check']
+          const iconViewBox = `0 0 ${icons.width || 24} ${icons.height || 24}`
           const originalHTML = copyButton.innerHTML
-          copyButton.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          `
-          copyButton.style.color = '#4caf50'
+
+          if (checkIconData) {
+            copyButton.innerHTML = `
+              <svg width="16" height="16" viewBox="${iconViewBox}" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                ${checkIconData.body}
+              </svg>
+            `
+          } else {
+            // Fallback checkmark
+            copyButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            `
+          }
+
+          copyButton.style.color = 'var(--success-color, #4caf50)'
           setTimeout(() => {
             copyButton.innerHTML = originalHTML
-            copyButton.style.color = ''
+            copyButton.style.color = 'var(--text-primary, #100f0f)'
           }, 2000)
         } catch (err) {
           console.error('Failed to copy code:', err)
@@ -505,6 +533,35 @@
 
   .message-content.markdown :global(pre:hover .code-copy-button) {
     opacity: 1;
+  }
+
+  .message-content.markdown :global(.code-copy-button) {
+    color: var(--text-primary, #100f0f);
+    background-color: var(--bg-primary, #fff);
+    border-color: var(--border-color, #e0e0e0);
+  }
+
+  .message-content.markdown :global(.code-copy-button:hover) {
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--accent-color, #2196f3);
+  }
+
+  .message-content.markdown :global(.code-copy-button:active) {
+    transform: scale(0.95);
+  }
+
+  /* Dark theme support */
+  @media (prefers-color-scheme: dark) {
+    .message-content.markdown :global(.code-copy-button) {
+      color: var(--text-primary, #e0e0e0);
+      background-color: var(--bg-primary, #1e1e1e);
+      border-color: var(--border-color, #404040);
+    }
+
+    .message-content.markdown :global(.code-copy-button:hover) {
+      background-color: var(--bg-secondary, #2a2a2a);
+      color: var(--accent-color, #64b5f6);
+    }
   }
 
   .message-content.markdown :global(pre code) {
