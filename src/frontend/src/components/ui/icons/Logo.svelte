@@ -5,11 +5,7 @@
     class?: string
   }
 
-  let {
-    width = 24,
-    height = 24,
-    class: className = ''
-  }: Props = $props()
+  let { width = 24, height = 24, class: className = '' }: Props = $props()
 
   const widthValue = typeof width === 'number' ? `${width}px` : width
   const heightValue = typeof height === 'number' ? `${height}px` : height
@@ -108,4 +104,3 @@ c-18 22 -36 41 -41 41 -4 0 -10 -22 -14 -49z"
     />
   </g>
 </svg>
-

@@ -161,7 +161,11 @@
   $: {
     // If newHfModel doesn't match any model name, assume it's a manual entry
     const matchingModel = localModels.find((m) => m.name === newHfModel)
-    if (!matchingModel && newHfModel && newHfModel !== extractFilename(newHfModelBackend)) {
+    if (
+      !matchingModel &&
+      newHfModel &&
+      newHfModel !== extractFilename(newHfModelBackend)
+    ) {
       // User typed something manually, use it as backend value
       newHfModelBackend = newHfModel
     }
