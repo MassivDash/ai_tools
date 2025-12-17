@@ -12,42 +12,51 @@ impl DefaultConfigsStorage {
     /// Create a new default configs storage
     pub async fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db_path = db_path.as_ref();
+        let db_path_str = db_path.to_str().unwrap_or("");
 
-        // Ensure directory exists
-        if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent).context("Failed to create database directory")?;
-        }
-
-        // Get absolute path
-        let absolute_path = if db_path.exists() {
-            db_path
-                .canonicalize()
-                .context("Failed to canonicalize existing database path")?
+        // Handle in-memory database specially (skip file system operations)
+        let (db_path_for_connection, display_path) = if db_path_str == ":memory:" {
+            println!("💾 Connecting to SQLite in-memory database for default configs");
+            (":memory:".to_string(), ":memory:".to_string())
         } else {
-            let parent = db_path.parent().unwrap_or(Path::new("."));
-            let parent_abs = parent
-                .canonicalize()
-                .or_else(|_| std::env::current_dir().map(|d| d.join(parent)))
-                .context("Failed to get absolute path for database directory")?;
-            let filename = db_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("conversations.db");
-            parent_abs.join(filename)
+            // Ensure directory exists
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent).context("Failed to create database directory")?;
+            }
+
+            // Get absolute path
+            let absolute_path = if db_path.exists() {
+                db_path
+                    .canonicalize()
+                    .context("Failed to canonicalize existing database path")?
+            } else {
+                let parent = db_path.parent().unwrap_or(Path::new("."));
+                let parent_abs = parent
+                    .canonicalize()
+                    .or_else(|_| std::env::current_dir().map(|d| d.join(parent)))
+                    .context("Failed to get absolute path for database directory")?;
+                let filename = db_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("conversations.db");
+                parent_abs.join(filename)
+            };
+
+            let display = absolute_path.display().to_string();
+            println!(
+                "💾 Connecting to SQLite database for default configs at: {}",
+                display
+            );
+            (absolute_path.to_str().unwrap().to_string(), display)
         };
 
-        println!(
-            "💾 Connecting to SQLite database for default configs at: {}",
-            absolute_path.display()
-        );
-
         let options = SqliteConnectOptions::new()
-            .filename(&absolute_path)
+            .filename(&db_path_for_connection)
             .create_if_missing(true);
 
         let pool = SqlitePool::connect_with(options).await.context(format!(
             "Failed to connect to SQLite database at: {}",
-            absolute_path.display()
+            display_path
         ))?;
 
         // Create default_configs table
