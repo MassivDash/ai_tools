@@ -192,7 +192,7 @@ test('renders tool icons', () => {
 
   // Icons are emojis, so we check for the tool cards
   const toolCards = document.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(5) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
+  expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens, Parquet to TXT
 
   toolCards.forEach((card) => {
     const icon = card.querySelector('.tool-icon')
@@ -204,7 +204,7 @@ test('tool cards have correct structure', () => {
   const { container } = render(ToolSwitcher)
 
   const toolCards = container.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
+  expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens, Parquet to TXT
 
   toolCards.forEach((card) => {
     expect(card.querySelector('.tool-icon')).toBeTruthy()
