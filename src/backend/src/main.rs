@@ -13,6 +13,8 @@ mod markdown_utils;
 mod services;
 mod utils;
 
+use dotenv::dotenv;
+
 use crate::api::agent::config::AgentConfigHandle;
 use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::types::AgentConfig;
@@ -36,6 +38,7 @@ use std::sync::{Arc, Mutex};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
     let args = collect_args(env::args().collect());
     let host = args.host;
     let port = args.port.parse::<u16>().unwrap();

@@ -111,6 +111,14 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             category: ToolCategory::Web,
             icon: ToolCategory::Web.icon_name().to_string(),
         },
+        ToolInfo {
+            id: "4".to_string(),
+            name: "weather".to_string(),
+            tool_type: ToolType::Weather,
+            description: "Get the current weather for a given city".to_string(),
+            category: ToolCategory::Utility,
+            icon: ToolCategory::Utility.icon_name().to_string(),
+        },
         // Note: ChromaDB is special and only appears when configured, so we don't include it here
         // The frontend should handle ChromaDB separately based on configuration
     ];

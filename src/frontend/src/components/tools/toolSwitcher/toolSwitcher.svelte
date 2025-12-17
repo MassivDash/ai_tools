@@ -39,7 +39,8 @@
     {
       id: 'parquet-to-txt' as ToolType,
       name: 'Parquet to TXT',
-      description: 'Combine and convert parquet files to text for Imatrix Quantization',
+      description:
+        'Combine and convert parquet files to text for Imatrix Quantization',
       icon: '📊'
     },
     {

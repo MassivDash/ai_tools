@@ -3,7 +3,7 @@ use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::streaming::execute_agent_loop_streaming;
 use crate::api::agent::tools::{
     chromadb::ChromaDBTool, financial_data::FinancialDataTool, registry::ToolRegistry,
-    selector::ToolSelector, website_check::WebsiteCheckTool,
+    selector::ToolSelector, weather::WeatherTool, website_check::WebsiteCheckTool,
 };
 use crate::api::agent::types::{
     AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage, MessageRole,
@@ -153,6 +153,14 @@ pub async fn agent_chat(
         let website_tool = WebsiteCheckTool::new();
         if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
             println!("⚠️ Failed to register Website Check tool: {}", e);
+        }
+    }
+
+    // Register Weather tool if enabled
+    if config.enabled_tools.contains(&ToolType::Weather) {
+        let weather_tool = WeatherTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
+            println!("⚠️ Failed to register Weather tool: {}", e);
         }
     }
 
@@ -460,6 +468,13 @@ pub async fn agent_chat_stream(
         let website_tool = WebsiteCheckTool::new();
         if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
             println!("⚠️ Failed to register Website Check tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::Weather) {
+        let weather_tool = WeatherTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
+            println!("⚠️ Failed to register Weather Tool: {}", e);
         }
     }
 

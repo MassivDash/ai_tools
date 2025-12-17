@@ -7,6 +7,7 @@ pub enum ToolType {
     ChromaDB,
     FinancialData,
     WebsiteCheck,
+    Weather,
     // Future tools can be added here
 }
 

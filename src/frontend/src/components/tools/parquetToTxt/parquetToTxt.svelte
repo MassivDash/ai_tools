@@ -61,9 +61,7 @@
             statusMessage = `Downloading... ${progress}%`
           } else {
             // If total is unknown, show bytes downloaded
-            const mbDownloaded = (progressEvent.loaded / 1024 / 1024).toFixed(
-              2
-            )
+            const mbDownloaded = (progressEvent.loaded / 1024 / 1024).toFixed(2)
             statusMessage = `Downloading... ${mbDownloaded} MB`
           }
         }
@@ -109,7 +107,6 @@
       loading = false
     }
   }
-
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
@@ -489,4 +486,3 @@
     }
   }
 </style>
-
