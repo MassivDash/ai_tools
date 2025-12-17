@@ -91,6 +91,7 @@ test('returns to tool list when back button is clicked', async () => {
       expect(screen.getByText('JSON to TOON')).toBeTruthy()
       expect(screen.getByText('PDF to Markdown')).toBeTruthy()
       expect(screen.getByText('Text to Tokens')).toBeTruthy()
+      expect(screen.getByText('Parquet to TXT')).toBeTruthy()
     },
     { timeout: 2000 }
   )
@@ -203,7 +204,7 @@ test('tool cards have correct structure', () => {
   const { container } = render(ToolSwitcher)
 
   const toolCards = container.querySelectorAll('.tool-card')
-  expect(toolCards.length).toBe(5) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
+  expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens
 
   toolCards.forEach((card) => {
     expect(card.querySelector('.tool-icon')).toBeTruthy()
