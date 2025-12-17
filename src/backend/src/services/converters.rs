@@ -2,6 +2,7 @@ use actix_web::web::ServiceConfig;
 
 use crate::api::html_to_markdown::post::convert_html_to_markdown_endpoint;
 use crate::api::json_to_toon::post::convert_json_to_toon;
+use crate::api::parquet_to_txt::post::convert_parquet_to_txt;
 use crate::api::pdf_to_markdown::post::convert_pdf_to_markdown;
 use crate::api::text_to_tokens::post::convert_text_to_tokens;
 use crate::api::url_to_markdown::post::convert_url_to_markdown;
@@ -11,6 +12,7 @@ pub fn configure_converter_services(cfg: &mut ServiceConfig) {
     cfg.service(convert_url_to_markdown)
         .service(convert_html_to_markdown_endpoint)
         .service(convert_json_to_toon)
+        .service(convert_parquet_to_txt)
         .service(convert_pdf_to_markdown)
         .service(convert_text_to_tokens);
 }
@@ -29,6 +31,7 @@ mod tests {
             ("/api/url-to-markdown", "POST"),
             ("/api/html-to-markdown", "POST"),
             ("/api/json-to-toon", "POST"),
+            ("/api/parquet-to-txt", "POST"),
             ("/api/pdf-to-markdown", "POST"),
             ("/api/text-to-tokens", "POST"),
         ];

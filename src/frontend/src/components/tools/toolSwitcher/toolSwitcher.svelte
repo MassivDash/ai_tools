@@ -1,6 +1,7 @@
 <script lang="ts">
   import HtmlToMarkdown from '../htmlToMarkdown/htmlToMarkdown.svelte'
   import JsonToToon from '../jsonToToon/jsonToToon.svelte'
+  import ParquetToTxt from '../parquetToTxt/parquetToTxt.svelte'
   import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
   import TextToTokens from '../textToTokens/textToTokens.svelte'
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
@@ -9,6 +10,7 @@
     | 'url-to-markdown'
     | 'html-to-markdown'
     | 'json-to-toon'
+    | 'parquet-to-txt'
     | 'pdf-to-markdown'
     | 'text-to-tokens'
     | null
@@ -33,6 +35,12 @@
       name: 'JSON to TOON',
       description: 'Convert JSON to TOON format for LLMs',
       icon: '🔀'
+    },
+    {
+      id: 'parquet-to-txt' as ToolType,
+      name: 'Parquet to TXT',
+      description: 'Combine and convert parquet files to text for Imatrix Quantization',
+      icon: '📊'
     },
     {
       id: 'pdf-to-markdown' as ToolType,
@@ -94,6 +102,8 @@
           <HtmlToMarkdown />
         {:else if selectedTool === 'json-to-toon'}
           <JsonToToon />
+        {:else if selectedTool === 'parquet-to-txt'}
+          <ParquetToTxt />
         {:else if selectedTool === 'pdf-to-markdown'}
           <PdfToMarkdown />
         {:else if selectedTool === 'text-to-tokens'}
