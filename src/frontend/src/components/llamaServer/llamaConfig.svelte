@@ -183,6 +183,8 @@
     ) {
       // User typed something manually, use it as backend value
       newHfModelBackend = newHfModel
+      // Clear the specific model path to avoid conflicts with -hf flag
+      newModel = ''
     }
   }
 

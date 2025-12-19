@@ -40,7 +40,6 @@ export const LlamaConfigRequestSchema = z.object({
   model: z
     .string()
     .trim()
-    .min(1, 'Model path cannot be empty')
     .nullable()
     .optional()
 })
@@ -105,10 +104,9 @@ export const buildLlamaConfigPayload = (values: {
     payload.no_mmap = values.no_mmap
   }
 
-  // model - optional, must be non-empty after trim if provided
-  const trimmedModel = values.model.trim()
-  if (trimmedModel) {
-    payload.model = trimmedModel
+  // model - optional, include if provided (even empty string to clear it)
+  if (values.model !== undefined) {
+    payload.model = values.model.trim()
   }
 
   return payload
