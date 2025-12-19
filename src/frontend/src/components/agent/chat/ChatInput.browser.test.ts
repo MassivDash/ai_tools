@@ -3,7 +3,25 @@
  */
 
 /// <reference types="@testing-library/jest-dom" />
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
+// ... imports
+import { render, fireEvent, waitFor } from '@testing-library/svelte'
+// ...
+
+// ...
+
+  // Setup mocks
+  const originalFileReader = global.FileReader
+  class MockFileReader {
+    onload: any
+    readAsDataURL(_blob: Blob) {
+        // Trigger onload
+        setTimeout(() => {
+             if (this.onload) {
+                 this.onload({ target: { result: 'data:image/jpeg;base64,mockdata' } })
+             }
+        }, 20) 
+    }
+  }
 import { expect, test, vi, beforeEach } from 'vitest'
 import ChatInput from './ChatInput.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'

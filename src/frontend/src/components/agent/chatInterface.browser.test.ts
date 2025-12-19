@@ -18,10 +18,6 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-// Add global error listener
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled Rejection:', event.reason)
-})
 
 const mockedAxios = axiosBackendInstance as unknown as {
   get: ReturnType<typeof vi.fn>
