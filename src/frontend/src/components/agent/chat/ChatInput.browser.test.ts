@@ -9,19 +9,18 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte'
 
 // ...
 
-  // Setup mocks
-  const originalFileReader = global.FileReader
-  class MockFileReader {
-    onload: any
-    readAsDataURL(_blob: Blob) {
-        // Trigger onload
-        setTimeout(() => {
-             if (this.onload) {
-                 this.onload({ target: { result: 'data:image/jpeg;base64,mockdata' } })
-             }
-        }, 20) 
-    }
+// Setup mocks
+class MockFileReader {
+  onload: any
+  readAsDataURL(_blob: Blob) {
+    // Trigger onload
+    setTimeout(() => {
+      if (this.onload) {
+        this.onload({ target: { result: 'data:image/jpeg;base64,mockdata' } })
+      }
+    }, 20)
   }
+}
 import { expect, test, vi, beforeEach } from 'vitest'
 import ChatInput from './ChatInput.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
@@ -143,7 +142,7 @@ test.skip('mocks image processing', async () => {
   const file = new File(['fake-image'], 'test.jpg', { type: 'image/jpeg' })
 
   // Setup mocks
-  const originalFileReader = global.FileReader
+  const originalFileReader = globalThis.FileReader
   class MockFileReader {
     onload: any
     readAsDataURL(blob: Blob) {
@@ -155,7 +154,7 @@ test.skip('mocks image processing', async () => {
       }, 20)
     }
   }
-  global.FileReader = MockFileReader as any
+  globalThis.FileReader = MockFileReader as any
   window.FileReader = MockFileReader as any
 
   // Mock Image
@@ -231,7 +230,7 @@ test.skip('mocks image processing', async () => {
   )
 
   // Cleanup
-  global.FileReader = originalFileReader
+  globalThis.FileReader = originalFileReader
   window.FileReader = originalFileReader
   window.Image = originalImage
   document.createElement = originalCreateElement
