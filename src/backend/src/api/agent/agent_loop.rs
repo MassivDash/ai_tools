@@ -181,42 +181,68 @@ pub async fn execute_agent_loop(
                 iterations
             );
 
-            // Execute all tool calls
-            let mut iteration_tool_results = Vec::new();
+            // Store assistant message with tool calls in SQLite
+            let assistant_message = choice.message.clone();
+            if let Err(e) = sqlite_memory
+                .add_message(&conversation_id, assistant_message.clone())
+                .await
+            {
+                println!("⚠️ Failed to store assistant tool call message: {}", e);
+            }
+            messages.push(assistant_message);
+
+            // Execute all tool calls in parallel
+            let mut futures = Vec::new();
             for tool_call in tool_calls {
                 println!(
-                    "   📞 Executing tool: {} with args: {}",
+                    "   📞 Spawning tool execution: {} with args: {}",
                     tool_call.function.name, tool_call.function.arguments
                 );
 
-                match tool_registry.execute_tool_call(tool_call).await {
-                    Ok(result) => {
-                        println!(
-                            "   ✅ Tool '{}' executed successfully",
-                            tool_call.function.name
-                        );
-                        iteration_tool_results.push((tool_call.clone(), result.clone()));
-                        tool_results.push(result);
-                    }
+                let registry = tool_registry.clone();
+                let call = tool_call.clone();
+
+                futures.push(tokio::spawn(async move {
+                    let result = registry.execute_tool_call(&call).await;
+                    (call, result)
+                }));
+            }
+
+            // Wait for all tools to complete
+            let results = futures::future::join_all(futures).await;
+
+            // Process results
+            let mut iteration_tool_results = Vec::new();
+
+            for join_result in results {
+                match join_result {
+                    Ok((tool_call, execution_result)) => match execution_result {
+                        Ok(result) => {
+                            println!(
+                                "   ✅ Tool '{}' executed successfully",
+                                tool_call.function.name
+                            );
+                            iteration_tool_results.push((tool_call, result.clone()));
+                            tool_results.push(result);
+                        }
+                        Err(e) => {
+                            println!("   ❌ Tool execution error: {}", e);
+                            let error_result = ToolCallResult {
+                                tool_name: tool_call.function.name.clone(),
+                                result: format!("Error: {}", e),
+                            };
+                            iteration_tool_results.push((tool_call, error_result.clone()));
+                            tool_results.push(error_result);
+                        }
+                    },
                     Err(e) => {
-                        println!("   ❌ Tool execution error: {}", e);
-                        let error_result = ToolCallResult {
-                            tool_name: tool_call.function.name.clone(),
-                            result: format!("Error: {}", e),
-                        };
-                        iteration_tool_results.push((tool_call.clone(), error_result.clone()));
-                        tool_results.push(error_result);
+                        println!("   ❌ Tool task panic: {}", e);
+                        // Handle panic if needed, though unlikely
                     }
                 }
             }
 
-            // Add assistant message with tool calls to conversation
-            // Don't store tool call messages in SQLite - only final answers
-            let assistant_message = choice.message.clone();
-            messages.push(assistant_message);
-
-            // Add tool results as tool messages
-            // Don't store tool messages in SQLite - only user/assistant messages
+            // Add tool results as tool messages and store in SQLite
             for (tool_call, result) in iteration_tool_results {
                 let tool_message = ChatMessage {
                     role: MessageRole::Tool,
@@ -226,6 +252,14 @@ pub async fn execute_agent_loop(
                     tool_call_id: Some(tool_call.id.clone()),
                     reasoning_content: None,
                 };
+
+                if let Err(e) = sqlite_memory
+                    .add_message(&conversation_id, tool_message.clone())
+                    .await
+                {
+                    println!("⚠️ Failed to store tool result message: {}", e);
+                }
+
                 messages.push(tool_message);
             }
 

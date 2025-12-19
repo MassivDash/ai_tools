@@ -1,10 +1,10 @@
-use crate::api::agent::types::{ChatMessage, MessageRole};
+use crate::api::agent::types::{ChatMessage, MessageRole, ToolCall};
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
 use std::path::Path;
 
 /// SQLite-based conversation storage
-/// Only stores user and assistant messages (not tool calls or internal thoughts)
+/// Stores all message types including tool calls and results
 pub struct SqliteConversationMemory {
     pool: SqlitePool,
 }
@@ -52,6 +52,34 @@ impl SqliteConversationMemory {
             absolute_path.display()
         ))?;
 
+        // Check if messages table exists and has the new columns
+        let table_exists: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='messages'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap_or(None);
+
+        if table_exists.is_some() {
+            // Check if tool_calls column exists
+            let has_new_columns: Option<i32> = sqlx::query_scalar(
+                "SELECT 1 FROM pragma_table_info('messages') WHERE name='tool_calls'",
+            )
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+            if has_new_columns.is_none() {
+                println!(
+                    "⚠️  Detected outdated schema. Resetting messages table (Development Mode)..."
+                );
+                sqlx::query("DROP TABLE messages")
+                    .execute(&pool)
+                    .await
+                    .context("Failed to drop old messages table")?;
+            }
+        }
+
         // Create tables
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS conversations (
@@ -69,6 +97,9 @@ impl SqliteConversationMemory {
                 conversation_id TEXT NOT NULL,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
+                name TEXT,
+                tool_calls TEXT,
+                tool_call_id TEXT,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             )",
@@ -126,39 +157,42 @@ impl SqliteConversationMemory {
         }
     }
 
-    /// Add a user or assistant message (filters out tool calls and system messages)
+    /// Add a message to the conversation
     pub async fn add_message(&self, conversation_id: &str, message: ChatMessage) -> Result<()> {
-        // Only store user and assistant messages
-        match message.role {
-            MessageRole::User | MessageRole::Assistant => {
-                let role_str = match message.role {
-                    MessageRole::User => "user",
-                    MessageRole::Assistant => "assistant",
-                    _ => return Ok(()), // Skip other roles
-                };
+        let role_str = match message.role {
+            MessageRole::User => "user",
+            MessageRole::Assistant => "assistant",
+            MessageRole::System => "system",
+            MessageRole::Tool => "tool",
+        };
 
-                sqlx::query(
-                    "INSERT INTO messages (conversation_id, role, content) VALUES (?1, ?2, ?3)",
-                )
-                .bind(conversation_id)
-                .bind(role_str)
-                .bind(&message.content)
-                .execute(&self.pool)
-                .await
-                .context("Failed to insert message")?;
-            }
-            _ => {
-                // Skip system, tool, and other message types
-            }
-        }
+        let tool_calls_json = if let Some(calls) = &message.tool_calls {
+            Some(serde_json::to_string(calls).context("Failed to serialize tool calls")?)
+        } else {
+            None
+        };
+
+        sqlx::query(
+            "INSERT INTO messages (conversation_id, role, content, name, tool_calls, tool_call_id) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind(conversation_id)
+        .bind(role_str)
+        .bind(&message.content)
+        .bind(&message.name)
+        .bind(&tool_calls_json)
+        .bind(&message.tool_call_id)
+        .execute(&self.pool)
+        .await
+        .context("Failed to insert message")?;
 
         Ok(())
     }
 
-    /// Get all user and assistant messages for a conversation
+    /// Get all messages for a conversation
     pub async fn get_messages(&self, conversation_id: &str) -> Result<Vec<ChatMessage>> {
         let rows = sqlx::query(
-            "SELECT role, content FROM messages 
+            "SELECT role, content, name, tool_calls, tool_call_id FROM messages 
              WHERE conversation_id = ?1 
              ORDER BY created_at ASC",
         )
@@ -171,19 +205,34 @@ impl SqliteConversationMemory {
         for row in rows {
             let role_str: String = row.get(0);
             let content: String = row.get(1);
+            let name: Option<String> = row.get(2);
+            let tool_calls_str: Option<String> = row.get(3);
+            let tool_call_id: Option<String> = row.get(4);
 
             let role = match role_str.as_str() {
                 "user" => MessageRole::User,
                 "assistant" => MessageRole::Assistant,
+                "system" => MessageRole::System,
+                "tool" => MessageRole::Tool,
                 _ => MessageRole::User, // Default fallback
+            };
+
+            let tool_calls = if let Some(s) = tool_calls_str {
+                if !s.is_empty() {
+                    Some(serde_json::from_str::<Vec<ToolCall>>(&s).unwrap_or_default())
+                } else {
+                    None
+                }
+            } else {
+                None
             };
 
             messages.push(ChatMessage {
                 role,
                 content,
-                name: None,
-                tool_calls: None,
-                tool_call_id: None,
+                name,
+                tool_calls,
+                tool_call_id,
                 reasoning_content: None,
             });
         }
@@ -255,5 +304,25 @@ impl SqliteConversationMemory {
                 .context("Failed to count messages")?;
 
         Ok(count.unwrap_or(0) as usize)
+    }
+    /// Get the last message ID (for rollback purposes)
+    pub async fn get_last_message_id(&self) -> Result<i64> {
+        let id: Option<i64> = sqlx::query_scalar("SELECT MAX(id) FROM messages")
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to get last message ID")?;
+
+        Ok(id.unwrap_or(0))
+    }
+
+    /// Delete messages after a specific ID (rollback)
+    pub async fn delete_messages_after_id(&self, id: i64) -> Result<()> {
+        sqlx::query("DELETE FROM messages WHERE id > ?1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete messages")?;
+
+        Ok(())
     }
 }

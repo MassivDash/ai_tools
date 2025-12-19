@@ -297,6 +297,9 @@ pub async fn agent_chat(
         );
     }
 
+    // Get last message ID before starting loop (for potential rollback)
+    let last_message_id_before_loop = sqlite_memory.get_last_message_id().await.unwrap_or(0);
+
     // Execute agent loop - allows iterative tool use
     let loop_config = AgentLoopConfig::default();
     let mut loop_result = execute_agent_loop(
@@ -318,7 +321,20 @@ pub async fn agent_chat(
 
     // If agent got stuck, recover by restarting with clean context
     if loop_result.stuck {
-        println!("🔄 Agent got stuck, recovering with clean context...");
+        println!("🔄 Agent got stuck, attempting rollback and clean context recovery...");
+
+        // Rollback: delete any messages created during the stuck loop
+        if let Err(e) = sqlite_memory
+            .delete_messages_after_id(last_message_id_before_loop)
+            .await
+        {
+            println!("⚠️ Failed to rollback messages after stuck loop: {}", e);
+        } else {
+            println!(
+                "✅ Rolled back messages to ID {}",
+                last_message_id_before_loop
+            );
+        }
 
         // Get clean conversation history from SQLite (only user/assistant messages)
         let clean_messages = sqlite_memory
