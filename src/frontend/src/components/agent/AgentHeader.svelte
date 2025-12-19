@@ -9,10 +9,20 @@
   export let onToggleConfig: () => void
   export let onToggleLlamaConfig: () => void
   export let onToggleTerminal: () => void
+  export let onToggleHistory: () => void
+  export let showHistory: boolean = false
 </script>
 
 <PageSubHeader title="AI Agent">
   {#snippet actions()}
+    <Button
+      variant="info"
+      class="button-icon-only"
+      onclick={onToggleHistory}
+      title={showHistory ? 'Hide History' : 'Show History'}
+    >
+      <MaterialIcon name="history" width="32" height="32" />
+    </Button>
     <Button
       variant="info"
       class="button-icon-only"

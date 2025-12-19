@@ -1,4 +1,4 @@
-use crate::api::agent::types::{ChatMessage, MessageRole, ToolCall};
+use crate::api::agent::types::{ChatMessage, Conversation, MessageRole, ToolCall};
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
 use std::path::Path;
@@ -71,7 +71,7 @@ impl SqliteConversationMemory {
 
             if has_new_columns.is_none() {
                 println!(
-                    "⚠️  Detected outdated schema. Resetting messages table (Development Mode)..."
+                    "⚠️  Detected outdated schema (messages). Resetting tables (Development Mode)..."
                 );
                 sqlx::query("DROP TABLE messages")
                     .execute(&pool)
@@ -80,10 +80,41 @@ impl SqliteConversationMemory {
             }
         }
 
+        // Check if conversations table has title
+        let conv_table_exists: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap_or(None);
+
+        if conv_table_exists.is_some() {
+            let has_title: Option<i32> = sqlx::query_scalar(
+                "SELECT 1 FROM pragma_table_info('conversations') WHERE name='title'",
+            )
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+            if has_title.is_none() {
+                println!("⚠️  Detected outdated schema (conversations). Resetting tables (Development Mode)...");
+                // Need to drop messages first due to FK constraint
+                sqlx::query("DROP TABLE IF EXISTS messages")
+                    .execute(&pool)
+                    .await
+                    .context("Failed to drop messages table for reset")?;
+                sqlx::query("DROP TABLE conversations")
+                    .execute(&pool)
+                    .await
+                    .context("Failed to drop old conversations table")?;
+            }
+        }
+
         // Create tables
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
+                title TEXT,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )",
         )
@@ -147,11 +178,16 @@ impl SqliteConversationMemory {
             use uuid::Uuid;
             let id = Uuid::new_v4().to_string();
 
-            sqlx::query("INSERT INTO conversations (id) VALUES (?1)")
-                .bind(&id)
-                .execute(&self.pool)
-                .await
-                .context("Failed to create conversation")?;
+            // Create with default timestamp-based title
+            // "Chat" + date/time from SQLite's datetime('now', 'localtime')
+            sqlx::query(
+                "INSERT INTO conversations (id, title) 
+                 VALUES (?1, 'Chat ' || datetime('now', 'localtime'))",
+            )
+            .bind(&id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to create conversation")?;
 
             Ok(id)
         }
@@ -322,6 +358,55 @@ impl SqliteConversationMemory {
             .execute(&self.pool)
             .await
             .context("Failed to delete messages")?;
+
+        Ok(())
+    }
+
+    /// Get all conversations
+    pub async fn get_conversations(&self) -> Result<Vec<Conversation>> {
+        let rows =
+            sqlx::query("SELECT id, title, created_at FROM conversations ORDER BY created_at DESC")
+                .fetch_all(&self.pool)
+                .await
+                .context("Failed to fetch conversations")?;
+
+        let mut conversations = Vec::new();
+        for row in rows {
+            conversations.push(Conversation {
+                id: row.get(0),
+                title: row.get(1),
+                created_at: row.get(2),
+            });
+        }
+
+        Ok(conversations)
+    }
+
+    /// Delete a conversation
+    pub async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
+        // Messages are deleted via CASCADE, but we can be explicit if needed.
+        // With ON DELETE CASCADE defined in schema, deleting conversation is enough.
+        sqlx::query("DELETE FROM conversations WHERE id = ?1")
+            .bind(conversation_id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete conversation")?;
+
+        Ok(())
+    }
+
+    /// Update conversation title
+    pub async fn update_conversation_title(
+        &self,
+        conversation_id: &str,
+        title: &str,
+    ) -> Result<()> {
+        sqlx::query("UPDATE conversations SET title = ?1 WHERE id = ?2")
+            .bind(title)
+            .bind(conversation_id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update conversation title")?;
 
         Ok(())
     }

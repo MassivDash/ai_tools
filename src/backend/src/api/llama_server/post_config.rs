@@ -121,7 +121,10 @@ pub async fn post_update_config(
     }
 
     if let Some(model) = &body.model {
-        if !model.trim().is_empty() {
+        if model.trim().is_empty() {
+            config_guard.model = None;
+            println!("📝 Cleared model path");
+        } else {
             config_guard.model = Some(model.trim().to_string());
             println!("📝 Updated model to: {:?}", config_guard.model);
         }

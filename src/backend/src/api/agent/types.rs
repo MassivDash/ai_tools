@@ -239,3 +239,17 @@ pub enum AgentStreamEvent {
     #[serde(rename = "error")]
     Error { message: String },
 }
+
+/// Conversation summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Conversation {
+    pub id: String,
+    pub title: Option<String>,
+    pub created_at: i64,
+}
+
+/// Update conversation request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateConversationRequest {
+    pub title: String,
+}

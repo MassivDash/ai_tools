@@ -15,6 +15,7 @@
   import AgentHeader from './AgentHeader.svelte'
   import ServerControls from './ServerControls.svelte'
   import EmptyState from './EmptyState.svelte'
+  import HistorySidebar from './HistorySidebar.svelte'
 
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
   let loading = false
@@ -22,7 +23,11 @@
   let showConfig = false
   let showLlamaConfig = false
   let showTerminal = false
+  let showHistory = false
   let _isStarting = false
+
+  // Current conversation state
+  let currentConversationId: string | undefined = undefined
 
   // WebSocket hook for status updates
   const statusWs = useStatusWebSocket(
@@ -131,7 +136,39 @@
 
   const handleToggleTerminal = () => {
     showTerminal = !showTerminal
+    if (showTerminal) showHistory = false
   }
+
+  const handleToggleHistory = () => {
+    showHistory = !showHistory
+    if (showHistory) showTerminal = false
+  }
+
+  const handleSelectConversation = (event: CustomEvent<string>) => {
+    currentConversationId = event.detail
+    // Logic to reload chat for this ID will be in ChatInterface (via prop)
+  }
+
+  const handleNewConversation = () => {
+    currentConversationId = undefined
+  }
+
+  const handleConversationCreated = (event: CustomEvent<string>) => {
+    const newId = event.detail
+    currentConversationId = newId
+    // Refresh history sidebar logic?
+    // We can force sidebar refresh by keying it or calling a method.
+    // Or just let it refresh on mount/open. But better to refresh now.
+    // Since sidebar component loads on mount/open, we might need a way to tell it to reload.
+    // We can add a refresh trigger prop or call a method if we bind to it.
+    // For now let's use a simple reactive statement in sidebar or just ignore?
+    // User complaint: "history screen is not updating with new conversation"
+    // So we MUST refresh sidebar.
+    shouldRefreshHistory = true
+    setTimeout(() => (shouldRefreshHistory = false), 100)
+  }
+
+  let shouldRefreshHistory = false
 
   onMount(() => {
     statusWs.connect()
@@ -149,9 +186,11 @@
     {showConfig}
     {showLlamaConfig}
     {showTerminal}
+    {showHistory}
     onToggleConfig={handleToggleConfig}
     onToggleLlamaConfig={handleToggleLlamaConfig}
     onToggleTerminal={handleToggleTerminal}
+    onToggleHistory={handleToggleHistory}
   >
     <ServerControls
       serverActive={serverStatus.active}
@@ -168,20 +207,36 @@
   <div
     class="content-area"
     class:has-terminal={showTerminal}
+    class:has-history={showHistory}
     class:has-config={showConfig}
     class:has-llama-config={showLlamaConfig}
   >
+    <HistorySidebar
+      isOpen={showHistory}
+      {currentConversationId}
+      shouldRefresh={shouldRefreshHistory}
+      on:select={handleSelectConversation}
+      on:new={handleNewConversation}
+      on:close={() => (showHistory = false)}
+    />
+
     <div class="terminal-sidebar" class:visible={showTerminal}>
       <Terminal />
     </div>
+
     <div
       class="main-content"
       class:with-terminal={showTerminal}
+      class:with-history={showHistory}
       class:with-config={showConfig}
       class:with-llama-config={showLlamaConfig}
     >
       {#if serverStatus.active}
-        <ChatInterface />
+        <ChatInterface
+          {currentConversationId}
+          on:newChat={handleNewConversation}
+          on:conversationCreated={handleConversationCreated}
+        />
       {:else}
         <EmptyState />
       {/if}
@@ -280,6 +335,10 @@
     margin-left: 70%;
   }
 
+  .main-content.with-history {
+    margin-left: 260px;
+  }
+
   .main-content.with-config,
   .main-content.with-llama-config {
     margin-right: 70%;
@@ -310,6 +369,10 @@
 
     .main-content.with-terminal {
       margin-left: 0;
+    }
+
+    .main-content.with-history {
+      margin-left: 0; /* Overlay on mobile */
     }
   }
 </style>

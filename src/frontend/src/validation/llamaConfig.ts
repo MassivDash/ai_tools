@@ -37,11 +37,7 @@ export const LlamaConfigRequestSchema = z.object({
     .nonnegative('GPU layers must be 0 or greater')
     .nullable()
     .optional(),
-  model: z
-    .string()
-    .trim()
-    .nullable()
-    .optional()
+  model: z.string().trim().nullable().optional()
 })
 
 // Helper function to build the payload from form values

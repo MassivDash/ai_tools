@@ -4,7 +4,7 @@ export interface AgentChatRequest {
 }
 
 export interface AgentStreamEvent {
-  type: 'status' | 'tool_call' | 'tool_result' | 'text_chunk' | 'done' | 'error'
+  type: 'status' | 'tool_call' | 'tool_result' | 'text_chunk' | 'done' | 'error' | 'conversation_created'
   status?: string
   message?: string
   tool_name?: string
@@ -105,4 +105,27 @@ export interface ToolInfo {
 export interface ModelCapabilities {
   vision: boolean
   audio: boolean
+}
+
+// Conversation types
+export interface Conversation {
+  id: string
+  title: string | null
+  created_at: number
+}
+
+export interface UpdateConversationRequest {
+  title: string
+}
+
+export interface ToolCallResult {
+  tool_name: string
+  result: string
+}
+
+export interface AgentChatResponse {
+  success: boolean
+  message: string
+  conversation_id?: string
+  tool_calls?: ToolCallResult[]
 }

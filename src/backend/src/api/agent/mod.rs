@@ -1,6 +1,7 @@
 pub mod agent_loop;
 pub mod chat;
 pub mod config;
+pub mod conversations;
 pub mod sqlite_memory;
 pub mod streaming;
 pub mod tools;

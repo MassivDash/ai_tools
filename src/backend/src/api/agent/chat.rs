@@ -100,6 +100,103 @@ fn clean_response(text: &str) -> String {
     cleaned.trim().to_string()
 }
 
+/// Helper to attempt auto-naming the conversation
+async fn attempt_conversation_naming(
+    client: Client,
+    llama_url: String,
+    model_name: String,
+    sqlite_memory: Arc<SqliteConversationMemory>,
+    conversation_id: String,
+) {
+    // Check message count - only rename if it's new (e.g. 2 user/assistant messages)
+    let count = match sqlite_memory.message_count(&conversation_id).await {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    // We only want to rename early in the conversation
+    // Depending on when this is called (during or after), count might vary.
+    // If called after response is stored, count should be >= 2.
+    // Let's safe guard: if count is between 2 and 4.
+    if !(2..=4).contains(&count) {
+        return;
+    }
+
+    // Also check if title is still default "Chat ..." or "New Conversation" to avoid overwriting user rename.
+    // Ideally we should check this, but for now we assume if count is low it hasn't been renamed manually yet.
+
+    // Get messages to prompt for title
+    let messages = match sqlite_memory.get_messages(&conversation_id).await {
+        Ok(m) => m,
+        Err(_) => return,
+    };
+
+    if messages.is_empty() {
+        return;
+    }
+
+    // Construct prompt
+    // We use the first user message + assistant response for context
+    let context_msgs: Vec<String> = messages
+        .iter()
+        .filter(|m| m.role == MessageRole::User || m.role == MessageRole::Assistant)
+        .take(2)
+        .map(|m| {
+            format!(
+                "{}: {}",
+                if m.role == MessageRole::User {
+                    "User"
+                } else {
+                    "Assistant"
+                },
+                m.content
+            )
+        })
+        .collect();
+
+    let context = context_msgs.join("\n");
+
+    let prompt = format!(
+        "Generate a very short, concise title (max 5 words) for this conversation based on the start. Do not use quotes or prefixes. Just the title.\n\nConversation:\n{}\n\nTitle:", 
+        context
+    );
+
+    // Call LLM for title
+    // We use a simple non-streaming request
+    let request = serde_json::json!({
+        "model": model_name,
+        "messages": [
+            { "role": "user", "content": prompt }
+        ],
+        "temperature": 0.7,
+        "max_tokens": 20
+    });
+
+    // Fire and forget-ish
+    let res = match client.post(&llama_url).json(&request).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            println!("⚠️ Failed to request title summary: {}", e);
+            return;
+        }
+    };
+
+    if let Ok(json) = res.json::<serde_json::Value>().await {
+        if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
+            let title = clean_response(content).replace("\"", "").trim().to_string();
+            if !title.is_empty() {
+                println!(
+                    "📝 Auto-renaming conversation {} to '{}'",
+                    conversation_id, title
+                );
+                let _ = sqlite_memory
+                    .update_conversation_title(&conversation_id, &title)
+                    .await;
+            }
+        }
+    }
+}
+
 /// Chat completion endpoint
 #[post("/api/agent/chat")]
 pub async fn agent_chat(
@@ -367,7 +464,7 @@ pub async fn agent_chat(
         loop_result = execute_agent_loop(
             &client,
             llama_url,
-            model_name,
+            model_name.clone(),
             recovery_messages,
             tools,
             tool_registry_arc,
@@ -419,6 +516,24 @@ pub async fn agent_chat(
         "✅ Agent loop completed after {} iterations",
         loop_result.iterations
     );
+
+    let sqlite_memory_clone = sqlite_memory.get_ref().clone();
+    let conversation_id_clone = conversation_id.clone();
+    let client_clone = client.clone();
+    let llama_url_clone = llama_url.to_string();
+    let model_name_clone = model_name.clone();
+
+    // Spawn background task for auto-naming (fire and forget)
+    actix_rt::spawn(async move {
+        attempt_conversation_naming(
+            client_clone,
+            llama_url_clone,
+            model_name_clone,
+            sqlite_memory_clone,
+            conversation_id_clone,
+        )
+        .await;
+    });
 
     Ok(HttpResponse::Ok().json(AgentChatResponse {
         success: true,
@@ -601,12 +716,12 @@ pub async fn agent_chat_stream(
         if let Err(e) = execute_agent_loop_streaming(
             &client_clone,
             &llama_url_clone,
-            model_name_clone,
+            model_name_clone.clone(), // Clone for the loop
             messages_with_system,
             tools_clone,
             tool_registry_clone,
-            sqlite_memory_clone,
-            conversation_id_clone,
+            sqlite_memory_clone.clone(),   // Clone for the loop
+            conversation_id_clone.clone(), // Clone for the loop
             loop_config,
             tx_wrapper,
         )
@@ -614,6 +729,16 @@ pub async fn agent_chat_stream(
         {
             println!("❌ Streaming agent loop error: {}", e);
         }
+
+        // Attempt naming after stream finishes
+        attempt_conversation_naming(
+            client_clone,
+            llama_url_clone,
+            model_name_clone,
+            sqlite_memory_clone, // already Arc in this scope
+            conversation_id_clone,
+        )
+        .await;
     });
 
     // Convert events to SSE format

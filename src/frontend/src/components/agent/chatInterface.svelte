@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
   import { activeTools as activeToolsStore } from '../../stores/activeTools'
@@ -15,10 +15,21 @@
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'
 
+  let {
+    currentConversationId = undefined
+  }: { currentConversationId?: string } = $props()
+
+  const dispatch = createEventDispatcher<{
+    newChat: void
+    conversationCreated: string
+  }>()
+
   let messages: ChatMessage[] = $state([])
   let inputMessage: string = $state('')
   let loading: boolean = $state(false)
   let error: string = $state('')
+  // Internal conversationId tracks the ID of the current active session
+  // It syncs with currentConversationId prop
   let conversationId: string | null = $state(null)
   let chatContainer: HTMLDivElement = $state()
   let currentStreamingMessage: string = $state('')
@@ -307,7 +318,12 @@
       case 'done':
         loading = false
         if (event.conversation_id) {
+          const isNewConversation = conversationId === null
           conversationId = event.conversation_id
+
+          if (isNewConversation) {
+            dispatch('conversationCreated', conversationId)
+          }
         }
         // Update token usage if provided
         if (event.usage) {
@@ -346,12 +362,63 @@
     conversationId = null
     error = ''
     tokenUsage = null
-    // Keep enabled tools from config - they should remain visible as badges
+    dispatch('newChat')
   }
 
   const handleInputChange = (value: string) => {
     inputMessage = value
   }
+
+  const loadMessages = async (id: string) => {
+    loading = true
+    try {
+      const response = await axiosBackendInstance.get<ChatMessage[]>(
+        `agent/conversations/${id}/messages`
+      )
+      // Convert backend ChatMessage to frontend ChatMessage format might be needed
+      // Check types: Backend ChatMessage has role, content, name, tool_calls.
+      // Frontend ChatMessage has id, role, content, timestamp, toolName, statusType.
+
+      messages = response.data.map((m: any) => ({
+        id: generateMessageId(), // or use index if needed, but unique is better
+        role: m.role as any, // 'user' | 'assistant' | 'tool'
+        content: m.content || '',
+        timestamp: Date.now(), // We don't have stored timestamp in backend message? we do (created_at). But response type might not have it mapped yet?
+        toolName: m.name
+        // For tool calls/results, we might need mapping logic
+        // But for simple history, this is a start.
+      }))
+      conversationId = id
+    } catch (err) {
+      console.error('Failed to load messages:', err)
+      error = 'Failed to load conversation history'
+    } finally {
+      loading = false
+      setTimeout(() => scrollToBottom(), 100)
+    }
+  }
+
+  // Track previous ID to detect changes
+  let prevConversationId: string | undefined = $state(undefined)
+
+  $effect(() => {
+    if (currentConversationId !== prevConversationId) {
+      prevConversationId = currentConversationId
+
+      if (currentConversationId) {
+        loadMessages(currentConversationId)
+      } else {
+        // Only clear if we are genuinely switching to "New Chat" from outside
+        // and not just because we initialized with undefined.
+        // But if we have messages and conversationId is set (meaning we are mid-chat),
+        // and parent sets currentConversationId to undefined... that means "New Chat" clicked.
+        messages = []
+        conversationId = null
+        error = ''
+        tokenUsage = null
+      }
+    }
+  })
 
   // Auto-scroll when messages change
   $effect(() => {
