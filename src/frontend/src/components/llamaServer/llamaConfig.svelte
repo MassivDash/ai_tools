@@ -76,10 +76,25 @@
   }
 
   // Extract filename from path, or return as-is if not a path
-  const extractFilename = (pathOrName: string): string => {
+  // Determine if a string looks like a local file path
+  const isLocalPath = (str: string): boolean => {
+    if (!str) return false
+    // Check for absolute paths or typical relative path starts
+    // On Windows checking for \ or Drive: is safer
+    return (
+      str.startsWith('/') ||
+      str.startsWith('./') ||
+      str.startsWith('../') ||
+      str.includes('\\') ||
+      /^[a-zA-Z]:\\/.test(str)
+    )
+  }
+
+  // Extract filename from path for display, but keep HF IDs (user/repo) as is
+  const getDisplayValue = (pathOrName: string): string => {
     if (!pathOrName) return ''
-    // Check if it looks like a path (contains / or \)
-    if (pathOrName.includes('/') || pathOrName.includes('\\')) {
+    // Only strip path if it actually looks like a filesystem path
+    if (isLocalPath(pathOrName)) {
       // Extract just the filename
       const parts = pathOrName.split(/[/\\]/)
       return parts[parts.length - 1] || pathOrName
@@ -95,8 +110,8 @@
       config = response.data
       // Store backend value (full path or hf_format)
       newHfModelBackend = config.hf_model
-      // Extract filename from path if it's a full path for display
-      newHfModel = extractFilename(config.hf_model)
+      // Extract filename only if it's a loal path; preserve HF format
+      newHfModel = getDisplayValue(config.hf_model)
       newCtxSize = config.ctx_size
       newThreads = config.threads ?? ''
       newThreadsBatch = config.threads_batch ?? ''
@@ -164,7 +179,7 @@
     if (
       !matchingModel &&
       newHfModel &&
-      newHfModel !== extractFilename(newHfModelBackend)
+      newHfModel !== getDisplayValue(newHfModelBackend)
     ) {
       // User typed something manually, use it as backend value
       newHfModelBackend = newHfModel
@@ -172,8 +187,9 @@
   }
 
   const handleModelSelect = (model: ModelInfo) => {
-    // Display the model name (filename)
-    newHfModel = model.name
+    // Determine the best display value
+    // Prioritize HF format if available, then fallback to name (filename)
+    newHfModel = model.hf_format || model.name
     // Store the backend value (hf_format preferred, fallback to path)
     newHfModelBackend = model.hf_format || model.path || model.name
     // Also set the model path if available for the --model flag
@@ -357,8 +373,10 @@
                 m.name === newHfModel ||
                 m.path === newHfModelBackend ||
                 m.hf_format === newHfModelBackend ||
-                extractFilename(m.path) === newHfModel ||
-                extractFilename(newHfModelBackend) === m.name
+                m.path === newHfModelBackend ||
+                m.hf_format === newHfModelBackend ||
+                getDisplayValue(m.path) === newHfModel ||
+                getDisplayValue(newHfModelBackend) === m.name
             )
             if (!selected) return null
             // Use path as key (should be unique), fallback to name
