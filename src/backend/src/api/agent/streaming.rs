@@ -1,8 +1,8 @@
 use crate::api::agent::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::tools::registry::ToolRegistry;
 use crate::api::agent::types::{
-    AgentStreamEvent, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, MessageRole,
-    ToolCallResult,
+    AgentStreamEvent, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, MessageContent,
+    MessageRole, ToolCallResult,
 };
 use anyhow::Result;
 use reqwest::Client;
@@ -80,14 +80,17 @@ pub async fn execute_agent_loop_streaming(
             if matches!(msg.role, MessageRole::Tool) {
                 // Collect tool results to create a user message
                 let tool_name = msg.name.as_deref().unwrap_or("unknown");
-                tool_results_buffer.push(format!("{}: {}", tool_name, msg.content));
+                tool_results_buffer.push(format!("{}: {}", tool_name, msg.content.text()));
             } else {
                 // If we have buffered tool results, create a user message with them
                 if !tool_results_buffer.is_empty() {
                     let tool_results_content = tool_results_buffer.join("\n");
                     filtered_messages.push(ChatMessage {
                         role: MessageRole::User,
-                        content: format!("Tool results:\n{}", tool_results_content),
+                        content: MessageContent::Text(format!(
+                            "Tool results:\n{}",
+                            tool_results_content
+                        )),
                         name: None,
                         tool_calls: None,
                         tool_call_id: None,
@@ -104,7 +107,7 @@ pub async fn execute_agent_loop_streaming(
             let tool_results_content = tool_results_buffer.join("\n");
             filtered_messages.push(ChatMessage {
                 role: MessageRole::User,
-                content: format!("Tool results:\n{}", tool_results_content),
+                content: MessageContent::Text(format!("Tool results:\n{}", tool_results_content)),
                 name: None,
                 tool_calls: None,
                 tool_call_id: None,
@@ -282,7 +285,7 @@ pub async fn execute_agent_loop_streaming(
 
                 let tool_message = ChatMessage {
                     role: MessageRole::Tool,
-                    content: result.result.clone(),
+                    content: MessageContent::Text(result.result.clone()),
                     name: Some(tool_call.function.name.clone()),
                     tool_calls: None,
                     tool_call_id: Some(tool_call.id.clone()),
@@ -302,7 +305,7 @@ pub async fn execute_agent_loop_streaming(
                     "I've processed your request.".to_string()
                 }
             } else {
-                choice.message.content.clone()
+                choice.message.content.text()
             };
 
             // Send status that we're finalizing
@@ -333,7 +336,7 @@ pub async fn execute_agent_loop_streaming(
             // Store final assistant response
             let final_assistant_message = ChatMessage {
                 role: MessageRole::Assistant,
-                content: final_message.clone(),
+                content: MessageContent::Text(final_message.clone()),
                 name: None,
                 tool_calls: None,
                 tool_call_id: None,

@@ -5,7 +5,6 @@
   import { activeTools as activeToolsStore } from '../../stores/activeTools'
   import type {
     ChatMessage,
-    AgentChatRequest,
     AgentStreamEvent,
     ModelCapabilities,
     FileAttachment
@@ -89,6 +88,7 @@
         'agent/model-capabilities'
       )
       modelCapabilities = response.data
+      // eslint-disable-next-line no-console
       console.log('📊 Model capabilities:', modelCapabilities)
     } catch (err: any) {
       console.error('⚠️ Failed to fetch model capabilities:', err)
@@ -105,6 +105,7 @@
       }>('llama-server/config')
       modelName = response.data.hf_model || 'Unknown'
       ctxSize = response.data.ctx_size || 0
+      // eslint-disable-next-line no-console
       console.log('🤖 Model info:', { modelName, ctxSize })
     } catch (err: any) {
       console.error('⚠️ Failed to fetch model info:', err)
@@ -122,38 +123,77 @@
     if ((!inputMessage.trim() && currentAttachments.length === 0) || loading)
       return
 
-    // Build message content with attachments
-    let messageContent = inputMessage.trim()
-    let messageToSend = messageContent
+    // Build message content
+    // If we have images, we must use the structured content format (array of parts)
+    // If ONLY text/code/pdf (treated as text), we could use string, but array is safe too.
+    // For backward compatibility and simplicity, use string if no images, array if images.
 
-    // Include attachment content in the message for backend
-    if (currentAttachments.length > 0) {
-      const attachmentTexts: string[] = []
+    let requestPayload: string | any[] = inputMessage.trim()
+    const hasImages = currentAttachments.some((a) => a.type === 'image')
+
+    if (hasImages) {
+      const parts: any[] = []
+
+      // Add user input text first
+      if (inputMessage.trim()) {
+        parts.push({ type: 'text', text: inputMessage.trim() })
+      }
+
       for (const att of currentAttachments) {
-        if (att.type === 'text' && att.content) {
-          attachmentTexts.push(`\n\n[File: ${att.name}]\n${att.content}\n\n`)
-        } else if (att.type === 'pdf' && att.content) {
-          attachmentTexts.push(`\n\n[PDF: ${att.name}]\n${att.content}\n\n`)
-        } else if (att.type === 'image' && att.content) {
-          attachmentTexts.push(`\n\n![${att.name}](${att.content})\n\n`)
-        } else if (att.type === 'audio' && att.content) {
-          attachmentTexts.push(`\n\n[Audio File: ${att.name}]\n\n`)
+        if (att.type === 'image' && att.content) {
+          parts.push({
+            type: 'image_url',
+            image_url: { url: att.content }
+          })
+        } else if (att.content) {
+          // For non-image attachments (text, pdf, etc), separate them clearly
+          // Use a text part for each
+          let header = `\n\n[File: ${att.name}]`
+          if (att.type === 'pdf') header = `\n\n[PDF: ${att.name}]`
+          else if (att.type === 'audio') header = `\n\n[Audio: ${att.name}]`
+
+          parts.push({
+            type: 'text',
+            text: `${header}\n${att.content}\n\n`
+          })
         }
       }
-      messageToSend = messageContent + attachmentTexts.join('')
+      requestPayload = parts
+    } else if (currentAttachments.length > 0) {
+      // Logic for text-only attachments (keep as string to be safe/simple or use array)
+      // Let's stick to the existing string appending for text-only to minimize risk,
+      // though backend now handles both.
+      let textContent = inputMessage.trim()
+      const attachmentTexts: string[] = []
+      for (const att of currentAttachments) {
+        if (att.content) {
+          if (att.type === 'text') {
+            attachmentTexts.push(`\n\n[File: ${att.name}]\n${att.content}\n\n`)
+          } else if (att.type === 'pdf') {
+            attachmentTexts.push(`\n\n[PDF: ${att.name}]\n${att.content}\n\n`)
+          } else if (att.type === 'audio') {
+            attachmentTexts.push(`\n\n[Audio File: ${att.name}]\n\n`)
+          }
+        }
+      }
+      requestPayload = textContent + attachmentTexts.join('')
     }
 
     const userMessage: ChatMessage = {
       id: generateMessageId(),
       role: 'user',
-      content: messageContent || 'Sent files',
+      // Store raw text content for UI display (simplification for now)
+      // If array, we might want to just show "Sent X files" or the text part
+      // Store raw content for UI display.
+      // For images, this will be the structured array, which MessageItem now handles correctly.
+      content: requestPayload,
       timestamp: Date.now(),
       attachments:
         currentAttachments.length > 0 ? [...currentAttachments] : undefined
     }
 
     messages = [...messages, userMessage]
-    const currentInput = messageToSend
+    const currentInput = requestPayload // string or object
     inputMessage = ''
     // Clear attachments after building message (ChatInput will also clear them)
     currentAttachments = []
@@ -166,7 +206,8 @@
     setTimeout(() => scrollToBottom(true), 100)
 
     try {
-      const request: AgentChatRequest = {
+      // Cast to any because specific TS interface might expect string
+      const request: any = {
         message: currentInput,
         conversation_id: conversationId || undefined
       }

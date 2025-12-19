@@ -208,13 +208,20 @@ impl SqliteConversationMemory {
             None
         };
 
+        // Serialize content: Raw string for Text, JSON for Parts
+        use crate::api::agent::types::MessageContent;
+        let content_str = match &message.content {
+            MessageContent::Text(s) => s.clone(),
+            MessageContent::Parts(parts) => serde_json::to_string(parts).unwrap_or_default(),
+        };
+
         sqlx::query(
             "INSERT INTO messages (conversation_id, role, content, name, tool_calls, tool_call_id) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )
         .bind(conversation_id)
         .bind(role_str)
-        .bind(&message.content)
+        .bind(&content_str)
         .bind(&message.name)
         .bind(&tool_calls_json)
         .bind(&message.tool_call_id)
@@ -240,7 +247,7 @@ impl SqliteConversationMemory {
         let mut messages = Vec::new();
         for row in rows {
             let role_str: String = row.get(0);
-            let content: String = row.get(1);
+            let content_str: String = row.get(1);
             let name: Option<String> = row.get(2);
             let tool_calls_str: Option<String> = row.get(3);
             let tool_call_id: Option<String> = row.get(4);
@@ -251,6 +258,17 @@ impl SqliteConversationMemory {
                 "system" => MessageRole::System,
                 "tool" => MessageRole::Tool,
                 _ => MessageRole::User, // Default fallback
+            };
+
+            use crate::api::agent::types::{ContentPart, MessageContent};
+            // Deserialize content
+            let content = if content_str.trim().starts_with('[') {
+                match serde_json::from_str::<Vec<ContentPart>>(&content_str) {
+                    Ok(parts) => MessageContent::Parts(parts),
+                    Err(_) => MessageContent::Text(content_str), // Fallback to raw text if parse fails
+                }
+            } else {
+                MessageContent::Text(content_str)
             };
 
             let tool_calls = if let Some(s) = tool_calls_str {

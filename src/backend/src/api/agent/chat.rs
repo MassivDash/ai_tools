@@ -6,8 +6,8 @@ use crate::api::agent::tools::{
     selector::ToolSelector, weather::WeatherTool, website_check::WebsiteCheckTool,
 };
 use crate::api::agent::types::{
-    AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage, MessageRole,
-    ToolType,
+    AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage,
+    MessageContent, MessageRole, ToolType,
 };
 use crate::api::agent::websocket::AgentWebSocketState;
 use crate::api::llama_server::types::Config;
@@ -149,7 +149,7 @@ async fn attempt_conversation_naming(
                 } else {
                     "Assistant"
                 },
-                m.content
+                m.content.text()
             )
         })
         .collect();
@@ -327,7 +327,7 @@ pub async fn agent_chat(
     // Always start with fresh system prompt
     let mut messages_with_system = vec![ChatMessage {
         role: MessageRole::System,
-        content: system_prompt,
+        content: MessageContent::Text(system_prompt),
         name: None,
         tool_calls: None,
         tool_call_id: None,
@@ -447,7 +447,7 @@ pub async fn agent_chat(
         // Build fresh context with system prompt + conversation history
         let mut recovery_messages = vec![ChatMessage {
             role: MessageRole::System,
-            content: system_prompt_clone,
+            content: MessageContent::Text(system_prompt_clone),
             name: None,
             tool_calls: None,
             tool_call_id: None,
@@ -633,7 +633,7 @@ pub async fn agent_chat_stream(
 
     let mut messages_with_system = vec![ChatMessage {
         role: MessageRole::System,
-        content: system_prompt,
+        content: MessageContent::Text(system_prompt),
         name: None,
         tool_calls: None,
         tool_call_id: None,

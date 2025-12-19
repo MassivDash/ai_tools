@@ -1,10 +1,17 @@
 export interface AgentChatRequest {
-  message: string
+  message: string | any
   conversation_id?: string
 }
 
 export interface AgentStreamEvent {
-  type: 'status' | 'tool_call' | 'tool_result' | 'text_chunk' | 'done' | 'error' | 'conversation_created'
+  type:
+    | 'status'
+    | 'tool_call'
+    | 'tool_result'
+    | 'text_chunk'
+    | 'done'
+    | 'error'
+    | 'conversation_created'
   status?: string
   message?: string
   tool_name?: string
@@ -34,7 +41,7 @@ export interface FileAttachment {
 export interface ChatMessage {
   id: string // Unique ID for each message
   role: 'user' | 'assistant' | 'status' | 'tool'
-  content: string
+  content: string | any[]
   timestamp: number
   toolName?: string
   statusType?: string

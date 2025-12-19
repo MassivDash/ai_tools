@@ -39,12 +39,62 @@ pub enum MessageRole {
     Tool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    Text(String),
+    Parts(Vec<ContentPart>),
+}
+
+impl Default for MessageContent {
+    fn default() -> Self {
+        MessageContent::Text(String::new())
+    }
+}
+
+impl MessageContent {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            MessageContent::Text(s) => s.is_empty(),
+            MessageContent::Parts(parts) => parts.is_empty(),
+        }
+    }
+
+    /// Returns the text content if it's a simple text message,
+    /// or concatenates text parts if it's a multipart message.
+    pub fn text(&self) -> String {
+        match self {
+            MessageContent::Text(s) => s.clone(),
+            MessageContent::Parts(parts) => parts
+                .iter()
+                .filter_map(|p| match p {
+                    ContentPart::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(""),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentPart {
+    Text { text: String },
+    ImageUrl { image_url: ImageUrl },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageUrl {
+    pub url: String,
+}
+
 /// Chat message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: MessageRole,
-    #[serde(deserialize_with = "deserialize_null_as_empty_string")]
-    pub content: String, // Handle null as empty string (common when tool_calls are present)
+    #[serde(default)]
+    pub content: MessageContent, // Handles both string and array of parts
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,15 +104,6 @@ pub struct ChatMessage {
     // Some models include reasoning_content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_content: Option<String>,
-}
-
-/// Custom deserializer to handle null content as empty string
-fn deserialize_null_as_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    Ok(opt.unwrap_or_default())
 }
 
 /// Tool call (function call)
@@ -143,7 +184,7 @@ pub struct Usage {
 /// Agent chat request (from frontend)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentChatRequest {
-    pub message: String,
+    pub message: MessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
 }

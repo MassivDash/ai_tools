@@ -186,11 +186,13 @@
   }
 
   // Helper to determine if tool message is success or error
-  const isToolSuccess = (content: string): boolean => {
+  const isToolSuccess = (content: string | any[]): boolean => {
+    if (typeof content !== 'string') return false
     return content.includes('✅') || content.includes('completed')
   }
 
-  const isToolError = (content: string): boolean => {
+  const isToolError = (content: string | any[]): boolean => {
+    if (typeof content !== 'string') return false
     return content.includes('❌') || content.includes('failed')
   }
 </script>
@@ -241,7 +243,12 @@
     >
       <MaterialIcon name={toolIcon} width="18" height="18" class="tool-icon" />
       <span class="tool-text"
-        >{message.content.replace(/✅|❌/g, '').trim()}</span
+        >{(typeof message.content === 'string'
+          ? message.content
+          : 'Tool execution'
+        )
+          .replace(/✅|❌/g, '')
+          .trim()}</span
       >
       {#if isToolSuccess(message.content)}
         <MaterialIcon
@@ -280,7 +287,7 @@
     >
       {#if message.attachments && message.attachments.length > 0}
         <div class="attachments-display">
-          {#each message.attachments as attachment (attachment.name)}
+          {#each message.attachments.filter((a) => a.type !== 'image') as attachment (attachment.name)}
             <div class="attachment-icon">
               <MaterialIcon
                 name={getFileIcon(attachment.type)}
@@ -293,14 +300,42 @@
         </div>
       {/if}
       {#if message.role === 'assistant' && message.timestamp === 0}
-        {@html renderMarkdown(message.content)}
+        {#if Array.isArray(message.content)}
+          {#each message.content as part}
+            {#if part.type === 'text'}
+              {@html renderMarkdown(part.text)}
+            {:else if part.type === 'image_url'}
+              <img
+                src={part.image_url.url}
+                alt="User upload"
+                class="message-image"
+              />
+            {/if}
+          {/each}
+        {:else}
+          {@html renderMarkdown(message.content)}
+        {/if}
         <span class="typing-indicator-inline">
           <span></span>
           <span></span>
           <span></span>
         </span>
       {:else if message.content && message.content !== 'Sent files'}
-        {@html renderMarkdown(message.content)}
+        {#if Array.isArray(message.content)}
+          {#each message.content as part}
+            {#if part.type === 'text'}
+              {@html renderMarkdown(part.text)}
+            {:else if part.type === 'image_url'}
+              <img
+                src={part.image_url.url}
+                alt="User upload"
+                class="message-image"
+              />
+            {/if}
+          {/each}
+        {:else}
+          {@html renderMarkdown(message.content)}
+        {/if}
       {/if}
     </div>
   </div>
@@ -605,6 +640,14 @@
     word-wrap: break-word;
   }
 
+  .message-content.markdown :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 0.5rem 0;
+    display: block;
+  }
+
   .message-content.markdown :global(th) {
     background-color: var(--bg-tertiary, #f0f0f0);
     font-weight: 600;
@@ -654,5 +697,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .message-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 0.5rem 0;
+    display: block;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 </style>

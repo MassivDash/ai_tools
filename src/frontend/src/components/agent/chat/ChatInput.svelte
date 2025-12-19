@@ -10,7 +10,7 @@
     modelCapabilities?: ModelCapabilities
     onSend: () => void
     onInputChange: (_value: string) => void
-    onAttachmentsChange?: (attachments: FileAttachment[]) => void
+    onAttachmentsChange?: (_attachments: FileAttachment[]) => void
   }
 
   let {
@@ -88,20 +88,32 @@
     const file = target.files?.[0]
     if (!file) return
 
+    // Auto-detect type based on mime type to be robust
+    let fileType = type
+    if (file.type.startsWith('image/')) {
+      fileType = 'image'
+    } else if (file.type === 'application/pdf') {
+      fileType = 'pdf'
+    } else if (file.type.startsWith('audio/')) {
+      fileType = 'audio'
+    }
+
     try {
       const attachment: FileAttachment = {
         name: file.name,
-        type,
+        type: fileType,
         size: file.size
       }
 
-      if (type === 'text') {
+      if (fileType === 'text') {
         // Handle text, md, txt files
         const fileContent = await file.text()
         attachment.content = fileContent
+        // eslint-disable-next-line no-console
         console.log('📄 Text file processed:', file.name)
-      } else if (type === 'pdf') {
+      } else if (fileType === 'pdf') {
         // Convert PDF to markdown using backend endpoint
+        // eslint-disable-next-line no-console
         console.log('📄 Converting PDF to text:', file.name)
         const formData = new FormData()
         formData.append('file', file)
@@ -118,12 +130,13 @@
           })
 
           attachment.content = response.data.markdown
+          // eslint-disable-next-line no-console
           console.log('✅ PDF converted to text:', file.name)
         } catch (err: any) {
           console.error('❌ Failed to convert PDF:', err)
           attachment.content = `Failed to extract text: ${err.response?.data?.error || err.message}`
         }
-      } else if (type === 'audio') {
+      } else if (fileType === 'audio') {
         // For audio, encode as base64 for now
         const reader = new FileReader()
         reader.onload = (event) => {
@@ -140,23 +153,33 @@
         reader.readAsDataURL(file)
         target.value = ''
         return // Early return for async FileReader
-      } else if (type === 'image') {
-        // For images, encode as base64
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const base64 = event.target?.result as string
-          attachment.content = base64
+      } else if (fileType === 'image') {
+        // Process image: Resize if needed and convert to JPEG for compatibility
+        try {
+          const processedBase64 = await processImage(file)
+          attachment.content = processedBase64
+          // Ensure extension is jpg for consistency in naming (visual only)
+          if (
+            !attachment.name.toLowerCase().endsWith('.jpg') &&
+            !attachment.name.toLowerCase().endsWith('.jpeg')
+          ) {
+            attachment.name =
+              attachment.name.split('.').slice(0, -1).join('.') + '.jpg'
+          }
           attachments = [...attachments, attachment]
+
           // Clean input message to remove any attachment references
           const cleanedInput = cleanInputMessage(inputMessage)
           if (cleanedInput !== inputMessage) {
             onInputChange(cleanedInput)
           }
           onAttachmentsChange?.(attachments)
+        } catch (err) {
+          console.error('❌ Failed to process image:', err)
         }
-        reader.readAsDataURL(file)
+
         target.value = ''
-        return // Early return for async FileReader
+        return
       }
 
       // Add attachment for text and PDF
@@ -171,7 +194,7 @@
       // Reset file input
       target.value = ''
     } catch (err) {
-      console.error(`❌ Failed to process ${type} file:`, err)
+      console.error(`❌ Failed to process ${fileType} file:`, err)
     }
   }
 
@@ -200,6 +223,53 @@
       default:
         return 'file'
     }
+  }
+  // Helper to process, resize, and convert images to JPEG
+  const processImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new window.Image()
+        img.onload = () => {
+          // Max dimension
+          const MAX_SIZE = 1536
+          let width = img.width
+          let height = img.height
+
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = Math.round((height * MAX_SIZE) / width)
+              width = MAX_SIZE
+            } else {
+              width = Math.round((width * MAX_SIZE) / height)
+              height = MAX_SIZE
+            }
+          }
+
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'))
+            return
+          }
+
+          // Draw with white background (for transparency handling)
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, width, height)
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Convert to JPEG with moderate quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+          resolve(dataUrl)
+        }
+        img.onerror = () => reject(new Error('Failed to load image'))
+        img.src = e.target?.result as string
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
   }
 </script>
 
