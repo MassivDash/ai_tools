@@ -90,7 +90,6 @@ jobs:
         run: |
           mkdir artifacts
           Compress-Archive -Path . -DestinationPath artifacts\artifacts_windows.zip
-          copy artifacts_windows.zip artifacts\
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
