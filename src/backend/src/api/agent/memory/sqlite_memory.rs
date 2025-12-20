@@ -1,6 +1,4 @@
-use crate::api::agent::core::types::{
-    ChatMessage, Conversation, MessageRole, ToolCall,
-};
+use crate::api::agent::core::types::{ChatMessage, Conversation, MessageRole, ToolCall};
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
 use std::path::Path;

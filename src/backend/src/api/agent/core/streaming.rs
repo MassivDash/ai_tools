@@ -1,6 +1,6 @@
 use crate::api::agent::core::types::{
-    AgentStreamEvent, ChatCompletionRequest,
-    ChatCompletionResponse, ChatMessage, MessageContent, MessageRole, ToolCallResult,
+    AgentStreamEvent, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, MessageContent,
+    MessageRole, ToolCallResult,
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::tools::framework::registry::ToolRegistry;
