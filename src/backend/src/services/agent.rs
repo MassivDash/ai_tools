@@ -1,11 +1,11 @@
 use actix_web::web::ServiceConfig;
 
-use crate::api::agent::chat::{agent_chat, agent_chat_stream};
-use crate::api::agent::config::{
+use crate::api::agent::service::chat::{agent_chat, agent_chat_stream};
+use crate::api::agent::service::config::{
     get_agent_config, get_agent_status, get_available_tools, get_model_capabilities,
     post_agent_config,
 };
-use crate::api::agent::conversations::{
+use crate::api::agent::service::conversations::{
     delete_conversation, get_conversation_history, get_conversations, update_conversation_title,
 };
 
@@ -27,8 +27,8 @@ pub fn configure_agent_services(cfg: &mut ServiceConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::agent::config::AgentConfigHandle;
-    use crate::api::agent::types::AgentConfig;
+    use crate::api::agent::core::types::AgentConfig;
+    use crate::api::agent::service::config::AgentConfigHandle;
     use actix_web::{test, web, App};
     use std::sync::{Arc, Mutex};
 

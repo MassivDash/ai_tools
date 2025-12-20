@@ -1,9 +1,9 @@
-use crate::api::agent::sqlite_memory::SqliteConversationMemory;
-use crate::api::agent::tools::registry::ToolRegistry;
-use crate::api::agent::types::{
-    AgentStreamEvent, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, MessageContent,
-    MessageRole, ToolCallResult,
+use crate::api::agent::core::types::{
+    AgentStreamEvent, ChatCompletionRequest,
+    ChatCompletionResponse, ChatMessage, MessageContent, MessageRole, ToolCallResult,
 };
+use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::tools::framework::registry::ToolRegistry;
 use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ pub async fn execute_agent_loop_streaming(
     llama_url: &str,
     model_name: String,
     mut messages: Vec<ChatMessage>,
-    tools: Vec<crate::api::agent::types::Tool>,
+    tools: Vec<crate::api::agent::core::types::Tool>,
     tool_registry: Arc<ToolRegistry>,
     sqlite_memory: Arc<SqliteConversationMemory>,
     conversation_id: String,
@@ -28,7 +28,7 @@ pub async fn execute_agent_loop_streaming(
 ) -> Result<()> {
     let mut tool_results = Vec::new();
     let mut iterations = 0;
-    let mut total_usage: Option<crate::api::agent::types::Usage> = None;
+    let mut total_usage: Option<crate::api::agent::core::types::Usage> = None;
 
     loop {
         iterations += 1;

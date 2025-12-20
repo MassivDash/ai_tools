@@ -1,5 +1,5 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
-use crate::api::agent::types::{Tool, ToolCall, ToolCallResult};
+use crate::api::agent::core::types::{Tool, ToolCall, ToolCallResult};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -78,7 +78,7 @@ impl ToolRegistry {
 
         for tool in self.tools.values() {
             let function_def = tool.get_function_definition();
-            let function: crate::api::agent::types::FunctionDefinition =
+            let function: crate::api::agent::core::types::FunctionDefinition =
                 serde_json::from_value(function_def.clone())
                     .context("Failed to parse function definition")?;
 

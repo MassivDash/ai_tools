@@ -1,4 +1,4 @@
-use crate::api::agent::types::{
+use crate::api::agent::core::types::{
     AgentConfig, AgentConfigRequest, AgentConfigResponse, AgentStatusResponse, ModelCapabilities,
     ModelPropsResponse, ToolType,
 };
@@ -69,7 +69,7 @@ pub async fn post_agent_config(
     }))
 }
 
-use crate::api::agent::tools::agent_tool::ToolCategory;
+use crate::api::agent::tools::framework::agent_tool::ToolCategory;
 
 /// Tool metadata for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,8 +86,8 @@ pub struct ToolInfo {
 /// This returns all possible tools (not just enabled ones) so the frontend can show them
 #[get("/api/agent/tools")]
 pub async fn get_available_tools() -> ActixResult<HttpResponse> {
-    use crate::api::agent::tools::agent_tool::ToolCategory;
-    use crate::api::agent::types::ToolType;
+    use crate::api::agent::core::types::ToolType;
+    use crate::api::agent::tools::framework::agent_tool::ToolCategory;
 
     // Return all available tools with their metadata
     // This includes all tools that can be enabled, not just currently enabled ones
@@ -118,6 +118,14 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             description: "Get the current weather for a given city".to_string(),
             category: ToolCategory::Utility,
             icon: ToolCategory::Utility.icon_name().to_string(),
+        },
+        ToolInfo {
+            id: "5".to_string(), // Matches CurrencyTool ID
+            name: "currency check".to_string(),
+            tool_type: ToolType::Currency,
+            description: "Check official currency exchange rates from NBP".to_string(),
+            category: ToolCategory::Financial,
+            icon: ToolCategory::Financial.icon_name().to_string(),
         },
         // Note: ChromaDB is special and only appears when configured, so we don't include it here
         // The frontend should handle ChromaDB separately based on configuration

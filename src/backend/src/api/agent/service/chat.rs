@@ -1,15 +1,18 @@
-use crate::api::agent::agent_loop::{execute_agent_loop, AgentLoopConfig};
-use crate::api::agent::sqlite_memory::SqliteConversationMemory;
-use crate::api::agent::streaming::execute_agent_loop_streaming;
-use crate::api::agent::tools::{
-    chromadb::ChromaDBTool, financial_data::FinancialDataTool, registry::ToolRegistry,
-    selector::ToolSelector, weather::WeatherTool, website_check::WebsiteCheckTool,
-};
-use crate::api::agent::types::{
+use crate::api::agent::core::agent_loop::{execute_agent_loop, AgentLoopConfig};
+use crate::api::agent::core::streaming::execute_agent_loop_streaming;
+use crate::api::agent::core::types::{
     AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage,
     MessageContent, MessageRole, ToolType,
 };
-use crate::api::agent::websocket::AgentWebSocketState;
+use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::service::websocket::AgentWebSocketState;
+use crate::api::agent::tools::{
+    database::chromadb::ChromaDBTool,
+    financial::{currency::CurrencyTool, financial_data::FinancialDataTool},
+    framework::{registry::ToolRegistry, selector::ToolSelector},
+    utility::weather::WeatherTool,
+    web::website_check::WebsiteCheckTool,
+};
 use crate::api::llama_server::types::Config;
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
 use futures::StreamExt;
@@ -258,6 +261,14 @@ pub async fn agent_chat(
         let weather_tool = WeatherTool::new();
         if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
             println!("⚠️ Failed to register Weather tool: {}", e);
+        }
+    }
+
+    // Register Currency tool if enabled
+    if config.enabled_tools.contains(&ToolType::Currency) {
+        let currency_tool = CurrencyTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
+            println!("⚠️ Failed to register Currency tool: {}", e);
         }
     }
 
@@ -606,6 +617,13 @@ pub async fn agent_chat_stream(
         let weather_tool = WeatherTool::new();
         if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
             println!("⚠️ Failed to register Weather Tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::Currency) {
+        let currency_tool = CurrencyTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
+            println!("⚠️ Failed to register Currency tool: {}", e);
         }
     }
 

@@ -1,4 +1,6 @@
-use crate::api::agent::types::{ChatMessage, Conversation, MessageRole, ToolCall};
+use crate::api::agent::core::types::{
+    ChatMessage, Conversation, MessageRole, ToolCall,
+};
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
 use std::path::Path;
@@ -209,7 +211,7 @@ impl SqliteConversationMemory {
         };
 
         // Serialize content: Raw string for Text, JSON for Parts
-        use crate::api::agent::types::MessageContent;
+        use crate::api::agent::core::types::MessageContent;
         let content_str = match &message.content {
             MessageContent::Text(s) => s.clone(),
             MessageContent::Parts(parts) => serde_json::to_string(parts).unwrap_or_default(),
@@ -260,7 +262,7 @@ impl SqliteConversationMemory {
                 _ => MessageRole::User, // Default fallback
             };
 
-            use crate::api::agent::types::{ContentPart, MessageContent};
+            use crate::api::agent::core::types::{ContentPart, MessageContent};
             // Deserialize content
             let content = if content_str.trim().starts_with('[') {
                 match serde_json::from_str::<Vec<ContentPart>>(&content_str) {

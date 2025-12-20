@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Available tools for the agent
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -8,6 +8,7 @@ pub enum ToolType {
     FinancialData,
     WebsiteCheck,
     Weather,
+    Currency,
     // Future tools can be added here
 }
 
@@ -77,6 +78,15 @@ impl MessageContent {
     }
 }
 
+/// Custom deserializer for MessageContent that handles null as empty text
+fn deserialize_content_handling_null<'de, D>(deserializer: D) -> Result<MessageContent, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<MessageContent> = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentPart {
@@ -93,7 +103,7 @@ pub struct ImageUrl {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: MessageRole,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_content_handling_null")]
     pub content: MessageContent, // Handles both string and array of parts
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -293,4 +303,44 @@ pub struct Conversation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateConversationRequest {
     pub title: String,
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_deserialize_chat_message_null_content() {
+        let json = json!({
+            "role": "assistant",
+            "content": null
+        });
+
+        let message: ChatMessage =
+            serde_json::from_value(json).expect("Failed to deserialize message with null content");
+        assert_eq!(message.role, MessageRole::Assistant);
+        match message.content {
+            MessageContent::Text(text) => {
+                assert!(text.is_empty(), "Content should be empty string")
+            }
+            _ => panic!("Expected MessageContent::Text"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_chat_message_missing_content() {
+        let json = json!({
+            "role": "user"
+        });
+
+        let message: ChatMessage = serde_json::from_value(json)
+            .expect("Failed to deserialize message with missing content");
+        assert_eq!(message.role, MessageRole::User);
+        match message.content {
+            MessageContent::Text(text) => {
+                assert!(text.is_empty(), "Content should be empty string")
+            }
+            _ => panic!("Expected MessageContent::Text"),
+        }
+    }
 }

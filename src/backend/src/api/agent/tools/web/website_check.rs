@@ -1,5 +1,5 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
-use crate::api::agent::types::{ToolCall, ToolCallResult};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
 use crate::markdown_utils::convert::{convert_html_to_markdown, ConversionConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;

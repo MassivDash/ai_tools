@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::api::agent::types::AgentStreamEvent;
+use crate::api::agent::core::types::AgentStreamEvent;
 
 #[derive(Clone)]
 pub struct AgentWebSocketState {

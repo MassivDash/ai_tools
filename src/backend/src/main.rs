@@ -15,10 +15,10 @@ mod utils;
 
 use dotenv::dotenv;
 
-use crate::api::agent::config::AgentConfigHandle;
-use crate::api::agent::sqlite_memory::SqliteConversationMemory;
-use crate::api::agent::types::AgentConfig;
-use crate::api::agent::websocket::{agent_websocket, AgentWebSocketState};
+use crate::api::agent::core::types::AgentConfig;
+use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::service::config::AgentConfigHandle;
+use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::default_configs::DefaultConfigsStorage;
 use crate::api::llama_server::types::{

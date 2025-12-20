@@ -1,5 +1,5 @@
-use crate::api::agent::sqlite_memory::SqliteConversationMemory;
-use crate::api::agent::types::UpdateConversationRequest;
+use crate::api::agent::core::types::UpdateConversationRequest;
+use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use actix_web::{delete, get, patch, web, HttpResponse, Result as ActixResult};
 use std::sync::Arc;
 

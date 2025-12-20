@@ -1,5 +1,6 @@
-use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
-use crate::api::agent::types::{ChromaDBToolConfig, ToolCall, ToolCallResult};
+use crate::api::agent::core::types::ChromaDBToolConfig;
+use crate::api::agent::core::types::{ToolCall, ToolCallResult};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::QueryRequest;
 use anyhow::{Context, Result};

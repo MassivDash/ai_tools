@@ -1,4 +1,4 @@
-use crate::api::agent::tools::registry::ToolRegistry;
+use crate::api::agent::tools::framework::registry::ToolRegistry;
 use std::sync::Arc;
 
 /// Tool selector for intelligent tool selection based on queries
