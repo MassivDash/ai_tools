@@ -10,7 +10,7 @@ use crate::api::agent::tools::{
     database::chromadb::ChromaDBTool,
     financial::currency::CurrencyTool,
     framework::{registry::ToolRegistry, selector::ToolSelector},
-    utility::weather::WeatherTool,
+    utility::weather::{ForecastTool, WeatherTool},
     web::website_check::WebsiteCheckTool,
 };
 use crate::api::llama_server::types::Config;
@@ -253,6 +253,11 @@ pub async fn agent_chat(
         let weather_tool = WeatherTool::new();
         if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
             println!("⚠️ Failed to register Weather tool: {}", e);
+        }
+
+        let forecast_tool = ForecastTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(forecast_tool)) {
+            println!("⚠️ Failed to register Forecast tool: {}", e);
         }
     }
 
@@ -602,6 +607,11 @@ pub async fn agent_chat_stream(
         let weather_tool = WeatherTool::new();
         if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
             println!("⚠️ Failed to register Weather Tool: {}", e);
+        }
+
+        let forecast_tool = ForecastTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(forecast_tool)) {
+            println!("⚠️ Failed to register Forecast Tool: {}", e);
         }
     }
 

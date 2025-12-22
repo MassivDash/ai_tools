@@ -2,6 +2,7 @@ use crate::api::agent::core::types::{ToolCall, ToolCallResult};
 use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use chrono::Utc;
 use reqwest;
 use serde_json::json;
 use std::env;
@@ -202,7 +203,7 @@ impl WeatherTool {
 
         if !icon.is_empty() {
             result.push_str(&format!(
-                "\nWeather icon code: {} (use with OpenWeatherMap icon service)\n",
+                "\n![Weather Icon](https://openweathermap.org/img/wn/{}@2x.png)\n",
                 icon
             ));
         }
@@ -382,5 +383,356 @@ impl StringExt for str {
         }
 
         result
+    }
+}
+
+/// Weather tool for fetching 5-day forecast data
+pub struct ForecastTool {
+    metadata: ToolMetadata,
+    client: reqwest::Client,
+    api_key: String,
+}
+
+impl ForecastTool {
+    /// Create a new instance of the forecast tool
+    pub fn new() -> Self {
+        let api_key = env::var("OPENWEATHER_API_KEY")
+            .expect("OPENWEATHER_API_KEY environment variable must be set");
+
+        Self {
+            metadata: ToolMetadata {
+                id: "weather_forecast".to_string(),
+                name: "weather_forecast".to_string(),
+            },
+            client: reqwest::Client::new(),
+            api_key,
+        }
+    }
+
+    /// Fetch forecast data
+    async fn fetch_forecast_data(
+        &self,
+        city: Option<&str>,
+        state: Option<&str>,
+        country: Option<&str>,
+        lat: Option<f64>,
+        lon: Option<f64>,
+        units: &str,
+    ) -> Result<serde_json::Value> {
+        let mut url = Url::parse("https://api.openweathermap.org/data/2.5/forecast")
+            .context("Failed to parse base URL")?;
+
+        if let (Some(lat_val), Some(lon_val)) = (lat, lon) {
+            url.query_pairs_mut()
+                .append_pair("lat", &lat_val.to_string())
+                .append_pair("lon", &lon_val.to_string())
+                .append_pair("units", units)
+                .append_pair("appid", &self.api_key);
+        } else if let Some(city_name) = city {
+            let mut query = city_name.to_string();
+            if let Some(state_val) = state {
+                if !state_val.is_empty() {
+                    query.push_str(&format!(",{}", state_val));
+                }
+            }
+            if let Some(country_val) = country {
+                if !country_val.is_empty() {
+                    query.push_str(&format!(",{}", country_val));
+                }
+            }
+            url.query_pairs_mut()
+                .append_pair("q", &query)
+                .append_pair("units", units)
+                .append_pair("appid", &self.api_key);
+        } else {
+            return Err(anyhow::anyhow!(
+                "Either city name or both latitude and longitude must be provided"
+            ));
+        }
+
+        let forecast_url = url.to_string();
+        println!("\x1b[33m🗓️ Fetching 5-day forecast data...\x1b[0m");
+
+        let response = self
+            .client
+            .get(&forecast_url)
+            .send()
+            .await
+            .context("Failed to request forecast data")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!(
+                "Forecast API returned error {}: {}",
+                status,
+                error_text
+            ));
+        }
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse forecast response")?;
+
+        Ok(data)
+    }
+
+    /// Format forecast data into a response
+    fn format_forecast_response(
+        &self,
+        data: &serde_json::Value,
+        target_date: Option<&str>,
+        units: &str,
+    ) -> Result<String> {
+        let city_name = data["city"]["name"].as_str().unwrap_or("Unknown Location");
+        let list = data["list"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("Missing 'list' in forecast data"))?;
+
+        let temp_unit = match units {
+            "metric" => "C",
+            "imperial" => "F",
+            _ => "K",
+        };
+
+        let mut result = format!("🗓️ **5-Day Weather Forecast for {}**\n\n", city_name);
+
+        if let Some(date_str) = target_date {
+            // Filter for specific date (YYYY-MM-DD)
+            result.push_str(&format!("**Forecast for {}:**\n", date_str));
+            let mut found = false;
+
+            for item in list {
+                if let Some(dt_txt) = item["dt_txt"].as_str() {
+                    if dt_txt.starts_with(date_str) {
+                        found = true;
+                        let time = &dt_txt[11..16]; // Extract HH:MM
+                        let temp = item["main"]["temp"].as_f64().unwrap_or(0.0);
+                        let weather = item["weather"][0]["description"]
+                            .as_str()
+                            .unwrap_or("unknown")
+                            .to_titlecase();
+                        let rain_prob = item["pop"].as_f64().map(|p| p * 100.0).unwrap_or(0.0);
+                        let icon = item["weather"][0]["icon"].as_str().unwrap_or("");
+                        let icon_str = if !icon.is_empty() {
+                            format!(
+                                " ![Icon](https://openweathermap.org/img/wn/{}@2x.png)",
+                                icon
+                            )
+                        } else {
+                            String::new()
+                        };
+
+                        result.push_str(&format!(
+                            "- `{}`: {:.1}°{}, {}, ☔ {:.0}%{}\n",
+                            time, temp, temp_unit, weather, rain_prob, icon_str
+                        ));
+                    }
+                }
+            }
+
+            if !found {
+                result.push_str(
+                    "(No data found for this date. Note: Forecast is only for next 5 days)\n",
+                );
+            }
+        } else {
+            // Summarize by day (noon forecast or max temp)
+            // Simplified approach: Group by day and show noon forecast + daily summary
+            use std::collections::BTreeMap;
+
+            // Map keyed by date string (YYYY-MM-DD) -> value is vector of items
+            let mut daily_items: BTreeMap<String, Vec<&serde_json::Value>> = BTreeMap::new();
+
+            for item in list {
+                if let Some(dt_txt) = item["dt_txt"].as_str() {
+                    let date = &dt_txt[0..10];
+                    daily_items.entry(date.to_string()).or_default().push(item);
+                }
+            }
+
+            for (date, items) in daily_items {
+                // Find min/max temp for the day
+                let mut min_temp = f64::MAX;
+                let mut max_temp = f64::MIN;
+                let mut descriptions = std::collections::HashSet::new();
+                let mut rain_prob_max = 0.0;
+
+                for item in &items {
+                    if let Some(t) = item["main"]["temp_min"].as_f64() {
+                        if t < min_temp {
+                            min_temp = t;
+                        }
+                    }
+                    if let Some(t) = item["main"]["temp_max"].as_f64() {
+                        if t > max_temp {
+                            max_temp = t;
+                        }
+                    }
+                    if let Some(w) = item["weather"][0]["description"].as_str() {
+                        descriptions.insert(w);
+                    }
+                    if let Some(pop) = item["pop"].as_f64() {
+                        if pop > rain_prob_max {
+                            rain_prob_max = pop;
+                        }
+                    }
+                }
+
+                // Pick a representative weather description (most common or just first few)
+                let weather_desc = descriptions
+                    .into_iter()
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                // Get a representative icon (from the middle of the day ~12:00 if possible, or just the first)
+                // Simple heuristic: take the icon from the item closest to 12:00
+                let mut best_icon = "";
+                for item in &items {
+                    if let Some(dt_txt) = item["dt_txt"].as_str() {
+                        if dt_txt.contains("12:00:00") {
+                            best_icon = item["weather"][0]["icon"].as_str().unwrap_or("");
+                            break;
+                        }
+                    }
+                }
+                if best_icon.is_empty() && !items.is_empty() {
+                    best_icon = items[0]["weather"][0]["icon"].as_str().unwrap_or("");
+                }
+
+                let icon_str = if !best_icon.is_empty() {
+                    format!(
+                        " ![Icon](https://openweathermap.org/img/wn/{}@2x.png)",
+                        best_icon
+                    )
+                } else {
+                    String::new()
+                };
+
+                // Parse date to simpler format (e.g., Weekday) if possible, but YYYY-MM-DD is fine for now
+                result.push_str(&format!(
+                    "**{}**: High {:.1}°{} / Low {:.1}°{}, {}, ☔ {:.0}% chance{}\n",
+                    date,
+                    max_temp,
+                    temp_unit,
+                    min_temp,
+                    temp_unit,
+                    weather_desc.to_titlecase(),
+                    rain_prob_max * 100.0,
+                    icon_str
+                ));
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+#[async_trait]
+impl AgentTool for ForecastTool {
+    fn metadata(&self) -> &ToolMetadata {
+        &self.metadata
+    }
+
+    fn get_function_definition(&self) -> serde_json::Value {
+        json!({
+            "name": "weather_forecast",
+            "description": "Get 5-day weather forecast for a location. Use this to answer questions about future weather (tomorrow, next Friday, etc.). Returns 3-hour intervals. You can filter for a specific date or get a summary.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "Name of the city."
+                    },
+                    "latitude": {
+                        "type": "number",
+                        "description": "Latitude. If provided, skips geocoding."
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "description": "Longitude. If provided, skips geocoding."
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "State code (2-letter)."
+                    },
+                    "country": {
+                        "type": "string",
+                        "description": "Country code (2-letter)."
+                    },
+                    "target_date": {
+                        "type": "string",
+                        "description": "Optional specific date to get forecast for (format: YYYY-MM-DD). If omitted, returns 5-day summary."
+                    },
+                    "units": {
+                        "type": "string",
+                        "description": "Units (standard, metric, imperial). Default: metric.",
+                        "default": "metric",
+                        "enum": ["standard", "metric", "imperial"]
+                    }
+                },
+                "required": []
+            }
+        })
+    }
+
+    async fn execute(&self, tool_call: &ToolCall) -> Result<ToolCallResult> {
+        let args: serde_json::Value = serde_json::from_str(&tool_call.function.arguments)
+            .context("Failed to parse forecast arguments")?;
+
+        let units = args
+            .get("units")
+            .and_then(|v| v.as_str())
+            .unwrap_or("metric");
+        let city = args.get("city").and_then(|v| v.as_str());
+        let state = args.get("state").and_then(|v| v.as_str());
+        let country = args.get("country").and_then(|v| v.as_str());
+        let lat = args.get("latitude").and_then(|v| v.as_f64());
+        let lon = args.get("longitude").and_then(|v| v.as_f64());
+        let mut target_date = args
+            .get("target_date")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        // Handle "tomorrow" or "today" relative dates
+        if let Some(date_str) = &target_date {
+            let now = Utc::now();
+            let date_lower = date_str.to_lowercase();
+
+            if date_lower.contains("tomorrow") {
+                let tomorrow = now + chrono::Duration::days(1);
+                target_date = Some(tomorrow.format("%Y-%m-%d").to_string());
+            } else if date_lower.contains("today") {
+                target_date = Some(now.format("%Y-%m-%d").to_string());
+            }
+        }
+
+        // Validate units
+        if !["standard", "metric", "imperial"].contains(&units) {
+            return Err(anyhow::anyhow!("Invalid units"));
+        }
+
+        // Validate location
+        if city.is_none() && (lat.is_none() || lon.is_none()) {
+            return Err(anyhow::anyhow!("Either city or lat/lon required"));
+        }
+
+        let forecast_data = self
+            .fetch_forecast_data(city, state, country, lat, lon, units)
+            .await?;
+        let result =
+            self.format_forecast_response(&forecast_data, target_date.as_deref(), units)?;
+
+        Ok(ToolCallResult {
+            tool_name: "weather_forecast".to_string(),
+            result,
+        })
+    }
+
+    fn is_available(&self) -> bool {
+        !self.api_key.is_empty()
     }
 }

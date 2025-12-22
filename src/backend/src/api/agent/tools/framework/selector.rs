@@ -1,4 +1,5 @@
 use crate::api::agent::tools::framework::registry::ToolRegistry;
+use chrono::Utc;
 use std::sync::Arc;
 
 /// Tool selector for intelligent tool selection based on queries
@@ -15,7 +16,11 @@ impl ToolSelector {
     /// Get a system prompt that includes information about available tools
     /// This only includes tools that are currently registered (i.e., enabled/active)
     pub fn build_system_prompt(&self) -> String {
-        let mut prompt = "You are a helpful AI assistant with access to tools.\n\n".to_string();
+        let now = Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+        let mut prompt = format!(
+            "Current Date/Time: {}\nYou are a helpful AI assistant with access to tools.\n\n",
+            now
+        );
 
         // Get all tools from the registry - this only includes enabled/active tools
         // since the registry is built with only enabled tools in the chat endpoint
