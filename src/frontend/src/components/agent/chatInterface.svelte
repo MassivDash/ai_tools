@@ -89,7 +89,7 @@
       )
       modelCapabilities = response.data
       // eslint-disable-next-line no-console
-      console.log('📊 Model capabilities:', modelCapabilities)
+      console.log('📊 Model capabilities:', $state.snapshot(modelCapabilities))
     } catch (err: any) {
       console.error('⚠️ Failed to fetch model capabilities:', err)
       // Default to no capabilities if fetch fails

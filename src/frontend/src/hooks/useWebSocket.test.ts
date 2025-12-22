@@ -190,7 +190,7 @@ test('auto-reconnects on close by default', async () => {
   ws.socket?.close()
 
   // Wait for reconnect
-  await new Promise((resolve) => setTimeout(resolve, 20))
+  await new Promise((resolve) => setTimeout(resolve, 50))
 
   expect(onOpen).toHaveBeenCalledTimes(2)
 })

@@ -8,6 +8,7 @@ import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import ChatInterface from './chatInterface.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
+import { clearToolsCache } from './utils/toolIcons'
 
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({
@@ -52,13 +53,21 @@ vi.mock('../../hooks/useAgentWebSocket', () => ({
 }))
 
 // Mock activeTools store
-// ... (activeTools mock remains valid as it is inline)
+vi.mock('../../stores/activeTools', () => ({
+  activeTools: {
+    subscribe: vi.fn((run) => {
+      run(new Set(['calculator']))
+      return () => {}
+    })
+  }
+}))
 
 // Mock window.fetch for streaming response
 global.fetch = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
+  clearToolsCache() // Reset tool cache
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -71,6 +80,7 @@ beforeEach(() => {
         data: { hf_model: 'test-model', ctx_size: 4096 }
       })
     if (url.includes('/messages')) return Promise.resolve({ data: [] }) // Empty history
+    if (url.includes('agent/tools')) return Promise.resolve({ data: [] })
     return Promise.resolve({ data: {} })
   })
 })
@@ -101,6 +111,7 @@ test('loads history when conversationId is provided', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url.includes('/messages'))
       return Promise.resolve({ data: historyMessages })
+    if (url.includes('agent/tools')) return Promise.resolve({ data: [] })
     return Promise.resolve({ data: {} })
   })
 
