@@ -7,6 +7,7 @@ This guide explains how to create new tools for the agent system.
 Tools are modular components that extend the agent's capabilities. Each tool implements the `AgentTool` trait and can be registered with the `ToolRegistry` to make it available to the LLM.
 
 The tool system follows this architecture:
+
 - **AgentTool Trait**: Defines the interface all tools must implement
 - **ToolRegistry**: Manages registration and lookup of tools
 - **ToolSelector**: Builds system prompts with available tool information
@@ -15,6 +16,7 @@ The tool system follows this architecture:
 ## Tool Structure
 
 A tool consists of:
+
 1. **Metadata** - ID and name for identification
 2. **Function Definition** - OpenAI-compatible function schema (JSON Schema)
 3. **Execution Logic** - The actual async tool implementation
@@ -39,6 +41,7 @@ pub trait AgentTool: Send + Sync {
 ### ToolRegistry
 
 The `ToolRegistry` manages all registered tools:
+
 - Stores tools in a `HashMap<String, Arc<dyn AgentTool>>`
 - Checks `is_available()` before registering
 - Finds tools by ID or function name
@@ -48,6 +51,7 @@ The `ToolRegistry` manages all registered tools:
 ### ToolSelector
 
 The `ToolSelector` builds system prompts that inform the LLM about available tools:
+
 - Only includes tools that are currently registered/enabled
 - Formats tool descriptions for the LLM
 - Provides usage guidelines
@@ -150,7 +154,6 @@ Add your tool to the `ToolType` enum in `src/backend/src/api/agent/types.rs`:
 #[serde(rename_all = "snake_case")]
 pub enum ToolType {
     ChromaDB,
-    FinancialData,
     WebsiteCheck,
     MyTool, // Add your tool here
 }
@@ -179,7 +182,6 @@ Add the import at the top of `chat.rs`:
 ```rust
 use crate::api::agent::tools::{
     chromadb::ChromaDBTool,
-    financial_data::FinancialDataTool,
     website_check::WebsiteCheckTool,
     my_tool::MyTool, // Add your tool
     registry::ToolRegistry,
@@ -213,7 +215,7 @@ ToolInfo {
   - Include examples of use cases
   - Mention when NOT to use the tool (e.g., "DO NOT use for casual greetings")
   - Guide the LLM on appropriate usage
-- **Parameters**: 
+- **Parameters**:
   - Use clear, descriptive parameter names
   - Provide helpful descriptions for each parameter
   - Mark required vs optional parameters correctly
@@ -241,7 +243,7 @@ ToolInfo {
 
 - Use unique IDs across all tools (e.g., "1", "2", "3" or descriptive IDs like "website_check")
 - IDs are used internally for registration tracking and lookup
-- Current IDs: ChromaDB="1", FinancialData="2", WebsiteCheck="3"
+- Current IDs: ChromaDB="1", WebsiteCheck="3"
 
 ### Thread Safety
 
@@ -252,6 +254,7 @@ ToolInfo {
 ### Console Logging
 
 The codebase uses emoji-prefixed console logs for better visibility:
+
 - ✅ Success messages
 - ⚠️ Warnings/errors
 - 🔍 Debug/search operations
@@ -263,6 +266,7 @@ The codebase uses emoji-prefixed console logs for better visibility:
 ### Website Check Tool (`website_check.rs`)
 
 A complete example that:
+
 - Fetches websites via HTTP
 - Validates URLs
 - Converts HTML to markdown using existing utilities
@@ -271,6 +275,7 @@ A complete example that:
 - Uses proper error handling and logging
 
 Key features:
+
 - Simple tool with no external dependencies
 - Reuses `convert_html_to_markdown` utility
 - Validates input (URL format, HTTP status)
@@ -279,6 +284,7 @@ Key features:
 ### ChromaDB Tool (`chromadb.rs`)
 
 A more complex example that:
+
 - Requires external configuration (ChromaDB address, collection, embedding model)
 - Creates a client connection
 - Performs semantic search queries
@@ -286,17 +292,11 @@ A more complex example that:
 - Formats multiple document results
 
 Key features:
+
 - Requires configuration object (`ChromaDBToolConfig`)
 - Registered separately from `enabled_tools` (uses `config.chromadb`)
 - Handles vector similarity calculations
 - Returns formatted document batches
-
-### Financial Data Tool (`financial_data.rs`)
-
-A simple mock tool that:
-- Returns hardcoded financial data
-- Demonstrates minimal tool structure
-- Shows enum parameter usage
 
 ## Tool Registration Flow
 
@@ -340,6 +340,7 @@ A simple mock tool that:
 ## Tool Categories (Optional)
 
 Tools can optionally be categorized for frontend display using `ToolCategory`:
+
 - `Web` - Web/Internet related tools
 - `Financial` - Financial/Money related tools  
 - `Database` - Database/Storage related tools
@@ -350,4 +351,3 @@ Tools can optionally be categorized for frontend display using `ToolCategory`:
 - `Utility` - General/Utility tools
 
 Categories are used in the `/api/agent/tools` endpoint for frontend display and include Material Icon names.
-

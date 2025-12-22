@@ -93,15 +93,6 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     // This includes all tools that can be enabled, not just currently enabled ones
     let tools = vec![
         ToolInfo {
-            id: "2".to_string(),
-            name: "financial sql query".to_string(),
-            tool_type: ToolType::FinancialData,
-            description: "Get financial data including recent purchases and transactions"
-                .to_string(),
-            category: ToolCategory::Financial,
-            icon: ToolCategory::Financial.icon_name().to_string(),
-        },
-        ToolInfo {
             id: "3".to_string(),
             name: "website check".to_string(),
             tool_type: ToolType::WebsiteCheck,

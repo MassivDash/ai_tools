@@ -8,7 +8,7 @@ use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::websocket::AgentWebSocketState;
 use crate::api::agent::tools::{
     database::chromadb::ChromaDBTool,
-    financial::{currency::CurrencyTool, financial_data::FinancialDataTool},
+    financial::currency::CurrencyTool,
     framework::{registry::ToolRegistry, selector::ToolSelector},
     utility::weather::WeatherTool,
     web::website_check::WebsiteCheckTool,
@@ -237,14 +237,6 @@ pub async fn agent_chat(
             Err(e) => {
                 println!("⚠️ Failed to create ChromaDB tool: {}", e);
             }
-        }
-    }
-
-    // Register Financial Data tool if enabled
-    if config.enabled_tools.contains(&ToolType::FinancialData) {
-        let financial_tool = FinancialDataTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
-            println!("⚠️ Failed to register Financial Data tool: {}", e);
         }
     }
 
@@ -596,13 +588,6 @@ pub async fn agent_chat_stream(
             Err(e) => {
                 println!("⚠️ Failed to create ChromaDB tool: {}", e);
             }
-        }
-    }
-
-    if config.enabled_tools.contains(&ToolType::FinancialData) {
-        let financial_tool = FinancialDataTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(financial_tool)) {
-            println!("⚠️ Failed to register Financial Data tool: {}", e);
         }
     }
 
