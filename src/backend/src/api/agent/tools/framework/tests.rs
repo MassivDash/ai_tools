@@ -18,6 +18,7 @@ impl MockTool {
             metadata: ToolMetadata {
                 id: id.to_string(),
                 name: format!("mock_function_{}", id),
+                description: "A mock tool for testing".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather, // Using an existing variant
             },

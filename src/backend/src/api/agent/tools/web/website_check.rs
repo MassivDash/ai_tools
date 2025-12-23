@@ -18,7 +18,8 @@ impl WebsiteCheckTool {
         Self {
             metadata: ToolMetadata {
                 id: "3".to_string(),
-                name: "website check".to_string(),
+                name: "Website Reader".to_string(),
+                description: "Read and analyze website content".to_string(),
                 category: ToolCategory::Web,
                 tool_type: ToolType::WebsiteCheck,
             },

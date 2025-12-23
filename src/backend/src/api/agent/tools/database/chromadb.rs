@@ -22,7 +22,8 @@ impl ChromaDBTool {
 
         let metadata = ToolMetadata {
             id: "1".to_string(),
-            name: "chroma db search".to_string(),
+            name: "Knowledge Base".to_string(),
+            description: "Search knowledge base for information".to_string(),
             category: ToolCategory::Database,
             tool_type: ToolType::ChromaDB,
         };
@@ -158,7 +159,7 @@ mod tests {
         if let Ok(tool) = tool_res {
             let metadata = tool.metadata();
             assert_eq!(metadata.id, "1");
-            assert_eq!(metadata.name, "chroma db search");
+            assert_eq!(tool.metadata().name, "Knowledge Base");
             assert_eq!(metadata.category, ToolCategory::Database);
             assert_eq!(metadata.tool_type, ToolType::ChromaDB);
         } else {

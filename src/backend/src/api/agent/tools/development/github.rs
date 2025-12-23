@@ -46,7 +46,8 @@ impl GitHubPublicTool {
         Self {
             metadata: ToolMetadata {
                 id: "github_public".to_string(),
-                name: "github_public".to_string(),
+                name: "GitHub Public".to_string(),
+                description: "Search public repositories and users".to_string(),
                 category: ToolCategory::Development,
                 tool_type: ToolType::GitHubPublic,
             },
@@ -259,7 +260,8 @@ impl GitHubAuthenticatedTool {
         Self {
             metadata: ToolMetadata {
                 id: "github_authenticated".to_string(),
-                name: "github_authenticated".to_string(),
+                name: "GitHub Authenticated".to_string(),
+                description: "Manage issues, PRs, and notifications".to_string(),
                 category: ToolCategory::Development,
                 tool_type: ToolType::GitHubAuthenticated,
             },
@@ -729,7 +731,7 @@ mod tests {
         let tool = GitHubPublicTool::new();
         let metadata = tool.metadata();
         assert_eq!(metadata.id, "github_public");
-        assert_eq!(metadata.name, "github_public");
+        assert_eq!(tool.metadata().name, "GitHub Public");
         assert_eq!(metadata.category, ToolCategory::Development);
         assert_eq!(metadata.tool_type, ToolType::GitHubPublic);
     }

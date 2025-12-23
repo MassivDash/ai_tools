@@ -23,7 +23,8 @@ impl WeatherTool {
         Self {
             metadata: ToolMetadata {
                 id: "weather_current".to_string(),
-                name: "weather_current".to_string(),
+                name: "Weather Current".to_string(),
+                description: "Get current weather conditions for any location".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather,
             },
@@ -402,7 +403,8 @@ impl ForecastTool {
         Self {
             metadata: ToolMetadata {
                 id: "weather_forecast".to_string(),
-                name: "weather_forecast".to_string(),
+                name: "Weather Forecast".to_string(),
+                description: "Get 5-day weather forecast".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather,
             },

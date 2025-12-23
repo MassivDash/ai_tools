@@ -47,8 +47,9 @@ impl ToolCategory {
 pub struct ToolMetadata {
     pub id: String,
     pub name: String,
-    pub category: ToolCategory,
     pub tool_type: ToolType,
+    pub description: String,
+    pub category: ToolCategory,
 }
 
 /// Trait that all tools must implement

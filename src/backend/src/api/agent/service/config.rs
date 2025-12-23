@@ -128,20 +128,11 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
         .iter()
         .map(|tool| {
             let meta = tool.metadata();
-            let def = tool.get_function_definition();
-
-            // Description comes from the function definition
-            let description = def
-                .get("description")
-                .and_then(|d| d.as_str())
-                .unwrap_or("No description available")
-                .to_string();
-
             ToolInfo {
                 id: meta.id.clone(),
                 name: meta.name.clone(),
                 tool_type: meta.tool_type.clone(),
-                description,
+                description: meta.description.clone(),
                 category: meta.category,
                 icon: meta.category.icon_name().to_string(),
             }

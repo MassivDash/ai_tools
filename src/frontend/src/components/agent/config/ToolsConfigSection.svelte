@@ -30,22 +30,32 @@
     return enabledTools.includes(toolType)
   }
 
-  // Group tools by category
-  $: groupedTools = availableTools.reduce(
+  // Group tools by category and then by tool_type
+  $: categoryGroups = availableTools.reduce(
     (acc, tool) => {
       const category = tool.category || 'other'
-      // category is an object or string? Backend returns "development", etc.
-      // If it's an enum in Rust, it serializes to string "development" (snake_case).
-      if (!acc[category]) {
-        acc[category] = []
+      const type = tool.tool_type
+
+      // Skip ChromaDB as it has its own configuration section
+      if (type === 'chroma_d_b') {
+        return acc
       }
-      acc[category].push(tool)
+
+      if (!acc[category]) {
+        acc[category] = {}
+      }
+
+      if (!acc[category][type]) {
+        acc[category][type] = []
+      }
+      acc[category][type].push(tool)
+
       return acc
     },
-    {} as Record<string, ToolInfo[]>
+    {} as Record<string, Record<string, ToolInfo[]>>
   )
 
-  $: sortedCategories = Object.keys(groupedTools).sort()
+  $: sortedCategories = Object.keys(categoryGroups).sort()
 </script>
 
 <div class="tools-config">
@@ -65,18 +75,29 @@
               category.slice(1).replace('_', ' ')}
           </h4>
           <div class="category-tools">
-            {#each groupedTools[category] as tool (tool.id)}
-              {@const toolTypeKey = tool.tool_type}
+            {#each Object.entries(categoryGroups[category]) as [toolType, tools] (toolType)}
+              {@const isEnabled = isToolEnabled(toolType)}
+              <!-- Determine display name and description -->
+              {@const displayName =
+                tools.length > 1
+                  ? toolType.charAt(0).toUpperCase() +
+                    toolType.slice(1).replace(/_/g, ' ')
+                  : tools[0].name}
+              {@const description =
+                tools.length > 1
+                  ? tools.map((t) => t.description).join('. ')
+                  : tools[0].description}
+
               <div class="tool-item">
                 <label class="tool-checkbox">
                   <input
                     type="checkbox"
-                    checked={isToolEnabled(toolTypeKey)}
-                    on:change={() => onToggle(toolTypeKey)}
+                    checked={isEnabled}
+                    on:change={() => onToggle(toolType)}
                   />
-                  <span class="tool-name">{tool.name}</span>
+                  <span class="tool-name">{displayName}</span>
                 </label>
-                <div class="tool-description">{tool.description}</div>
+                <div class="tool-description">{description}</div>
               </div>
             {/each}
           </div>

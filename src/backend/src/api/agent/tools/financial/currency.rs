@@ -17,7 +17,8 @@ impl CurrencyTool {
         Self {
             metadata: ToolMetadata {
                 id: "5".to_string(), // Next ID after WeatherTool (Assuming Weather is 4)
-                name: "currency_check".to_string(),
+                name: "Currency Exchange".to_string(),
+                description: "Check currency exchange rates via NBP".to_string(),
                 category: ToolCategory::Financial,
                 tool_type: ToolType::Currency,
             },
