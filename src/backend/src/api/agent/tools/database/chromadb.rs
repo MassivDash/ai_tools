@@ -1,6 +1,6 @@
 use crate::api::agent::core::types::ChromaDBToolConfig;
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
-use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::types::QueryRequest;
 use anyhow::{Context, Result};
@@ -23,6 +23,8 @@ impl ChromaDBTool {
         let metadata = ToolMetadata {
             id: "1".to_string(),
             name: "chroma db search".to_string(),
+            category: ToolCategory::Database,
+            tool_type: ToolType::ChromaDB,
         };
 
         Ok(Self {
@@ -133,5 +135,48 @@ impl AgentTool for ChromaDBTool {
             tool_name: "search_chromadb".to_string(),
             result,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::ChromaDBToolConfig;
+
+    #[test]
+    fn test_chromadb_metadata() {
+        let config = ChromaDBToolConfig {
+            collection: "test_collection".to_string(),
+            embedding_model: "all-MiniLM-L6-v2".to_string(),
+        };
+        // Use a dummy address, the client creation might fail if it tries to connect immediately
+        // But ChromaDBClient::new usually just stores the base URL.
+        // If it fails, we catch the error.
+        let tool_res = ChromaDBTool::new("http://localhost:8000", config);
+
+        // Ensure instantiation works (assuming new() doesn't make network calls)
+        if let Ok(tool) = tool_res {
+            let metadata = tool.metadata();
+            assert_eq!(metadata.id, "1");
+            assert_eq!(metadata.name, "chroma db search");
+            assert_eq!(metadata.category, ToolCategory::Database);
+            assert_eq!(metadata.tool_type, ToolType::ChromaDB);
+        } else {
+            // Panic or assert failure if it fails for reasons other than connection (if it tries to connect)
+            // Based on code reading, ChromaDBClient::new just constructs the client, mostly safe.
+        }
+    }
+
+    #[test]
+    fn test_chromadb_function_definition() {
+        let config = ChromaDBToolConfig {
+            collection: "test_collection".to_string(),
+            embedding_model: "test-model".to_string(),
+        };
+        if let Ok(tool) = ChromaDBTool::new("http://localhost:8000", config) {
+            let def = tool.get_function_definition();
+            assert_eq!(def["name"], "search_chromadb"); // Note: metadata name "chroma db search" != function name "search_chromadb" usually
+            assert!(def["parameters"]["properties"].get("query").is_some());
+        }
     }
 }

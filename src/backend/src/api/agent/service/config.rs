@@ -83,62 +83,72 @@ pub struct ToolInfo {
 }
 
 /// Get list of all available tools
-/// This returns all possible tools (not just enabled ones) so the frontend can show them
+/// This returns all tools that are properly configured and available for use
 #[get("/api/agent/tools")]
 pub async fn get_available_tools() -> ActixResult<HttpResponse> {
-    use crate::api::agent::core::types::ToolType;
-    use crate::api::agent::tools::framework::agent_tool::ToolCategory;
+    use crate::api::agent::core::types::{ChromaDBToolConfig, ToolType};
+    use crate::api::agent::tools::{self, framework::registry::ToolRegistry};
 
-    // Return all available tools with their metadata
-    // This includes all tools that can be enabled, not just currently enabled ones
-    let tools = vec![
-        ToolInfo {
-            id: "3".to_string(),
-            name: "website check".to_string(),
-            tool_type: ToolType::WebsiteCheck,
-            description:
-                "Fetch a website URL, convert it to markdown, and provide the content for analysis"
-                    .to_string(),
-            category: ToolCategory::Web,
-            icon: ToolCategory::Web.icon_name().to_string(),
-        },
-        ToolInfo {
-            id: "4".to_string(),
-            name: "weather".to_string(),
-            tool_type: ToolType::Weather,
-            description: "Get the current weather for a given city".to_string(),
-            category: ToolCategory::Utility,
-            icon: ToolCategory::Utility.icon_name().to_string(),
-        },
-        ToolInfo {
-            id: "5".to_string(), // Matches CurrencyTool ID
-            name: "currency check".to_string(),
-            tool_type: ToolType::Currency,
-            description: "Check official currency exchange rates from NBP".to_string(),
-            category: ToolCategory::Financial,
-            icon: ToolCategory::Financial.icon_name().to_string(),
-        },
-        ToolInfo {
-            id: "github_public".to_string(),
-            name: "GitHub (Public)".to_string(),
-            tool_type: ToolType::GitHubPublic,
-            description: "Search repos, trending, user public repos".to_string(),
-            category: ToolCategory::Development,
-            icon: ToolCategory::Development.icon_name().to_string(),
-        },
-        ToolInfo {
-            id: "github_authenticated".to_string(),
-            name: "GitHub (Auth)".to_string(),
-            tool_type: ToolType::GitHubAuthenticated,
-            description: "Notifications, issues, workflow runs, my repos".to_string(),
-            category: ToolCategory::Development,
-            icon: ToolCategory::Development.icon_name().to_string(),
-        },
-        // Note: ChromaDB is special and only appears when configured, so we don't include it here
-        // The frontend should handle ChromaDB separately based on configuration
-    ];
+    // Create a temporary registry to discover all available tools
+    let mut tool_registry = ToolRegistry::new();
 
-    Ok(HttpResponse::Ok().json(tools))
+    // Create a configuration that enables ALL known tools
+    // We want to list everything that is available on the system
+    let all_tools_config = AgentConfig {
+        enabled_tools: vec![
+            ToolType::ChromaDB,
+            ToolType::WebsiteCheck,
+            ToolType::Weather,
+            ToolType::Currency,
+            ToolType::GitHubPublic,
+            ToolType::GitHubAuthenticated,
+        ],
+        // Provide dummy config for ChromaDB so it attempts registration
+        // It will only succeed if the code handles it, but connection check might fail it effectively.
+        chromadb: Some(ChromaDBToolConfig {
+            collection: "metadata_check".to_string(),
+            embedding_model: "metadata_check".to_string(),
+        }),
+    };
+
+    // Context with dummy value for ChromaDB address
+    // This allows ChromaDB tool to attempt registration (it might fail if it checks connection)
+    let context = tools::RegisterContext {
+        chroma_address: Some("http://localhost:8000"),
+    };
+
+    // Register all tools
+    // Note: This will only register tools that return true for is_available()
+    // e.g., Weather tool will only appear if API key is set
+    tools::register_all(&mut tool_registry, &all_tools_config, &context);
+
+    // Extract metadata from registered tools
+    let tools_info: Vec<ToolInfo> = tool_registry
+        .get_all_tools()
+        .iter()
+        .map(|tool| {
+            let meta = tool.metadata();
+            let def = tool.get_function_definition();
+
+            // Description comes from the function definition
+            let description = def
+                .get("description")
+                .and_then(|d| d.as_str())
+                .unwrap_or("No description available")
+                .to_string();
+
+            ToolInfo {
+                id: meta.id.clone(),
+                name: meta.name.clone(),
+                tool_type: meta.tool_type.clone(),
+                description,
+                category: meta.category,
+                icon: meta.category.icon_name().to_string(),
+            }
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(tools_info))
 }
 
 /// Get model capabilities from llama server /props endpoint

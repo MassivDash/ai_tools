@@ -1,5 +1,5 @@
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
-use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -47,6 +47,8 @@ impl GitHubPublicTool {
             metadata: ToolMetadata {
                 id: "github_public".to_string(),
                 name: "github_public".to_string(),
+                category: ToolCategory::Development,
+                tool_type: ToolType::GitHubPublic,
             },
             client: create_github_client(&token),
         }
@@ -258,6 +260,8 @@ impl GitHubAuthenticatedTool {
             metadata: ToolMetadata {
                 id: "github_authenticated".to_string(),
                 name: "github_authenticated".to_string(),
+                category: ToolCategory::Development,
+                tool_type: ToolType::GitHubAuthenticated,
             },
             client: create_github_client(&token),
             token,
@@ -713,5 +717,47 @@ impl AgentTool for GitHubAuthenticatedTool {
     fn is_available(&self) -> bool {
         // Only available if token is present
         !self.token.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_github_public_metadata() {
+        let tool = GitHubPublicTool::new();
+        let metadata = tool.metadata();
+        assert_eq!(metadata.id, "github_public");
+        assert_eq!(metadata.name, "github_public");
+        assert_eq!(metadata.category, ToolCategory::Development);
+        assert_eq!(metadata.tool_type, ToolType::GitHubPublic);
+    }
+
+    #[test]
+    fn test_github_public_function_definition() {
+        let tool = GitHubPublicTool::new();
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "github_public");
+        assert!(def["parameters"]["properties"].get("action").is_some());
+    }
+
+    #[test]
+    fn test_github_authenticated_metadata() {
+        let tool = GitHubAuthenticatedTool::new();
+        let metadata = tool.metadata();
+        assert_eq!(metadata.id, "github_authenticated");
+        assert_eq!(metadata.tool_type, ToolType::GitHubAuthenticated);
+    }
+
+    #[test]
+    fn test_github_authenticated_availability() {
+        let tool = GitHubAuthenticatedTool::new();
+        // If GITHUB_TOKEN is not set, is_available should be false
+        if std::env::var("GITHUB_TOKEN").is_err() {
+            assert!(!tool.is_available());
+        } else {
+            assert!(tool.is_available());
+        }
     }
 }

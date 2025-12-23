@@ -1,5 +1,5 @@
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
-use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -18,13 +18,14 @@ pub struct WeatherTool {
 impl WeatherTool {
     /// Create a new instance of the weather tool
     pub fn new() -> Self {
-        let api_key = env::var("OPENWEATHER_API_KEY")
-            .expect("OPENWEATHER_API_KEY environment variable must be set");
+        let api_key = env::var("OPENWEATHER_API_KEY").unwrap_or_default();
 
         Self {
             metadata: ToolMetadata {
-                id: "4".to_string(), // Using next available ID after 3 (WebsiteCheck)
-                name: "weather_check".to_string(),
+                id: "weather_current".to_string(),
+                name: "weather_current".to_string(),
+                category: ToolCategory::Utility,
+                tool_type: ToolType::Weather,
             },
             client: reqwest::Client::new(),
             api_key,
@@ -236,7 +237,7 @@ impl AgentTool for WeatherTool {
 
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
-            "name": "weather_check",
+            "name": "weather_current",
             "description": "Get current weather data for a specific location. Use this when user asks about current weather conditions, temperature, humidity, or weather details for a specific city. If you know the latitude and longitude coordinates, provide them directly to skip geocoding. DO NOT use for forecasts or historical weather data.",
             "parameters": {
                 "type": "object",
@@ -396,13 +397,14 @@ pub struct ForecastTool {
 impl ForecastTool {
     /// Create a new instance of the forecast tool
     pub fn new() -> Self {
-        let api_key = env::var("OPENWEATHER_API_KEY")
-            .expect("OPENWEATHER_API_KEY environment variable must be set");
+        let api_key = env::var("OPENWEATHER_API_KEY").unwrap_or_default();
 
         Self {
             metadata: ToolMetadata {
                 id: "weather_forecast".to_string(),
                 name: "weather_forecast".to_string(),
+                category: ToolCategory::Utility,
+                tool_type: ToolType::Weather,
             },
             client: reqwest::Client::new(),
             api_key,
@@ -734,5 +736,45 @@ impl AgentTool for ForecastTool {
 
     fn is_available(&self) -> bool {
         !self.api_key.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_weather_metadata() {
+        let tool = WeatherTool::new();
+        let metadata = tool.metadata();
+        assert_eq!(metadata.id, "weather_current");
+        assert_eq!(metadata.category, ToolCategory::Utility);
+        assert_eq!(metadata.tool_type, ToolType::Weather);
+    }
+
+    #[test]
+    fn test_weather_function_definition() {
+        let tool = WeatherTool::new();
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "weather_current");
+        assert!(def["parameters"]["properties"].get("city").is_some());
+    }
+
+    #[test]
+    fn test_forecast_metadata() {
+        let tool = ForecastTool::new();
+        let metadata = tool.metadata();
+        assert_eq!(metadata.id, "weather_forecast");
+        assert_eq!(metadata.category, ToolCategory::Utility);
+        assert_eq!(metadata.tool_type, ToolType::Weather);
+    }
+
+    #[test]
+    fn test_weather_availability() {
+        let tool = WeatherTool::new();
+        // If OPENWEATHER_API_KEY is not set, is_available should be false
+        if std::env::var("OPENWEATHER_API_KEY").is_err() {
+            assert!(!tool.is_available());
+        }
     }
 }

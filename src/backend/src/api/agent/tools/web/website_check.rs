@@ -1,5 +1,5 @@
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
-use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use crate::markdown_utils::convert::{convert_html_to_markdown, ConversionConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -19,6 +19,8 @@ impl WebsiteCheckTool {
             metadata: ToolMetadata {
                 id: "3".to_string(),
                 name: "website check".to_string(),
+                category: ToolCategory::Web,
+                tool_type: ToolType::WebsiteCheck,
             },
         }
     }

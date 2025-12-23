@@ -1,4 +1,4 @@
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -47,6 +47,8 @@ impl ToolCategory {
 pub struct ToolMetadata {
     pub id: String,
     pub name: String,
+    pub category: ToolCategory,
+    pub tool_type: ToolType,
 }
 
 /// Trait that all tools must implement

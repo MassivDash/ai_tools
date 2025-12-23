@@ -1,5 +1,5 @@
-use crate::api::agent::core::types::{ToolCall, ToolCallResult};
-use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolMetadata};
+use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
+use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest;
@@ -18,6 +18,8 @@ impl CurrencyTool {
             metadata: ToolMetadata {
                 id: "5".to_string(), // Next ID after WeatherTool (Assuming Weather is 4)
                 name: "currency_check".to_string(),
+                category: ToolCategory::Financial,
+                tool_type: ToolType::Currency,
             },
             client: reqwest::Client::new(),
         }

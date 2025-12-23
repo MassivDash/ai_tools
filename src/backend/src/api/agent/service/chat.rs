@@ -2,17 +2,13 @@ use crate::api::agent::core::agent_loop::{execute_agent_loop, AgentLoopConfig};
 use crate::api::agent::core::streaming::execute_agent_loop_streaming;
 use crate::api::agent::core::types::{
     AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage,
-    MessageContent, MessageRole, ToolType,
+    MessageContent, MessageRole,
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::websocket::AgentWebSocketState;
-use crate::api::agent::tools::development::github::{GitHubAuthenticatedTool, GitHubPublicTool};
 use crate::api::agent::tools::{
-    database::chromadb::ChromaDBTool,
-    financial::currency::CurrencyTool,
+    self,
     framework::{registry::ToolRegistry, selector::ToolSelector},
-    utility::weather::{ForecastTool, WeatherTool},
-    web::website_check::WebsiteCheckTool,
 };
 use crate::api::llama_server::types::Config;
 use actix_web::{post, web, HttpResponse, Result as ActixResult};
@@ -228,65 +224,11 @@ pub async fn agent_chat(
     let mut tool_registry = ToolRegistry::new();
 
     // Register ChromaDB tool if configured
-    if let Some(chromadb_tool_config) = &config.chromadb {
-        match ChromaDBTool::new(chroma_address.as_str(), chromadb_tool_config.clone()) {
-            Ok(tool) => {
-                if let Err(e) = tool_registry.register(Arc::new(tool)) {
-                    println!("⚠️ Failed to register ChromaDB tool: {}", e);
-                }
-            }
-            Err(e) => {
-                println!("⚠️ Failed to create ChromaDB tool: {}", e);
-            }
-        }
-    }
-
-    // Register Website Check tool if enabled
-    if config.enabled_tools.contains(&ToolType::WebsiteCheck) {
-        let website_tool = WebsiteCheckTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
-            println!("⚠️ Failed to register Website Check tool: {}", e);
-        }
-    }
-
-    // Register Weather tool if enabled
-    if config.enabled_tools.contains(&ToolType::Weather) {
-        let weather_tool = WeatherTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
-            println!("⚠️ Failed to register Weather tool: {}", e);
-        }
-
-        let forecast_tool = ForecastTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(forecast_tool)) {
-            println!("⚠️ Failed to register Forecast tool: {}", e);
-        }
-    }
-
-    // Register Currency tool if enabled
-    if config.enabled_tools.contains(&ToolType::Currency) {
-        let currency_tool = CurrencyTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
-            println!("⚠️ Failed to register Currency tool: {}", e);
-        }
-    }
-
-    // Register GitHub tools if enabled
-    if config.enabled_tools.contains(&ToolType::GitHubPublic) {
-        let gh_public = GitHubPublicTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(gh_public)) {
-            println!("⚠️ Failed to register GitHubPublic tool: {}", e);
-        }
-    }
-
-    if config
-        .enabled_tools
-        .contains(&ToolType::GitHubAuthenticated)
-    {
-        let gh_auth = GitHubAuthenticatedTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(gh_auth)) {
-            println!("⚠️ Failed to register GitHubAuthenticated tool: {}", e);
-        }
-    }
+    // Register all enabled tools
+    let context = tools::RegisterContext {
+        chroma_address: Some(chroma_address.as_str()),
+    };
+    tools::register_all(&mut tool_registry, &config, &context);
 
     // Wrap registry in Arc for sharing
     let tool_registry_arc = Arc::new(tool_registry);
@@ -602,61 +544,11 @@ pub async fn agent_chat_stream(
     // Build tool registry (same as non-streaming endpoint)
     let mut tool_registry = ToolRegistry::new();
 
-    if let Some(chromadb_tool_config) = &config.chromadb {
-        match ChromaDBTool::new(chroma_address.as_str(), chromadb_tool_config.clone()) {
-            Ok(tool) => {
-                if let Err(e) = tool_registry.register(Arc::new(tool)) {
-                    println!("⚠️ Failed to register ChromaDB tool: {}", e);
-                }
-            }
-            Err(e) => {
-                println!("⚠️ Failed to create ChromaDB tool: {}", e);
-            }
-        }
-    }
-
-    if config.enabled_tools.contains(&ToolType::WebsiteCheck) {
-        let website_tool = WebsiteCheckTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(website_tool)) {
-            println!("⚠️ Failed to register Website Check tool: {}", e);
-        }
-    }
-
-    if config.enabled_tools.contains(&ToolType::Weather) {
-        let weather_tool = WeatherTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(weather_tool)) {
-            println!("⚠️ Failed to register Weather Tool: {}", e);
-        }
-
-        let forecast_tool = ForecastTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(forecast_tool)) {
-            println!("⚠️ Failed to register Forecast Tool: {}", e);
-        }
-    }
-
-    if config.enabled_tools.contains(&ToolType::Currency) {
-        let currency_tool = CurrencyTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
-            println!("⚠️ Failed to register Currency tool: {}", e);
-        }
-    }
-
-    if config.enabled_tools.contains(&ToolType::GitHubPublic) {
-        let gh_public = GitHubPublicTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(gh_public)) {
-            println!("⚠️ Failed to register GitHubPublic tool: {}", e);
-        }
-    }
-
-    if config
-        .enabled_tools
-        .contains(&ToolType::GitHubAuthenticated)
-    {
-        let gh_auth = GitHubAuthenticatedTool::new();
-        if let Err(e) = tool_registry.register(Arc::new(gh_auth)) {
-            println!("⚠️ Failed to register GitHubAuthenticated tool: {}", e);
-        }
-    }
+    // Register all enabled tools
+    let context = tools::RegisterContext {
+        chroma_address: Some(chroma_address.as_str()),
+    };
+    tools::register_all(&mut tool_registry, &config, &context);
 
     let tool_registry_arc = Arc::new(tool_registry);
     let tools = tool_registry_arc.build_tool_definitions().map_err(|e| {
