@@ -6,6 +6,7 @@ use crate::api::agent::core::types::{
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::websocket::AgentWebSocketState;
+use crate::api::agent::tools::development::github::{GitHubAuthenticatedTool, GitHubPublicTool};
 use crate::api::agent::tools::{
     database::chromadb::ChromaDBTool,
     financial::currency::CurrencyTool,
@@ -266,6 +267,24 @@ pub async fn agent_chat(
         let currency_tool = CurrencyTool::new();
         if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
             println!("⚠️ Failed to register Currency tool: {}", e);
+        }
+    }
+
+    // Register GitHub tools if enabled
+    if config.enabled_tools.contains(&ToolType::GitHubPublic) {
+        let gh_public = GitHubPublicTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(gh_public)) {
+            println!("⚠️ Failed to register GitHubPublic tool: {}", e);
+        }
+    }
+
+    if config
+        .enabled_tools
+        .contains(&ToolType::GitHubAuthenticated)
+    {
+        let gh_auth = GitHubAuthenticatedTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(gh_auth)) {
+            println!("⚠️ Failed to register GitHubAuthenticated tool: {}", e);
         }
     }
 
@@ -619,6 +638,23 @@ pub async fn agent_chat_stream(
         let currency_tool = CurrencyTool::new();
         if let Err(e) = tool_registry.register(Arc::new(currency_tool)) {
             println!("⚠️ Failed to register Currency tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::GitHubPublic) {
+        let gh_public = GitHubPublicTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(gh_public)) {
+            println!("⚠️ Failed to register GitHubPublic tool: {}", e);
+        }
+    }
+
+    if config
+        .enabled_tools
+        .contains(&ToolType::GitHubAuthenticated)
+    {
+        let gh_auth = GitHubAuthenticatedTool::new();
+        if let Err(e) = tool_registry.register(Arc::new(gh_auth)) {
+            println!("⚠️ Failed to register GitHubAuthenticated tool: {}", e);
         }
     }
 

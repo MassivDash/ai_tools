@@ -103,7 +103,7 @@ export type ToolCategory =
 export interface ToolInfo {
   id: string
   name: string
-  tool_type: 'financial_data' | 'website_check' | 'chroma_db'
+  tool_type: string
   description: string
   category: ToolCategory
   icon: string // Material Icon name

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import HelpIcon from '../../ui/HelpIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ToolInfo } from '../types'
 
@@ -17,7 +16,6 @@
       availableTools = response.data
     } catch (err: any) {
       console.error('❌ Failed to load available tools:', err)
-      // Fallback to empty array
       availableTools = []
     } finally {
       loadingTools = false
@@ -28,56 +26,128 @@
     loadAvailableTools()
   })
 
-  $: toolEnabled = (toolType: string) => {
-    // tool_type from backend (e.g., 'financial_data', 'website_check')
-    // matches enabled_tools format (snake_case ToolType enum values)
+  $: isToolEnabled = (toolType: string) => {
     return enabledTools.includes(toolType)
   }
+
+  // Group tools by category
+  $: groupedTools = availableTools.reduce(
+    (acc, tool) => {
+      const category = tool.category || 'other'
+      // category is an object or string? Backend returns "development", etc.
+      // If it's an enum in Rust, it serializes to string "development" (snake_case).
+      if (!acc[category]) {
+        acc[category] = []
+      }
+      acc[category].push(tool)
+      return acc
+    },
+    {} as Record<string, ToolInfo[]>
+  )
+
+  $: sortedCategories = Object.keys(groupedTools).sort()
 </script>
 
-<div class="config-section">
-  <div class="section-label">Tools:</div>
+<div class="tools-config">
+  <div class="section-label">Tools</div>
+  <p class="section-description">Select the tools the agent can use.</p>
+
   {#if loadingTools}
     <div class="loading">Loading tools...</div>
   {:else if availableTools.length === 0}
     <div class="no-tools">No tools available</div>
   {:else}
-    <div class="tools-list">
-      {#each availableTools as tool (tool.id)}
-        {@const toolTypeKey = tool.tool_type}
-        <label class="tool-checkbox">
-          <input
-            type="checkbox"
-            checked={toolEnabled(toolTypeKey)}
-            onchange={() => onToggle(toolTypeKey)}
-            class="checkbox-input"
-          />
-          <span>{tool.name}</span>
-          <HelpIcon text={tool.description} />
-        </label>
+    <div class="tools-grid">
+      {#each sortedCategories as category}
+        <div class="tool-category">
+          <h4 class="category-header">
+            {category.charAt(0).toUpperCase() +
+              category.slice(1).replace('_', ' ')}
+          </h4>
+          <div class="category-tools">
+            {#each groupedTools[category] as tool (tool.id)}
+              {@const toolTypeKey = tool.tool_type}
+              <div class="tool-item">
+                <label class="tool-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={isToolEnabled(toolTypeKey)}
+                    on:change={() => onToggle(toolTypeKey)}
+                  />
+                  <span class="tool-name">{tool.name}</span>
+                </label>
+                <div class="tool-description">{tool.description}</div>
+              </div>
+            {/each}
+          </div>
+        </div>
       {/each}
     </div>
   {/if}
 </div>
 
 <style>
-  .config-section {
+  .tools-config {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     margin-bottom: 2rem;
   }
 
   .section-label {
-    display: block;
-    margin-bottom: 0.75rem;
     font-weight: 600;
-    color: var(--text-primary, #333);
+    color: var(--text-primary);
     font-size: 1rem;
-    transition: color 0.3s ease;
   }
 
-  .tools-list {
+  .section-description {
+    margin: -0.5rem 0 0 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .loading,
+  .no-tools {
+    font-style: italic;
+    color: var(--text-secondary);
+    padding: 1rem;
+  }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+    align-items: start;
+  }
+
+  .tool-category {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .category-header {
+    margin: 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    padding-bottom: 0.25rem;
+  }
+
+  .category-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .tool-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-left: 0.5rem;
   }
 
   .tool-checkbox {
@@ -85,23 +155,22 @@
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    font-weight: 600;
-    color: var(--text-primary, #333);
-    transition: color 0.3s ease;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text-primary);
   }
 
-  .checkbox-input {
-    width: 1.25rem;
-    height: 1.25rem;
+  .tool-checkbox input {
     cursor: pointer;
+    width: 1.1rem;
+    height: 1.1rem;
     accent-color: var(--accent-color, #2196f3);
   }
 
-  .loading,
-  .no-tools {
-    padding: 0.75rem;
-    color: var(--text-secondary, #666);
-    font-size: 0.9rem;
-    transition: color 0.3s ease;
+  .tool-description {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-left: 1.8rem; /* Align with text start */
+    line-height: 1.4;
   }
 </style>

@@ -118,6 +118,22 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             category: ToolCategory::Financial,
             icon: ToolCategory::Financial.icon_name().to_string(),
         },
+        ToolInfo {
+            id: "github_public".to_string(),
+            name: "GitHub (Public)".to_string(),
+            tool_type: ToolType::GitHubPublic,
+            description: "Search repos, trending, user public repos".to_string(),
+            category: ToolCategory::Development,
+            icon: ToolCategory::Development.icon_name().to_string(),
+        },
+        ToolInfo {
+            id: "github_authenticated".to_string(),
+            name: "GitHub (Auth)".to_string(),
+            tool_type: ToolType::GitHubAuthenticated,
+            description: "Notifications, issues, workflow runs, my repos".to_string(),
+            category: ToolCategory::Development,
+            icon: ToolCategory::Development.icon_name().to_string(),
+        },
         // Note: ChromaDB is special and only appears when configured, so we don't include it here
         // The frontend should handle ChromaDB separately based on configuration
     ];
