@@ -67,7 +67,7 @@
     background-color: var(--bg-primary, #333);
     color: var(--text-primary, #fff);
     padding: 0.5rem 0.75rem;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.85rem;
     line-height: 1.4;
     max-width: 300px;

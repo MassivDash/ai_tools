@@ -60,7 +60,7 @@
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     font-family: inherit;
     box-sizing: border-box;

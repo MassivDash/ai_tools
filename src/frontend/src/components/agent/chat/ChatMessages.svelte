@@ -70,12 +70,12 @@
 
   .chat-messages::-webkit-scrollbar-track {
     background: var(--bg-secondary, #f5f5f5);
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .chat-messages::-webkit-scrollbar-thumb {
     background: var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .chat-messages::-webkit-scrollbar-thumb:hover {
@@ -142,7 +142,7 @@
   .typing-indicator span {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: 8px;
     background-color: var(--text-secondary, #999);
     animation: typing 1.4s infinite;
   }

@@ -299,14 +299,14 @@
 
   .terminal-content::-webkit-scrollbar-track {
     background: var(--md-surface-variant, rgba(0, 0, 0, 0.05));
-    border-radius: 10px;
+    border-radius: 8px;
     margin: 4px 0;
     transition: background-color 0.3s ease;
   }
 
   .terminal-content::-webkit-scrollbar-thumb {
     background: var(--md-outline, rgba(0, 0, 0, 0.3));
-    border-radius: 10px;
+    border-radius: 8px;
     border: 2px solid var(--md-surface);
     transition: background-color 0.2s ease;
   }

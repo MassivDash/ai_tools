@@ -75,7 +75,7 @@
     font-weight: 500;
     padding: 0.25rem 0.5rem;
     background-color: var(--bg-tertiary, #f0f0f0);
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .tools-section {

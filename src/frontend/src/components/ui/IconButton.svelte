@@ -49,6 +49,7 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    border-radius: 8px !important;
   }
 
   :global(.button-icon-only) :global(svg) {

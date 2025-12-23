@@ -330,7 +330,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       background-color 0.2s,
       color 0.3s ease;
@@ -398,7 +398,7 @@
     margin-bottom: 1rem;
     background-color: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     font-size: 0.9rem;
     transition:

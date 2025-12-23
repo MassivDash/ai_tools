@@ -115,7 +115,7 @@
   .filter-group select {
     padding: 0.5rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     background: var(--bg-primary, #fff);
     color: var(--text-primary, #100f0f);
   }

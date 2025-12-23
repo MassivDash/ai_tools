@@ -236,13 +236,13 @@
 
   .form-container::-webkit-scrollbar-track {
     background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
-    border-radius: 10px;
+    border-radius: 8px;
     margin: 4px 0;
   }
 
   .form-container::-webkit-scrollbar-thumb {
     background: var(--border-color, rgba(0, 0, 0, 0.3));
-    border-radius: 10px;
+    border-radius: 8px;
     border: 2px solid var(--bg-primary);
     transition: background-color 0.2s ease;
   }
@@ -287,7 +287,7 @@
     padding: 0.75rem;
     background: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
     transition:
@@ -340,7 +340,7 @@
   .remove-btn {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     padding: 0.4rem;
     display: flex;
@@ -374,7 +374,7 @@
     width: 100%;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 1rem;

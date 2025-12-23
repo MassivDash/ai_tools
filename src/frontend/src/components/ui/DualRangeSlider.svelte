@@ -159,7 +159,7 @@
     transform: translateY(-50%);
     height: 8px;
     background: var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .slider-fill {
@@ -167,7 +167,7 @@
     top: 0;
     height: 100%;
     background: var(--accent-color, #b12424);
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       left 0.1s ease,
       width 0.1s ease;
@@ -223,7 +223,7 @@
     color: var(--text-primary, #100f0f);
     background: var(--bg-primary, #fff);
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: 8px;
     border: 1px solid var(--border-color, #ddd);
     white-space: nowrap;
     pointer-events: none;

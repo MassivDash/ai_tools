@@ -295,7 +295,7 @@
     padding: 1rem;
     background: rgba(255, 243, 205, 0.3);
     border: 1px solid rgba(255, 193, 7, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--text-secondary);
     transition:
       background-color 0.3s ease,
@@ -329,7 +329,7 @@
     align-items: center;
     padding: 0.75rem;
     background: var(--bg-secondary, #f5f5f5);
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .file-info {
@@ -351,7 +351,7 @@
   .remove-file-btn {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     padding: 0.4rem;
     display: flex;
@@ -419,7 +419,7 @@
     width: 100%;
     height: 8px;
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 8px;
     overflow: hidden;
     margin: 0.5rem 0;
     transition: background-color 0.3s ease;

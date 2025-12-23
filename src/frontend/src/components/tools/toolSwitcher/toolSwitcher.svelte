@@ -152,7 +152,7 @@
   .tool-card {
     background: var(--bg-primary, white);
     border: 2px solid var(--border-color, #e0e0e0);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 2rem;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -219,7 +219,7 @@
     background-color: var(--bg-secondary, #f5f5f5);
     color: var(--text-secondary, #666);
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;

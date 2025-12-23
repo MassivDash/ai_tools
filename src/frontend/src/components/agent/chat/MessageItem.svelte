@@ -374,7 +374,7 @@
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     background-color: var(--bg-tertiary, #f0f0f0);
-    border-radius: 20px;
+    border-radius: 8px;
     font-size: 0.85rem;
     color: var(--text-secondary, #666);
     border: 1px solid var(--border-color, #e0e0e0);
@@ -443,7 +443,7 @@
   .typing-indicator-inline span {
     width: 4px;
     height: 4px;
-    border-radius: 50%;
+    border-radius: 8px;
     background-color: var(--accent-color, #2196f3);
     animation: typing-dot 1.4s infinite;
     display: inline-block;
@@ -552,7 +552,7 @@
   .message-content.markdown :global(code) {
     background-color: rgba(0, 0, 0, 0.1);
     padding: 0.2rem 0.4rem;
-    border-radius: 3px;
+    border-radius: 8px;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 0.9em;
   }
@@ -560,7 +560,7 @@
   .message-content.markdown :global(pre) {
     background-color: rgba(0, 0, 0, 0.05);
     padding: 0.75rem;
-    border-radius: 4px;
+    border-radius: 8px;
     overflow-x: auto;
     margin: 0.5rem 0;
     position: relative;

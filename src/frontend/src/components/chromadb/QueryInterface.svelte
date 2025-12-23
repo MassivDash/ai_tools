@@ -163,7 +163,7 @@
     padding: 1rem;
     background: rgba(255, 243, 205, 0.3);
     border: 1px solid rgba(255, 193, 7, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--text-secondary);
     transition:
       background-color 0.3s ease,
@@ -194,7 +194,7 @@
     padding: 1rem;
     background: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
     transition:
@@ -229,7 +229,7 @@
   .result-item {
     padding: 1rem;
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 8px;
     border-left: 3px solid #4a90e2;
     transition: background-color 0.3s ease;
   }
@@ -281,7 +281,7 @@
     margin: 0;
     padding: 0.5rem;
     background: var(--bg-primary);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.85rem;
     overflow-x: auto;
     transition: background-color 0.3s ease;

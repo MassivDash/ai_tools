@@ -198,7 +198,7 @@
 
   .chromadb-card {
     background: var(--bg-primary, #ffffff);
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid var(--border-color, #e0e0e0);
     overflow: hidden;
     transition:

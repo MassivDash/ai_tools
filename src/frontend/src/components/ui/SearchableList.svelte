@@ -116,7 +116,7 @@
     padding: 0.5rem;
     padding-right: 2rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     box-sizing: border-box;
     background-color: var(--bg-primary, white);
@@ -149,7 +149,7 @@
     align-items: center;
     justify-content: center;
     transition: color 0.2s;
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .clear-search:hover {
@@ -159,7 +159,7 @@
 
   .list-container {
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     overflow-y: auto;
     background-color: var(--bg-primary, white);
     transition:
@@ -237,7 +237,7 @@
   .tag {
     padding: 0.25rem 0.5rem;
     background: var(--bg-secondary, #f5ddd9);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.8rem;
     color: var(--text-primary, #100f0f);
     transition:
@@ -251,7 +251,7 @@
     margin-top: 0.5rem;
     padding: 0.5rem;
     background: var(--bg-secondary, #f5f5f5);
-    border-radius: 4px;
+    border-radius: 8px;
     max-height: 3rem;
     overflow: hidden;
     text-overflow: ellipsis;

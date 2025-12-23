@@ -123,7 +123,7 @@
   .delete-btn {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     padding: 0.4rem;
     display: flex;

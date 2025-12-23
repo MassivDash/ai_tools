@@ -289,7 +289,7 @@
   .tag {
     padding: 0.25rem 0.5rem;
     background: var(--bg-secondary, #f5ddd9);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.8rem;
     color: var(--text-primary, #100f0f);
   }
@@ -298,7 +298,7 @@
     margin-top: 0.5rem;
     padding: 0.5rem;
     background: var(--bg-secondary, #f5ddd9);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.85rem;
     max-height: 100px;
     overflow-y: auto;

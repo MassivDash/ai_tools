@@ -171,7 +171,7 @@
     color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       color 0.3s ease,
       background-color 0.3s ease;

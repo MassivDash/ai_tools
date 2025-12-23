@@ -36,7 +36,7 @@
 <style>
   .button {
     padding: 0.5rem 1rem;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;

@@ -247,7 +247,7 @@
     display: block;
     padding: 0.75rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     background-color: var(--bg-primary, white);
     color: var(--text-primary, #333);
@@ -275,7 +275,7 @@
     background-color: var(--accent-color, #b12424);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -295,7 +295,7 @@
     padding: 0.75rem;
     background-color: var(--bg-secondary, #f5f5f5);
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
@@ -321,7 +321,7 @@
     padding: 0.75rem;
     background-color: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
     transition:
@@ -335,7 +335,7 @@
     padding: 1rem;
     background-color: var(--bg-secondary, #f5f5f5);
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;
@@ -352,7 +352,7 @@
     width: 100%;
     height: 24px;
     background-color: var(--bg-tertiary, #e0e0e0);
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
     margin-bottom: 0.5rem;
     transition: background-color 0.3s ease;
@@ -366,7 +366,7 @@
       var(--accent-hover, #8a1c1c) 100%
     );
     transition: width 0.3s ease;
-    border-radius: 12px;
+    border-radius: 8px;
   }
 
   .progress-text {

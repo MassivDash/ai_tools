@@ -317,7 +317,7 @@
     background-color: var(--accent-color, #b12424);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -337,7 +337,7 @@
     background-color: var(--bg-secondary, #f5f5f5);
     color: var(--text-primary, #333);
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -357,7 +357,7 @@
     padding: 0.75rem;
     background-color: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
     transition:
@@ -370,7 +370,7 @@
     padding: 0.75rem;
     background-color: var(--bg-secondary, #e8f5e9);
     border: 1px solid var(--border-color, #c8e6c9);
-    border-radius: 4px;
+    border-radius: 8px;
     margin-bottom: 1rem;
     color: var(--text-primary, #333);
     transition:
@@ -413,7 +413,7 @@
     flex: 1;
     padding: 1rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-family:
       'Menlo', 'Monaco', 'Lucida Console', 'Liberation Mono',
       'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Courier New', monospace;
@@ -446,7 +446,7 @@
 
   .output-section.placeholder {
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     background-color: var(--bg-secondary, #f5f5f5);
   }
 
@@ -463,7 +463,7 @@
     flex: 1;
     background-color: var(--bg-secondary, #f5f5f5);
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 1rem;
     overflow-x: hidden;
     overflow-y: auto;
@@ -502,7 +502,7 @@
     background-color: #1976d2;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -523,7 +523,7 @@
   .advanced-section {
     margin-bottom: 1rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     overflow: hidden;
     transition: border-color 0.3s ease;
   }
@@ -616,7 +616,7 @@
   .preset-select {
     padding: 0.5rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     background-color: var(--bg-primary, white);
     color: var(--text-primary, #333);
@@ -638,7 +638,7 @@
     padding: 1rem;
     background-color: var(--bg-secondary, #e3f2fd);
     border: 1px solid var(--border-color, #90caf9);
-    border-radius: 4px;
+    border-radius: 8px;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;

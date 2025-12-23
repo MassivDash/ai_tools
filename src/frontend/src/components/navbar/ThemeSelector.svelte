@@ -103,7 +103,7 @@
     padding: 0.25rem;
     background-color: var(--md-surface-variant);
     border: 1px solid var(--md-outline-variant);
-    border-radius: 12px;
+    border-radius: 8px;
     transition:
       background-color 0.3s ease,
       border-color 0.3s ease;

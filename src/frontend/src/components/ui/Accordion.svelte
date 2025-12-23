@@ -35,7 +35,7 @@
 <style>
   .accordion {
     border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 4px;
+    border-radius: 8px;
     margin-bottom: 1rem;
     background-color: var(--bg-primary, #fff);
     transition:

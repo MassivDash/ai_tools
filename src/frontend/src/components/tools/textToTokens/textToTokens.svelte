@@ -154,7 +154,7 @@
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     font-family: inherit;
     background-color: var(--bg-primary, white);
@@ -182,7 +182,7 @@
     background-color: var(--accent-color, #b12424);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -202,7 +202,7 @@
     margin-bottom: 1rem;
     padding: 0.5rem;
     background-color: var(--bg-secondary, #f0f0f0);
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 0.9rem;
     color: var(--text-secondary, #666);
   }
@@ -215,7 +215,7 @@
     padding: 0.75rem;
     background-color: rgba(255, 200, 200, 0.2);
     border: 1px solid rgba(255, 100, 100, 0.5);
-    border-radius: 4px;
+    border-radius: 8px;
     color: var(--accent-color, #c33);
     margin-bottom: 1rem;
     transition:

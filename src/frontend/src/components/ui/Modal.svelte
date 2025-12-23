@@ -121,7 +121,7 @@
     transition:
       color 0.2s,
       background-color 0.2s;
-    border-radius: 4px;
+    border-radius: 8px;
   }
 
   .close-button:hover {
