@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ToolInfo } from '../types'
+  import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
   export let enabledTools: string[] = []
   export let onToggle: (tool: string) => void
@@ -69,10 +70,22 @@
   {:else}
     <div class="tools-grid">
       {#each sortedCategories as category}
+        <!-- Get icon from the first tool in this category -->
+        {@const firstToolType = Object.keys(categoryGroups[category])[0]}
+        {@const categoryIcon = categoryGroups[category][firstToolType][0].icon}
+
         <div class="tool-category">
           <h4 class="category-header">
-            {category.charAt(0).toUpperCase() +
-              category.slice(1).replace('_', ' ')}
+            <MaterialIcon
+              name={categoryIcon}
+              width="20"
+              height="20"
+              class="category-icon"
+            />
+            <span>
+              {category.charAt(0).toUpperCase() +
+                category.slice(1).replace('_', ' ')}
+            </span>
           </h4>
           <div class="category-tools">
             {#each Object.entries(categoryGroups[category]) as [toolType, tools] (toolType)}
@@ -111,19 +124,22 @@
   .tools-config {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
     margin-bottom: 2rem;
   }
 
   .section-label {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: 1rem;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .section-description {
-    margin: -0.5rem 0 0 0;
-    font-size: 0.9rem;
+    margin: -1rem 0 0 0;
+    font-size: 0.95rem;
     color: var(--text-secondary);
   }
 
@@ -131,67 +147,103 @@
   .no-tools {
     font-style: italic;
     color: var(--text-secondary);
-    padding: 1rem;
+    padding: 2rem;
+    text-align: center;
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 8px;
   }
 
   .tools-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1.5rem;
-    margin-top: 0.5rem;
+    margin-top: 1rem;
     align-items: start;
   }
 
   .tool-category {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0;
+    background: var(--bg-primary, #ffffff);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    overflow: hidden;
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .tool-category:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: var(--accent-color-alpha, rgba(33, 150, 243, 0.3));
   }
 
   .category-header {
     margin: 0;
-    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    font-weight: 600;
+    background-color: var(--bg-secondary, #f8f9fa);
     border-bottom: 1px solid var(--border-color, #e0e0e0);
-    padding-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
+
+  /* Target the icon specifically if needed, but flex handles alignment */
 
   .category-tools {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
   }
 
   .tool-item {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    padding-left: 0.5rem;
+    padding: 0.75rem 1rem;
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid transparent;
+  }
+
+  .tool-item:not(:last-child) {
+    border-bottom: 1px solid var(--border-color-light, #f0f0f0);
+  }
+
+  .tool-item:hover {
+    background-color: var(--bg-tertiary, #fafafa);
   }
 
   .tool-checkbox {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     cursor: pointer;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 1rem;
     color: var(--text-primary);
   }
 
   .tool-checkbox input {
     cursor: pointer;
-    width: 1.1rem;
-    height: 1.1rem;
+    width: 1.25rem;
+    height: 1.25rem;
     accent-color: var(--accent-color, #2196f3);
+    margin: 0;
+  }
+
+  .tool-name {
+    flex: 1;
   }
 
   .tool-description {
     font-size: 0.85rem;
     color: var(--text-secondary);
-    margin-left: 1.8rem; /* Align with text start */
-    line-height: 1.4;
+    margin-left: 2rem; /* Align with text start (checkbox width + gap) */
+    line-height: 1.5;
   }
 </style>
