@@ -2,6 +2,7 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Button from '../ui/Button.svelte'
   import type { Conversation } from './types'
 
   export let currentConversationId: string | undefined
@@ -103,16 +104,22 @@
   <div class="header">
     <h2>History</h2>
     <div class="actions">
-      <button class="new-chat-btn" on:click={handleNewChat} title="New Chat">
-        <MaterialIcon name="plus" width="24" height="24" />
-      </button>
-      <button
-        class="close-btn"
-        on:click={() => dispatch('close')}
+      <Button
+        variant="info"
+        class="sidebar-icon-btn button-icon-only"
+        onclick={handleNewChat}
+        title="New Chat"
+      >
+        <MaterialIcon name="plus" width="20" height="20" />
+      </Button>
+      <Button
+        variant="info"
+        class="sidebar-icon-btn button-icon-only"
+        onclick={() => dispatch('close')}
         title="Close History"
       >
-        <MaterialIcon name="chevron-left" width="24" height="24" />
-      </button>
+        <MaterialIcon name="chevron-left" width="20" height="20" />
+      </Button>
     </div>
   </div>
 
@@ -203,6 +210,8 @@
     border-right: 1px solid var(--border-color, #e0e0e0);
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
     z-index: 20;
     display: flex;
     flex-direction: column;
@@ -232,25 +241,6 @@
     overflow-y: auto;
   }
 
-  .new-chat-btn,
-  .close-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary, #666);
-    padding: 4px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .new-chat-btn:hover,
-  .close-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: var(--primary-color, #2196f3);
-  }
-
   .list {
     display: flex;
     flex-direction: column;
@@ -268,11 +258,11 @@
   }
 
   .item:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background-color: var(--bg-tertiary, #fafafa);
   }
 
   .item.active {
-    background: rgba(33, 150, 243, 0.1);
+    background-color: var(--bg-tertiary, #fafafa);
     border-left: 3px solid var(--primary-color, #2196f3);
   }
 
@@ -357,5 +347,13 @@
     text-align: center;
     color: var(--text-secondary, #999);
     font-size: 0.9rem;
+  }
+
+  :global(.sidebar-icon-btn.button-icon-only) {
+    min-width: 2rem !important;
+    min-height: 2rem !important;
+    padding: 0 !important;
+    width: 2rem;
+    height: 2rem;
   }
 </style>

@@ -5,6 +5,9 @@
   import PdfToMarkdown from '../pdfToMarkdown/pdfToMarkdown.svelte'
   import TextToTokens from '../textToTokens/textToTokens.svelte'
   import UrlToMarkdown from '../urlToMarkdown/urlToMarkdown.svelte'
+  import Card from '../../ui/Card.svelte'
+  import Button from '../../ui/Button.svelte'
+  import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
   type ToolType =
     | 'url-to-markdown'
@@ -22,38 +25,38 @@
       id: 'url-to-markdown' as ToolType,
       name: 'URL to Markdown',
       description: 'Convert web pages to markdown format',
-      icon: '🔗'
+      icon: 'link-variant'
     },
     {
       id: 'html-to-markdown' as ToolType,
       name: 'HTML to Markdown',
       description: 'Paste HTML and convert to markdown',
-      icon: '📄'
+      icon: 'language-html'
     },
     {
       id: 'json-to-toon' as ToolType,
       name: 'JSON to TOON',
       description: 'Convert JSON to TOON format for LLMs',
-      icon: '🔀'
+      icon: 'code-json'
     },
     {
       id: 'parquet-to-txt' as ToolType,
       name: 'Parquet to TXT',
       description:
         'Combine and convert parquet files to text for Imatrix Quantization',
-      icon: '📊'
+      icon: 'table-large'
     },
     {
       id: 'pdf-to-markdown' as ToolType,
       name: 'PDF to Markdown',
       description: 'Upload PDF files and convert to markdown',
-      icon: '📑'
+      icon: 'file-pdf-box'
     },
     {
       id: 'text-to-tokens' as ToolType,
       name: 'Text to Tokens',
       description: 'Count tokens in any text using GPT-2 tokenizer',
-      icon: '🔢'
+      icon: 'abacus'
     }
   ]
 
@@ -76,22 +79,27 @@
     <div class="tools-grid">
       {#each tools as tool}
         <button
-          class="tool-card"
+          class="tool-card-wrapper"
           onclick={() => selectTool(tool.id)}
           type="button"
         >
-          <div class="tool-icon">{tool.icon}</div>
-          <h3 class="tool-name">{tool.name}</h3>
-          <p class="tool-description">{tool.description}</p>
+          <Card class="tool-card-content" variant="elevated">
+            <div class="tool-icon-wrapper">
+              <MaterialIcon name={tool.icon} width="48" height="48" />
+            </div>
+            <h3 class="tool-name">{tool.name}</h3>
+            <p class="tool-description">{tool.description}</p>
+          </Card>
         </button>
       {/each}
     </div>
   {:else}
     <div class="tool-container">
       <div class="tool-header">
-        <button onclick={closeTool} class="back-button" type="button">
-          ← Back to Tools
-        </button>
+        <Button variant="secondary" onclick={closeTool}>
+          <MaterialIcon name="arrow-left" width="20" height="20" />
+          Back to Tools
+        </Button>
         <h3>
           {tools.find((t) => t.id === selectedTool)?.name || 'Tool'}
         </h3>
@@ -116,11 +124,13 @@
 </div>
 
 <style>
+  /* Removed old tool-card styles as Card component handles base styles */
   .tool-switcher {
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem 1rem;
+    margin-bottom: 10rem;
   }
 
   .tools-header {
@@ -131,110 +141,99 @@
   .tools-header h2 {
     font-size: 2.5rem;
     margin: 0 0 0.5rem 0;
-    color: var(--text-primary, #100f0f);
-    transition: color 0.3s ease;
+    color: var(--md-on-surface);
   }
 
   .subtitle {
     font-size: 1.1rem;
-    color: var(--text-secondary, #666);
+    color: var(--md-on-surface-variant);
     margin: 0;
-    transition: color 0.3s ease;
   }
 
   .tools-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
+    row-gap: 4rem;
     margin-top: 2rem;
   }
 
-  .tool-card {
-    background: var(--bg-primary, white);
-    border: 2px solid var(--border-color, #e0e0e0);
-    border-radius: 8px;
-    padding: 2rem;
+  /* Interactive wrapper for Card */
+  .tool-card-wrapper {
+    background: none;
+    border: none;
+    padding: 0;
     cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
+    text-align: inherit;
+    width: 100%;
+    height: 100%;
+    display: flex; /* To make card fill height */
+  }
+
+  .tool-card-wrapper:hover :global(.card) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px -4px var(--md-shadow, rgba(0, 0, 0, 0.1));
+    border-color: var(--md-primary);
+  }
+
+  :global(.tool-card-content) {
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
     gap: 1rem;
+    justify-content: center;
+    min-height: 200px;
   }
 
-  .tool-card:hover {
-    border-color: var(--accent-color, #b12424);
-    transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(177, 36, 36, 0.2);
-  }
-
-  .tool-card:active {
-    transform: translateY(-2px);
-  }
-
-  .tool-icon {
-    font-size: 3rem;
+  .tool-icon-wrapper {
+    color: var(--md-primary);
     margin-bottom: 0.5rem;
+    padding: 1rem;
+    background-color: var(--md-primary-container);
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .tool-name {
     margin: 0;
-    font-size: 1.5rem;
-    color: var(--text-primary, #100f0f);
-    transition: color 0.3s ease;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--md-on-surface);
   }
 
   .tool-description {
     margin: 0;
-    color: var(--text-secondary, #666);
-    font-size: 0.95rem;
+    color: var(--md-on-surface-variant);
+    font-size: 0.9rem;
     line-height: 1.5;
-    transition: color 0.3s ease;
   }
 
   .tool-container {
-    background: var(--bg-primary, white);
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
+    background: var(--md-surface);
+    border-radius: 12px;
     padding: 2rem;
-    box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
-    transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease;
+    box-shadow: 0 2px 8px -2px var(--md-shadow);
   }
 
   .tool-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
     margin-bottom: 2rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border-color, #f0f0f0);
-    transition: border-color 0.3s ease;
-  }
-
-  .back-button {
-    padding: 0.5rem 1rem;
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--text-secondary, #666);
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .back-button:hover {
-    background-color: var(--bg-tertiary, #e8e8e8);
-    color: var(--text-primary, #333);
+    border-bottom: 1px solid var(--md-outline-variant);
   }
 
   .tool-header h3 {
     margin: 0;
-    font-size: 1.8rem;
-    color: var(--text-primary, #100f0f);
-    transition: color 0.3s ease;
+    font-size: 1.5rem;
+    color: var(--md-on-surface);
+    font-weight: 500;
   }
 
   .tool-content {
@@ -244,15 +243,6 @@
   @media screen and (max-width: 768px) {
     .tools-header h2 {
       font-size: 2rem;
-    }
-
-    .tools-grid {
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-    }
-
-    .tool-card {
-      padding: 1.5rem;
     }
 
     .tool-container {
