@@ -295,7 +295,7 @@
   }
 
   .terminal-sidebar {
-    width: 70%;
+    width: 60%;
     height: 100%;
     background-color: #1e1e1e;
     transform: translateX(-100%);
@@ -306,6 +306,7 @@
     display: flex;
     flex-direction: column;
     position: absolute;
+    border-radius: 8px;
     left: -2px;
     top: 0;
     bottom: 0;

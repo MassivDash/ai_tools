@@ -592,9 +592,10 @@
 
 <style>
   .config-panel {
-    width: 70%;
+    width: 60%;
     height: 100%;
     background-color: var(--bg-primary, #fff);
+    border-radius: 8px;
     border-left: 1px solid var(--border-color, #ddd);
     transform: translateX(100%);
     transition:
@@ -620,6 +621,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
     background-color: var(--bg-secondary, #f9f9f9);
     transition:

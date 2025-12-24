@@ -217,7 +217,7 @@
 
 <style>
   .config-panel {
-    width: 70%;
+    width: 60%;
     height: 100%;
     background-color: var(--bg-primary, #fff);
     transform: translateX(100%);
@@ -245,6 +245,8 @@
     padding: 1rem;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
     background-color: var(--bg-secondary, #f9f9f9);
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
     transition:
       border-color 0.3s ease,
       background-color 0.3s ease;
@@ -256,6 +258,7 @@
     font-size: 1.2rem;
     font-weight: 600;
     transition: color 0.3s ease;
+    border-radius: 8px;
   }
 
   .close-button {
