@@ -100,6 +100,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::WebsiteCheck,
             ToolType::Weather,
             ToolType::Currency,
+            ToolType::Stock,
             ToolType::GitHubPublic,
             ToolType::GitHubAuthenticated,
         ],

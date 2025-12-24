@@ -9,6 +9,7 @@ pub enum ToolType {
     WebsiteCheck,
     Weather,
     Currency,
+    Stock,
     GitHubPublic,
     GitHubAuthenticated,
     // Future tools can be added here
