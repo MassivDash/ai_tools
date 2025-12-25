@@ -41,7 +41,7 @@ test('selects tool when tool card is clicked', async () => {
 
   await waitFor(
     () => {
-      const backButton = screen.queryByText('← Back to Tools')
+      const backButton = screen.queryByText('Back to Tools')
       // Tool should be selected, showing back button
       expect(backButton).toBeTruthy()
     },
@@ -57,7 +57,7 @@ test('shows back button when tool is selected', async () => {
 
   await waitFor(
     () => {
-      const backButton = screen.queryByText('← Back to Tools')
+      const backButton = screen.queryByText('Back to Tools')
       expect(backButton).toBeTruthy()
     },
     { timeout: 2000 }
@@ -73,18 +73,18 @@ test('returns to tool list when back button is clicked', async () => {
 
   await waitFor(
     () => {
-      expect(screen.queryByText('← Back to Tools')).toBeTruthy()
+      expect(screen.queryByText('Back to Tools')).toBeTruthy()
     },
     { timeout: 2000 }
   )
 
   // Click back button
-  const backButton = screen.getByText('← Back to Tools')
+  const backButton = screen.getByText('Back to Tools')
   fireEvent.click(backButton)
 
   await waitFor(
     () => {
-      expect(screen.queryByText('← Back to Tools')).not.toBeInTheDocument()
+      expect(screen.queryByText('Back to Tools')).not.toBeInTheDocument()
       // All tool cards should be visible again
       expect(screen.getByText('URL to Markdown')).toBeTruthy()
       expect(screen.getByText('HTML to Markdown')).toBeTruthy()
@@ -159,18 +159,18 @@ test('can switch between different tools', async () => {
 
   await waitFor(
     () => {
-      expect(screen.queryByText('← Back to Tools')).toBeTruthy()
+      expect(screen.queryByText('Back to Tools')).toBeTruthy()
     },
     { timeout: 2000 }
   )
 
   // Go back
-  const backButton = screen.getByText('← Back to Tools')
+  const backButton = screen.getByText('Back to Tools')
   fireEvent.click(backButton)
 
   await waitFor(
     () => {
-      expect(screen.queryByText('← Back to Tools')).not.toBeInTheDocument()
+      expect(screen.queryByText('Back to Tools')).not.toBeInTheDocument()
     },
     { timeout: 2000 }
   )
@@ -191,11 +191,11 @@ test('renders tool icons', () => {
   render(ToolSwitcher)
 
   // Icons are emojis, so we check for the tool cards
-  const toolCards = document.querySelectorAll('.tool-card')
+  const toolCards = document.querySelectorAll('.tool-card-wrapper')
   expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens, Parquet to TXT
 
   toolCards.forEach((card) => {
-    const icon = card.querySelector('.tool-icon')
+    const icon = card.querySelector('.tool-icon-wrapper')
     expect(icon).toBeTruthy()
   })
 })
@@ -203,11 +203,11 @@ test('renders tool icons', () => {
 test('tool cards have correct structure', () => {
   const { container } = render(ToolSwitcher)
 
-  const toolCards = container.querySelectorAll('.tool-card')
+  const toolCards = container.querySelectorAll('.tool-card-wrapper')
   expect(toolCards.length).toBe(6) // URL to Markdown, HTML to Markdown, JSON to TOON, PDF to Markdown, Text to Tokens, Parquet to TXT
 
   toolCards.forEach((card) => {
-    expect(card.querySelector('.tool-icon')).toBeTruthy()
+    expect(card.querySelector('.tool-icon-wrapper')).toBeTruthy()
     expect(card.querySelector('.tool-name')).toBeTruthy()
     expect(card.querySelector('.tool-description')).toBeTruthy()
   })
