@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Chart from '../../ui/Chart.svelte'
   import type { ChatMessage } from '../types'
   import { renderMarkdown } from '../utils/markdown'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
@@ -195,6 +196,54 @@
     if (typeof content !== 'string') return false
     return content.includes('❌') || content.includes('failed')
   }
+
+  // Helper to parse content for charts
+  const parseContentWithCharts = (content: string) => {
+    if (typeof content !== 'string') return [{ type: 'text', content }]
+
+    const parts = []
+    const regex = /```json-chart\n([\s\S]*?)\n```/g
+    let lastIndex = 0
+    let match
+
+    while ((match = regex.exec(content)) !== null) {
+      // Add text before chart
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: content.slice(lastIndex, match.index)
+        })
+      }
+
+      // Add chart
+      try {
+        const chartData = JSON.parse(match[1])
+        parts.push({
+          type: 'chart',
+          data: chartData
+        })
+      } catch (e) {
+        console.error('Failed to parse chart data:', e)
+        // Fallback: treat as normal text if parsing fails
+        parts.push({
+          type: 'text',
+          content: match[0]
+        })
+      }
+
+      lastIndex = regex.lastIndex
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push({
+        type: 'text',
+        content: content.slice(lastIndex)
+      })
+    }
+
+    return parts
+  }
 </script>
 
 {#if message.role === 'status'}
@@ -303,7 +352,13 @@
         {#if Array.isArray(message.content)}
           {#each message.content as part}
             {#if part.type === 'text'}
-              {@html renderMarkdown(part.text)}
+              {#each parseContentWithCharts(part.text) as subpart}
+                {#if subpart.type === 'text'}
+                  {@html renderMarkdown(subpart.content)}
+                {:else if subpart.type === 'chart'}
+                  <Chart data={subpart.data} />
+                {/if}
+              {/each}
             {:else if part.type === 'image_url'}
               <img
                 src={part.image_url.url}
@@ -313,7 +368,13 @@
             {/if}
           {/each}
         {:else}
-          {@html renderMarkdown(message.content)}
+          {#each parseContentWithCharts(message.content) as part}
+            {#if part.type === 'text'}
+              {@html renderMarkdown(part.content)}
+            {:else if part.type === 'chart'}
+              <Chart data={part.data} />
+            {/if}
+          {/each}
         {/if}
         <span class="typing-indicator-inline">
           <span></span>
@@ -324,7 +385,13 @@
         {#if Array.isArray(message.content)}
           {#each message.content as part}
             {#if part.type === 'text'}
-              {@html renderMarkdown(part.text)}
+              {#each parseContentWithCharts(part.text) as subpart}
+                {#if subpart.type === 'text'}
+                  {@html renderMarkdown(subpart.content)}
+                {:else if subpart.type === 'chart'}
+                  <Chart data={subpart.data} />
+                {/if}
+              {/each}
             {:else if part.type === 'image_url'}
               <img
                 src={part.image_url.url}
@@ -334,7 +401,13 @@
             {/if}
           {/each}
         {:else}
-          {@html renderMarkdown(message.content)}
+          {#each parseContentWithCharts(message.content) as part}
+            {#if part.type === 'text'}
+              {@html renderMarkdown(part.content)}
+            {:else if part.type === 'chart'}
+              <Chart data={part.data} />
+            {/if}
+          {/each}
         {/if}
       {/if}
     </div>

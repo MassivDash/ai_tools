@@ -45,6 +45,9 @@ export default [
         HTMLInputElement: 'readonly',
         HTMLSelectElement: 'readonly',
         HTMLTextAreaElement: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        MutationObserver: 'readonly',
+        getComputedStyle: 'readonly',
         // Event types
         Event: 'readonly',
         EventListener: 'readonly',
