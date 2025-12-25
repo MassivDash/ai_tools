@@ -60,7 +60,7 @@ The `ToolSelector` builds system prompts that inform the LLM about available too
 
 ### 1. Create a New Tool File
 
-Create a new file in `src/backend/src/api/agent/tools/` (e.g., `my_tool.rs`):
+Create a new file in the appropriate category directory under `src/backend/src/api/agent/tools/` (e.g., `financial/my_tool.rs`):
 
 ```rust
 use crate::api::agent::tools::agent_tool::{AgentTool, ToolMetadata};
@@ -137,17 +137,29 @@ impl AgentTool for MyTool {
 }
 ```
 
-### 2. Register the Tool in mod.rs
+Add your tool module to the corresponding category's `mod.rs` (e.g., `src/backend/src/api/agent/tools/financial/mod.rs`).
 
-Add your tool module to `src/backend/src/api/agent/tools/mod.rs`:
+Then update the `register` function in that file:
 
 ```rust
-pub mod my_tool;
+pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
+    // ... other tools ...
+
+    if config.enabled_tools.contains(&ToolType::MyTool) {
+        let tool = MyTool::new();
+        // Check availability if needed
+        if tool.is_available() {
+            if let Err(e) = registry.register(Arc::new(tool)) {
+                println!("⚠️ Failed to register My Tool: {}", e);
+            }
+        }
+    }
+}
 ```
 
 ### 3. Add Tool Type to Enum
 
-Add your tool to the `ToolType` enum in `src/backend/src/api/agent/types.rs`:
+Add your tool to the `ToolType` enum in `src/backend/src/api/agent/core/types.rs`:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -159,50 +171,24 @@ pub enum ToolType {
 }
 ```
 
-### 4. Register Tool in Chat Endpoints
+### 4. Verify Category Registration
 
-In `src/backend/src/api/agent/chat.rs`, add registration logic in **both** `agent_chat` and `agent_chat_stream` functions:
+Ensure that your category module is registered in `src/backend/src/api/agent/tools/mod.rs` inside the `register_all` function:
 
 ```rust
-// Register your tool if enabled
-if config.enabled_tools.contains(&ToolType::MyTool) {
-    let my_tool = MyTool::new();
-    if let Err(e) = tool_registry.register(Arc::new(my_tool)) {
-        println!("⚠️ Failed to register My Tool: {}", e);
-    }
+pub fn register_all(registry: &mut ToolRegistry, config: &AgentConfig, context: &RegisterContext) {
+    // ...
+    financial::register(registry, config); // Ensure your category is here
+    // ...
 }
 ```
 
-**Important**: ChromaDB is a special case - it's registered based on `config.chromadb` (not `enabled_tools`), and requires a configuration object.
+### 5. Frontend Registration (Optional)
 
-### 5. Import Your Tool
+Tools are dynamically loaded by the frontend.
 
-Add the import at the top of `chat.rs`:
-
-```rust
-use crate::api::agent::tools::{
-    chromadb::ChromaDBTool,
-    website_check::WebsiteCheckTool,
-    my_tool::MyTool, // Add your tool
-    registry::ToolRegistry,
-    selector::ToolSelector,
-};
-```
-
-### 6. (Optional) Add Tool Metadata for Frontend
-
-If you want your tool to appear in the frontend tool list, add it to the `/api/agent/tools` endpoint in `src/backend/src/api/agent/config.rs`:
-
-```rust
-ToolInfo {
-    id: "unique_id".to_string(), // Must match your tool's metadata.id
-    name: "human readable name".to_string(), // Must match your tool's metadata.name
-    tool_type: ToolType::MyTool,
-    description: "Tool description for UI".to_string(),
-    category: ToolCategory::Utility, // Choose appropriate category
-    icon: ToolCategory::Utility.icon_name().to_string(),
-},
-```
+- **Icons**: Update `src/frontend/src/components/agent/utils/toolIcons.ts` to map your new tool name/type to a Material Design icon.
+- **Display**: The `ToolsConfigSection.svelte` component automatically displays tools based on the list returned by the backend.
 
 ## Best Practices
 

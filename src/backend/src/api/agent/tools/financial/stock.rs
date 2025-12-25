@@ -145,9 +145,15 @@ impl StockTool {
                 entries.len().min(limit_val)
             };
 
-            result.push_str(&format!("📅 **Recent {} entries:**\n\n", display_count));
+            // Take the recent ones, but then reverse them to show in chronological order (Oldest -> Newest)
+            let recent_entries: Vec<_> = entries.iter().take(display_count).rev().collect();
 
-            for (date, values) in entries.iter().take(display_count) {
+            result.push_str(&format!(
+                "📅 **Recent {} entries (Chronological):**\n\n",
+                display_count
+            ));
+
+            for (date, values) in recent_entries {
                 let open = values
                     .get("1. open")
                     .and_then(|v| v.as_str())
@@ -216,7 +222,7 @@ impl AgentTool for StockTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "stock_data",
-            "description": "Fetch stock market data (OHLCV) for a given stock symbol. Supports daily, weekly, and monthly time series data. Use this to answer questions about stock prices, performance over time, etc. IMPORTANT: When the user asks for charts, use this tool to get data, then format your response as a `json-chart` code block.",
+            "description": "Fetch stock market data (OHLCV) for a given stock symbol. CHOOSE THE BEST FUNCTION based on the time range requested:\n- **TIME_SERIES_DAILY**: Use for recent data (last few days, last week, up to 2 months).\n- **TIME_SERIES_WEEKLY**: Use for medium-term data (last 2 months to 2 years).\n- **TIME_SERIES_MONTHLY**: Use for long-term data (over 2 years).\n\nExamples:\n- 'last 7 days': TIME_SERIES_DAILY\n- 'last 10 weeks': TIME_SERIES_WEEKLY\n- 'last 5 years': TIME_SERIES_MONTHLY\n\nWhen chart is requested, use this data to generate a json-chart.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -238,7 +244,7 @@ impl AgentTool for StockTool {
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "Limit the number of results returned (e.g. 5 for last 5 days/weeks). Default is 10. Use 0 for all available.",
+                        "description": "Limit the number of results returned (i.e. 'last 5 days' = 5). Default is 10. Use 0 for all available.",
                         "default": 10
                     }
                 },
@@ -254,7 +260,8 @@ impl AgentTool for StockTool {
         let symbol = args
             .get("symbol")
             .and_then(|v| v.as_str())
-            .context("Missing required 'symbol' parameter")?;
+            .context("Missing required 'symbol' parameter")?
+            .to_uppercase();
 
         let function = args
             .get("function")
@@ -280,7 +287,7 @@ impl AgentTool for StockTool {
             ));
         }
 
-        let data = self.fetch_stock_data(function, symbol, outputsize).await?;
+        let data = self.fetch_stock_data(function, &symbol, outputsize).await?;
         let result = self.format_stock_response(&data, function, limit)?;
 
         Ok(ToolCallResult {

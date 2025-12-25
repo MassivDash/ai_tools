@@ -103,6 +103,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::Stock,
             ToolType::GitHubPublic,
             ToolType::GitHubAuthenticated,
+            ToolType::Crypto,
         ],
         // Provide dummy config for ChromaDB so it attempts registration
         // It will only succeed if the code handles it, but connection check might fail it effectively.

@@ -65,7 +65,7 @@ export const getToolIconFromMetadata = async (
     }
   } catch (err) {
     // Fall back to pattern matching if fetch fails
-    console.warn(
+    console.error(
       '⚠️ Could not fetch tool metadata, using pattern matching:',
       err
     )
@@ -95,6 +95,9 @@ export const getToolIcon = (toolName: string | undefined): string => {
   }
   if (name.includes('financial') || name.includes('sql_query')) {
     return 'currency-usd'
+  }
+  if (name.includes('crypto') || name.includes('bitcoin')) {
+    return 'bitcoin'
   }
   if (
     name.includes('chromadb') ||

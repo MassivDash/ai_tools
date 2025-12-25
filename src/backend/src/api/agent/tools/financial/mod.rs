@@ -1,7 +1,9 @@
+pub mod crypto;
 pub mod currency;
 pub mod stock;
 
 use crate::api::agent::core::types::{AgentConfig, ToolType};
+use crate::api::agent::tools::financial::crypto::CryptoTool;
 use crate::api::agent::tools::financial::currency::CurrencyTool;
 use crate::api::agent::tools::financial::stock::StockTool;
 use crate::api::agent::tools::framework::agent_tool::AgentTool;
@@ -13,6 +15,17 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         let tool = CurrencyTool::new();
         if let Err(e) = registry.register(Arc::new(tool)) {
             println!("⚠️ Failed to register Currency tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::Crypto) {
+        let tool = CryptoTool::new();
+        if tool.is_available() {
+            if let Err(e) = registry.register(Arc::new(tool)) {
+                println!("⚠️ Failed to register Crypto tool: {}", e);
+            }
+        } else {
+            println!("⚠️ Crypto tool unavailable: ALPHA_ADVANTAGE_KEY not set");
         }
     }
 

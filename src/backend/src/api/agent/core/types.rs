@@ -12,6 +12,7 @@ pub enum ToolType {
     Stock,
     GitHubPublic,
     GitHubAuthenticated,
+    Crypto,
     // Future tools can be added here
 }
 
