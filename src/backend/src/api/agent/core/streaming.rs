@@ -3,6 +3,7 @@ use crate::api::agent::core::types::{
     MessageRole, ToolCallResult,
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
+
 use crate::api::agent::tools::framework::registry::ToolRegistry;
 use anyhow::Result;
 use reqwest::Client;
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use super::agent_loop::AgentLoopConfig;
+use super::utils::{format_tool_status_message, StatusType};
 
 /// Execute agent loop with streaming support
 /// Sends events through the provided channel
@@ -202,22 +204,42 @@ pub async fn execute_agent_loop_streaming(
             for tool_call in tool_calls {
                 let tool_name = tool_call.function.name.clone();
 
+                // Get tool metadata for better status messages
+                let tool_metadata = tool_registry
+                    .get_tool_by_name(&tool_name)
+                    .map(|t| t.metadata().clone());
+                let display_name = tool_metadata
+                    .as_ref()
+                    .map(|m| m.name.clone())
+                    .unwrap_or_else(|| tool_name.clone());
+
                 // Send tool call event
                 let _ = tx.send(Ok(AgentStreamEvent::ToolCall {
                     tool_name: tool_name.clone(),
+                    display_name: Some(display_name.clone()),
                     arguments: tool_call.function.arguments.clone(),
                 }));
 
                 // Send status update
+                let status_msg = format_tool_status_message(
+                    &display_name,
+                    tool_metadata.as_ref(),
+                    StatusType::Calling,
+                );
                 let _ = tx.send(Ok(AgentStreamEvent::Status {
                     status: "calling_tool".to_string(),
-                    message: Some(format!("🔧 Calling {}...", tool_name)),
+                    message: Some(status_msg),
                 }));
 
                 // Send status that tool is executing
+                let status_msg = format_tool_status_message(
+                    &display_name,
+                    tool_metadata.as_ref(),
+                    StatusType::Executing,
+                );
                 let _ = tx.send(Ok(AgentStreamEvent::Status {
                     status: "tool_executing".to_string(),
-                    message: Some(format!("⚙️ Executing {}...", tool_name)),
+                    message: Some(status_msg),
                 }));
 
                 // Execute tool (status updates are sent before and after)
@@ -228,17 +250,19 @@ pub async fn execute_agent_loop_streaming(
                         // Send tool result first
                         let _ = tx.send(Ok(AgentStreamEvent::ToolResult {
                             tool_name: tool_call.function.name.clone(),
+                            display_name: Some(display_name.clone()),
                             success: true,
                             result: Some(result.result.clone()),
                         }));
                         // Then send completion status
+                        let status_msg = format_tool_status_message(
+                            &display_name,
+                            tool_metadata.as_ref(),
+                            StatusType::Complete(duration),
+                        );
                         let _ = tx.send(Ok(AgentStreamEvent::Status {
                             status: "tool_complete".to_string(),
-                            message: Some(format!(
-                                "✅ {} completed ({:.1}s)",
-                                tool_name,
-                                duration.as_secs_f64()
-                            )),
+                            message: Some(status_msg),
                         }));
                         tool_results.push(result.clone());
                     }
@@ -247,17 +271,19 @@ pub async fn execute_agent_loop_streaming(
                         // Send tool result (error) first
                         let _ = tx.send(Ok(AgentStreamEvent::ToolResult {
                             tool_name: tool_call.function.name.clone(),
+                            display_name: Some(display_name.clone()),
                             success: false,
                             result: Some(format!("Error: {}", e)),
                         }));
                         // Then send error status
+                        let status_msg = format_tool_status_message(
+                            &display_name,
+                            tool_metadata.as_ref(),
+                            StatusType::Error(duration),
+                        );
                         let _ = tx.send(Ok(AgentStreamEvent::Status {
                             status: "tool_error".to_string(),
-                            message: Some(format!(
-                                "❌ {} failed after {:.1}s",
-                                tool_name,
-                                duration.as_secs_f64()
-                            )),
+                            message: Some(status_msg),
                         }));
                         let error_result = ToolCallResult {
                             tool_name: tool_call.function.name.clone(),

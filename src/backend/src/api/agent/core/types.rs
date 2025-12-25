@@ -274,11 +274,15 @@ pub enum AgentStreamEvent {
     #[serde(rename = "tool_call")]
     ToolCall {
         tool_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
         arguments: String,
     },
     #[serde(rename = "tool_result")]
     ToolResult {
         tool_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
         success: bool,
         result: Option<String>,
     },

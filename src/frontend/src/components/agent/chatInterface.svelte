@@ -286,7 +286,7 @@
         messages.push({
           id: generateMessageId(),
           role: 'tool',
-          content: `Calling ${event.tool_name}...`,
+          content: `Calling ${event.display_name || event.tool_name}...`,
           timestamp: Date.now(),
           toolName: event.tool_name
         })
@@ -300,17 +300,18 @@
         const toolIndex = messages.findIndex(
           (m) => m.role === 'tool' && m.toolName === event.tool_name
         )
+        const nameToUse = event.display_name || event.tool_name || 'Tool'
         if (toolIndex >= 0) {
           messages[toolIndex].content = event.success
-            ? `✅ ${event.tool_name} completed`
-            : `❌ ${event.tool_name} failed: ${event.result || 'Unknown error'}`
+            ? `✅ ${nameToUse} completed`
+            : `❌ ${nameToUse} failed: ${event.result || 'Unknown error'}`
         } else {
           messages.push({
             id: generateMessageId(),
             role: 'tool',
             content: event.success
-              ? `✅ ${event.tool_name} completed`
-              : `❌ ${event.tool_name} failed: ${event.result || 'Unknown error'}`,
+              ? `✅ ${nameToUse} completed`
+              : `❌ ${nameToUse} failed: ${event.result || 'Unknown error'}`,
             timestamp: Date.now(),
             toolName: event.tool_name
           })

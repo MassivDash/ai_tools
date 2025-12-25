@@ -15,6 +15,7 @@ export interface AgentStreamEvent {
   status?: string
   message?: string
   tool_name?: string
+  display_name?: string
   arguments?: string
   success?: boolean
   result?: string
