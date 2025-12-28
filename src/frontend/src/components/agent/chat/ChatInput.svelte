@@ -44,6 +44,8 @@
     }
   }
 
+  import VoiceInput from './VoiceInput.svelte'
+
   const autoResize = () => {
     if (textareaElement) {
       textareaElement.style.height = 'auto'
@@ -351,6 +353,25 @@
         >
           <MaterialIcon name="file-pdf-box" width="20" height="20" />
         </button>
+
+        <VoiceInput
+          {loading}
+          onTranscript={(text) => {
+            onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
+          }}
+          onCommand={(command) => {
+            if (command === 'send') {
+              setTimeout(() => {
+                const cleanedInput = cleanInputMessage(inputMessage)
+                if (cleanedInput !== inputMessage) {
+                  onInputChange(cleanedInput)
+                }
+                onSend()
+                clearAttachments()
+              }, 100)
+            }
+          }}
+        />
       </div>
 
       <div class="send-button-wrapper">
