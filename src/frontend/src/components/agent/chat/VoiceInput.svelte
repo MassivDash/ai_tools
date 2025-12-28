@@ -26,7 +26,7 @@
 <div class="voice-input">
   <button
     type="button"
-    class="file-button voice-button"
+    class="voice-input-button"
     class:listening={speech.isListening}
     class:error={!!speech.error}
     onclick={speech.toggle}
@@ -40,9 +40,16 @@
         : speech.isListening
           ? 'microphone-off'
           : 'microphone'}
-      width="20"
-      height="20"
+      width="18"
+      height="18"
     />
+    <span class="label">
+      {speech.error
+        ? 'Error'
+        : speech.isListening
+          ? "Say 'execute' when finished"
+          : 'Dictate'}
+    </span>
   </button>
   {#if speech.error}
     <div class="error-tooltip">{speech.error}</div>
@@ -50,43 +57,51 @@
 </div>
 
 <style>
-  .file-button {
+  .voice-input-button {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border: none;
     background: transparent;
     border-radius: 8px;
     cursor: pointer;
     color: var(--text-secondary, #666);
     transition: all 0.2s ease;
-    padding: 0;
+    font-size: 0.9rem;
+    width: 100%;
+    justify-content: flex-start;
   }
 
-  .file-button:hover:not(:disabled) {
+  .voice-input-button:hover:not(:disabled) {
     background-color: var(--bg-secondary, #f5f5f5);
     color: var(--accent-color, #2196f3);
   }
 
-  .file-button:disabled {
+  .voice-input-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .voice-button.listening {
+  .voice-input-button.listening {
     color: #f44336;
-    animation: pulse 1.5s infinite;
+    background-color: rgba(244, 67, 54, 0.1);
+    animation: pulse 2s infinite;
   }
 
-  .voice-button.error {
+  .voice-input-button.error {
     color: #ff9800;
   }
 
   .voice-input {
     position: relative;
-    display: inline-block;
+    display: block;
+    width: 100%;
+  }
+
+  .label {
+    line-height: 1;
+    font-weight: 500;
   }
 
   .error-tooltip {
@@ -106,15 +121,12 @@
 
   @keyframes pulse {
     0% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+      box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
     }
     70% {
-      transform: scale(1.1);
-      box-shadow: 0 0 0 5px rgba(244, 67, 54, 0);
+      box-shadow: 0 0 0 6px rgba(244, 67, 54, 0);
     }
     100% {
-      transform: scale(1);
       box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
     }
   }

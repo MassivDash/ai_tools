@@ -353,25 +353,6 @@
         >
           <MaterialIcon name="file-pdf-box" width="20" height="20" />
         </button>
-
-        <VoiceInput
-          {loading}
-          onTranscript={(text) => {
-            onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
-          }}
-          onCommand={(command) => {
-            if (command === 'send') {
-              setTimeout(() => {
-                const cleanedInput = cleanInputMessage(inputMessage)
-                if (cleanedInput !== inputMessage) {
-                  onInputChange(cleanedInput)
-                }
-                onSend()
-                clearAttachments()
-              }, 100)
-            }
-          }}
-        />
       </div>
 
       <div class="send-button-wrapper">
@@ -393,6 +374,27 @@
           <MaterialIcon name="send" width="20" height="20" />
         </Button>
       </div>
+    </div>
+
+    <div class="voice-input-container">
+      <VoiceInput
+        {loading}
+        onTranscript={(text) => {
+          onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
+        }}
+        onCommand={(command) => {
+          if (command === 'send') {
+            setTimeout(() => {
+              const cleanedInput = cleanInputMessage(inputMessage)
+              if (cleanedInput !== inputMessage) {
+                onInputChange(cleanedInput)
+              }
+              onSend()
+              clearAttachments()
+            }, 100)
+          }
+        }}
+      />
     </div>
   </div>
 
@@ -526,6 +528,12 @@
     color: var(--text-primary, #100f0f);
   }
 
+  .voice-input-container {
+    padding: 0.5rem 0 0 0;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    margin-top: 0.5rem;
+  }
+
   .utility-bar {
     display: flex;
     align-items: center;
@@ -572,6 +580,7 @@
   .send-button-wrapper {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
   }
 
   @media screen and (max-width: 768px) {

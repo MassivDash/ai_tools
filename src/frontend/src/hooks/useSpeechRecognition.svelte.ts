@@ -54,14 +54,14 @@ export function useSpeechRecognition({
         console.error('Speech recognition error', event.error)
         isListening = false
         if (event.error === 'network') {
-            error = 'Network error: Check connection'
+          error = 'Network error: Check connection'
         } else if (event.error === 'not-allowed') {
-            error = 'Microphone access denied'
+          error = 'Microphone access denied'
         } else if (event.error === 'no-speech') {
-             // Ignore no-speech errors (common when silence)
-             return
+          // Ignore no-speech errors (common when silence)
+          return
         } else {
-            error = `Error: ${event.error}`
+          error = `Error: ${event.error}`
         }
         onError?.(event.error)
       }
@@ -88,7 +88,7 @@ export function useSpeechRecognition({
 
             // Notify complete transcript without command
             onTranscript(cleanTranscript, true)
-            
+
             // Trigger command
             stop()
             onCommand?.('send')
@@ -100,10 +100,10 @@ export function useSpeechRecognition({
     }
 
     try {
-        recognition.start()
+      recognition.start()
     } catch (e) {
-        console.error("Failed to start recognition", e)
-        error = 'Failed to start'
+      console.error('Failed to start recognition', e)
+      error = 'Failed to start'
     }
   }
 
@@ -119,7 +119,7 @@ export function useSpeechRecognition({
       return isListening
     },
     get error() {
-        return error
+      return error
     },
     toggle,
     start,
