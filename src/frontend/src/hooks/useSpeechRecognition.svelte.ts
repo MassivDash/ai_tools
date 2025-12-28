@@ -12,8 +12,12 @@ export function useSpeechRecognition({
 }: SpeechRecognitionOptions) {
   let isListening = $state(false)
   let recognition: any = $state(null)
-
   let error = $state<string | null>(null)
+  
+  // Check support immediately
+  const isSupported = 
+    typeof window !== 'undefined' && 
+    (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition)
 
   function toggle() {
     if (isListening) {
@@ -25,16 +29,16 @@ export function useSpeechRecognition({
 
   function start() {
     error = null
+    
+    if (!isSupported) {
+        error = 'Speech recognition not supported'
+        return
+    }
+
     if (!recognition) {
       const SpeechRecognition =
         (window as any).SpeechRecognition ||
         (window as any).webkitSpeechRecognition
-
-      if (!SpeechRecognition) {
-        error = 'Speech recognition not supported'
-        alert('Speech recognition is not supported in this browser.')
-        return
-      }
 
       recognition = new SpeechRecognition()
       recognition.continuous = true
@@ -120,6 +124,9 @@ export function useSpeechRecognition({
     },
     get error() {
       return error
+    },
+    get isSupported() {
+        return isSupported
     },
     toggle,
     start,
