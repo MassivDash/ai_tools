@@ -294,7 +294,7 @@ impl GitHubAuthenticatedTool {
             .context("Failed to parse notifications")
     }
 
-    async fn list_my_repos(&self) -> Result<serde_json::Value> {
+    async fn list_my_repos(&self, page: u32) -> Result<serde_json::Value> {
         if self.token.is_empty() {
             return Err(anyhow::anyhow!(
                 "GITHUB_TOKEN is required to list your repositories"
@@ -304,7 +304,12 @@ impl GitHubAuthenticatedTool {
         let response = self
             .client
             .get(url)
-            .query(&[("sort", "updated"), ("per_page", "10"), ("type", "owner")])
+            .query(&[
+                ("sort", "updated"),
+                ("per_page", "100"),
+                ("type", "owner"),
+                ("page", &page.to_string()),
+            ])
             .send()
             .await
             .context("Failed to fetch repositories")?;
@@ -321,6 +326,34 @@ impl GitHubAuthenticatedTool {
             .json()
             .await
             .context("Failed to parse repositories")
+    }
+
+    async fn list_org_repos(&self, org: &str, page: u32) -> Result<serde_json::Value> {
+        if self.token.is_empty() {
+            return Err(anyhow::anyhow!(
+                "GITHUB_TOKEN is required to list organization repositories"
+            ));
+        }
+        let url = format!("https://api.github.com/orgs/{}/repos", org);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("sort", "updated"),
+                ("per_page", "100"),
+                ("page", &page.to_string()),
+            ])
+            .send()
+            .await
+            .context("Failed to fetch organization repositories")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse organization repositories")
     }
 
     async fn check_workflow_runs(&self, owner: &str, repo: &str) -> Result<serde_json::Value> {
@@ -581,12 +614,14 @@ impl AgentTool for GitHubAuthenticatedTool {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["notifications", "list_my_repos", "actions", "issues", "events", "pulls"],
+                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls"],
                         "description": "The action to perform."
                     },
                     "owner": { "type": "string", "description": "Repository owner (optional for issues/pulls)." },
                     "repo": { "type": "string", "description": "Repository name (optional for issues/pulls)." },
-                    "username": { "type": "string", "description": "Username for events check." }
+                    "org": { "type": "string", "description": "Organization name (required for list_org_repos)." },
+                    "username": { "type": "string", "description": "Username for events check." },
+                    "page": { "type": "integer", "description": "Page number for pagination (default: 1)." }
                 },
                 "required": ["action"]
             }
@@ -616,13 +651,33 @@ impl AgentTool for GitHubAuthenticatedTool {
                 ),
                 Err(e) => format!("❌ Failed: {}", e),
             },
-            "list_my_repos" => match self.list_my_repos().await {
-                Ok(data) => format!(
-                    "📂 **Your Managed Repositories**\n\n{}",
-                    self.format_repo_list(&data)
-                ),
-                Err(e) => format!("❌ Failed: {}", e),
-            },
+            "list_my_repos" => {
+                let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                match self.list_my_repos(page).await {
+                    Ok(data) => format!(
+                        "📂 **Your Managed Repositories (Page {})**\n\n{}",
+                        page,
+                        self.format_repo_list(&data)
+                    ),
+                    Err(e) => format!("❌ Failed: {}", e),
+                }
+            }
+            "list_org_repos" => {
+                let org = args
+                    .get("org")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("'org' is required for list_org_repos"))?;
+                let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                match self.list_org_repos(org, page).await {
+                    Ok(data) => format!(
+                        "🏢 **Repositories for Organization: {} (Page {})**\n\n{}",
+                        org,
+                        page,
+                        self.format_repo_list(&data)
+                    ),
+                    Err(e) => format!("❌ Failed: {}", e),
+                }
+            }
             "actions" => {
                 let owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
                 let repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
