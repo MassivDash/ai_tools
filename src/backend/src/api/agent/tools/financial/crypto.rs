@@ -113,6 +113,7 @@ impl CryptoTool {
         function: &str,
         from_symbol: &str,
         to_symbol: &str,
+        limit: Option<usize>,
     ) -> Result<String> {
         let mut result = String::new();
 
@@ -204,7 +205,15 @@ impl CryptoTool {
             if let Some(time_series) = data.get(series_key).and_then(|ts| ts.as_object()) {
                 let mut entries: Vec<_> = time_series.iter().collect();
                 entries.sort_by(|a, b| b.0.cmp(a.0)); // Sort by date descending to get most recent
-                let display_count = entries.len().min(10); // Show recent 10
+
+                // Use provided limit or default to 10 if not specified
+                // If limit is 0, show all (careful!)
+                let limit_val = limit.unwrap_or(10);
+                let display_count = if limit_val == 0 {
+                    entries.len()
+                } else {
+                    entries.len().min(limit_val)
+                };
 
                 // Take the recent ones, but then reverse them to show in chronological order (Oldest -> Newest)
                 let recent_entries: Vec<_> = entries.iter().take(display_count).rev().collect();
@@ -230,6 +239,28 @@ impl CryptoTool {
                         .and_then(|v| v.as_str())
                         .unwrap_or("N/A");
 
+                    let high_key = format!("2a. high ({})", to_symbol);
+                    let high_usd_key = "2a. high (USD)";
+                    let high_simple_key = "2. high";
+
+                    let high = values
+                        .get(&high_key)
+                        .or_else(|| values.get(high_usd_key))
+                        .or_else(|| values.get(high_simple_key))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("N/A");
+
+                    let low_key = format!("3a. low ({})", to_symbol);
+                    let low_usd_key = "3a. low (USD)";
+                    let low_simple_key = "3. low";
+
+                    let low = values
+                        .get(&low_key)
+                        .or_else(|| values.get(low_usd_key))
+                        .or_else(|| values.get(low_simple_key))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("N/A");
+
                     let close_key = format!("4a. close ({})", to_symbol);
                     let close_usd_key = "4a. close (USD)";
                     let close_simple_key = "4. close";
@@ -247,21 +278,31 @@ impl CryptoTool {
                         .unwrap_or("N/A");
 
                     result.push_str(&format!(
-                        "**{}**\n  • Open: {} {}\n  • Close: {} {}\n  • Volume: {}\n\n",
-                        date, open, to_symbol, close, to_symbol, volume
+                        "**{}**\n  • Open: {} {} | High: {} | Low: {} | Close: {} | Vol: {}\n\n",
+                        date, open, to_symbol, high, low, close, volume
+                    ));
+                }
+
+                if entries.len() > display_count {
+                    result.push_str(&format!(
+                        "_...and {} more entries available_\n",
+                        entries.len() - display_count
                     ));
                 }
 
                 // Add instruction for charts
                 result.push_str("\n💡 **To display a chart:**\n");
-                result.push_str("If the user asked for a chart, output the data in a `json-chart` code block strictly following this schema:\n");
+                result.push_str("If the user asked for a chart, you **MUST** output the data inside a `json-chart` code block. **DO NOT** output raw JSON.\n");
+                result.push_str("Correct format:\n");
                 result.push_str("```json-chart\n");
                 result.push_str("{\n");
                 result.push_str("  \"type\": \"line\",\n");
                 result.push_str("  \"title\": \"Crypto Price History\",\n");
-                result.push_str("  \"xAxis\": { \"label\": \"Date\", \"data\": [...] },\n");
+                result.push_str("  \"xAxis\": { \"label\": \"Date\", \"data\": [\"2023-01-01\", \"2023-01-02\"] },\n");
                 result.push_str("  \"series\": [\n");
-                result.push_str("    { \"name\": \"Close Price\", \"data\": [...] }\n");
+                result.push_str(
+                    "    { \"name\": \"Close Price\", \"data\": [45000.50, 46100.20] }\n",
+                );
                 result.push_str("  ]\n");
                 result.push_str("}\n");
                 result.push_str("```\n");
@@ -287,7 +328,7 @@ impl AgentTool for CryptoTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "crypto_data",
-            "description": "Fetch real-time cryptocurrency exchange rates or historical cryptocurrency data. Use 'CURRENCY_EXCHANGE_RATE' for any currency pair (fiat/crypto).\n\nFor historical data, CHOOSE THE BEST FUNCTION based on the time range requested:\n- **DIGITAL_CURRENCY_DAILY**: Use for recent data (last few days, last week, up to 2 months).\n- **DIGITAL_CURRENCY_WEEKLY**: Use for medium-term data (last 2 months to 2 years).\n- **DIGITAL_CURRENCY_MONTHLY**: Use for long-term data (over 2 years).\n\nExamples:\n- 'last 7 days': DIGITAL_CURRENCY_DAILY\n- 'last 10 weeks': DIGITAL_CURRENCY_WEEKLY\n- 'last 5 years': DIGITAL_CURRENCY_MONTHLY",
+            "description": "Fetch real-time cryptocurrency exchange rates or historical cryptocurrency data. Use 'CURRENCY_EXCHANGE_RATE' for any currency pair (fiat/crypto).\n\nFor historical data, CHOOSE THE BEST FUNCTION based on the time range requested:\n- **DIGITAL_CURRENCY_DAILY**: Use for recent data (last few days, last week, up to 2 months).\n- **DIGITAL_CURRENCY_WEEKLY**: Use for medium-term data (last 2 months to 2 years).\n- **DIGITAL_CURRENCY_MONTHLY**: Use for long-term data (over 2 years).\n\nExamples:\n- 'last 7 days': DIGITAL_CURRENCY_DAILY\n- 'last 10 weeks': DIGITAL_CURRENCY_WEEKLY\n- 'last 5 years': DIGITAL_CURRENCY_MONTHLY\n\nWhen chart is requested, use this data to generate a json-chart.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -304,6 +345,11 @@ impl AgentTool for CryptoTool {
                     "to_currency": {
                         "type": "string",
                         "description": "Target currency code (e.g. 'JPY', 'CNY', 'USD'). For crypto history, this is the market currency."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Limit the number of results returned (i.e. 'last 5 days' = 5). Default is 10. Use 0 for all available.",
+                        "default": 10
                     }
                 },
                 "required": ["from_currency", "to_currency"]
@@ -332,6 +378,11 @@ impl AgentTool for CryptoTool {
             .context("Missing required 'to_currency' parameter")?
             .to_uppercase();
 
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
+
         println!(
             "🪙 CryptoTool executing: function={}, from={}, to={}",
             function, from_currency, to_currency
@@ -355,7 +406,7 @@ impl AgentTool for CryptoTool {
         let data = self
             .fetch_data(function, &from_currency, &to_currency)
             .await?;
-        let result = self.format_response(&data, function, &from_currency, &to_currency)?;
+        let result = self.format_response(&data, function, &from_currency, &to_currency, limit)?;
 
         Ok(ToolCallResult {
             tool_name: "crypto_data".to_string(),
