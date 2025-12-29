@@ -7,12 +7,14 @@
     messages?: ChatMessage[]
     loading?: boolean
     chatContainer?: HTMLDivElement
+    onQuote?: (_text: string) => void
   }
 
   let {
     messages = $bindable([]),
     loading = $bindable(false),
-    chatContainer = $bindable()
+    chatContainer = $bindable(),
+    onQuote
   }: Props = $props()
 
   // Only show loading indicator if there's no streaming message
@@ -33,7 +35,7 @@
     </div>
   {:else}
     {#each messages as message (message.id)}
-      <MessageItem {message} />
+      <MessageItem {message} {onQuote} />
     {/each}
     {#if shouldShowLoading}
       <div class="message assistant">

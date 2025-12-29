@@ -18,6 +18,7 @@ export default [
       sourceType: 'module',
       globals: {
         // Browser globals
+        navigator: 'readonly',
         window: 'readonly',
         document: 'readonly',
         console: 'readonly',
@@ -59,6 +60,7 @@ export default [
         CloseEvent: 'readonly',
         TouchEvent: 'readonly',
         // Node globals
+        Node: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
         __dirname: 'readonly',

@@ -218,6 +218,7 @@
     width: 100%;
     gap: 0.5rem;
     margin-bottom: 2rem;
+    margin-left: 1rem;
   }
 
   .voice-input-button {

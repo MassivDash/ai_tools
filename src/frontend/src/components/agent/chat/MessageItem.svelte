@@ -8,9 +8,71 @@
 
   interface Props {
     message: ChatMessage
+    onQuote?: (_text: string) => void
   }
 
-  let { message }: Props = $props()
+  let { message, onQuote }: Props = $props()
+
+  let isDropdownOpen = $state(false)
+  let dropdownRef: HTMLDivElement = $state()
+
+  const toggleDropdown = (e: MouseEvent) => {
+    e.stopPropagation()
+    isDropdownOpen = !isDropdownOpen
+  }
+
+  const closeDropdown = () => {
+    isDropdownOpen = false
+  }
+
+  const handleCopyMessage = async () => {
+    try {
+      // Extract text content only for copying
+      let textToCopy = ''
+      if (typeof message.content === 'string') {
+        textToCopy = message.content
+      } else if (Array.isArray(message.content)) {
+        message.content.forEach((part) => {
+          if (part.type === 'text') {
+            textToCopy += part.text + '\n'
+          }
+        })
+      }
+
+      await navigator.clipboard.writeText(textToCopy)
+      closeDropdown()
+    } catch (err) {
+      console.error('Failed to copy message:', err)
+    }
+  }
+
+  const handleQuoteMessage = () => {
+    let textToQuote = ''
+    if (typeof message.content === 'string') {
+      textToQuote = message.content
+    } else if (Array.isArray(message.content)) {
+      message.content.forEach((part) => {
+        if (part.type === 'text') {
+          textToQuote += part.text + '\n'
+        }
+      })
+    }
+
+    if (onQuote) {
+      onQuote(textToQuote)
+    }
+    closeDropdown()
+  }
+
+  function handleOutsideClick(event: MouseEvent) {
+    if (
+      isDropdownOpen &&
+      dropdownRef &&
+      !dropdownRef.contains(event.target as Node)
+    ) {
+      closeDropdown()
+    }
+  }
 
   // Track tool icon for this message
   let toolIcon: string = $state('wrench')
@@ -246,6 +308,8 @@
   }
 </script>
 
+<svelte:window onclick={handleOutsideClick} />
+
 {#if message.role === 'status'}
   <div class="message status-message">
     <div class="status-indicator">
@@ -328,6 +392,27 @@
         <MaterialIcon name="robot" width="14" height="14" class="role-icon" />
       {/if}
       <span>{message.role === 'user' ? 'You' : 'Assistant'}</span>
+      <div class="message-actions" bind:this={dropdownRef}>
+        <button
+          class="action-button"
+          onclick={toggleDropdown}
+          aria-label="Message options"
+        >
+          <MaterialIcon name="dots-vertical" width="16" height="16" />
+        </button>
+        {#if isDropdownOpen}
+          <div class="dropdown-menu">
+            <button class="dropdown-item" onclick={handleCopyMessage}>
+              <MaterialIcon name="content-copy" width="14" height="14" />
+              <span>Copy</span>
+            </button>
+            <button class="dropdown-item" onclick={handleQuoteMessage}>
+              <MaterialIcon name="format-quote-close" width="14" height="14" />
+              <span>Quote</span>
+            </button>
+          </div>
+        {/if}
+      </div>
     </div>
     <div
       class="message-content"
@@ -421,6 +506,77 @@
     max-width: 80%;
     animation: fadeIn 0.3s ease-in;
     padding: 0 1rem;
+    position: relative;
+  }
+
+  /* Message Actions Dropdown */
+  .message-actions {
+    position: relative;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .message:hover .message-actions,
+  .message-actions:focus-within {
+    opacity: 1;
+  }
+
+  .action-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary, #999);
+    padding: 0.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .action-button:hover {
+    background-color: var(--bg-tertiary, #f0f0f0);
+    color: var(--text-primary, #100f0f);
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 0.25rem;
+    z-index: 100;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 4px;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .dropdown-item:hover {
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--text-primary, #100f0f);
   }
 
   .message.user {
@@ -564,6 +720,7 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    width: 100%;
   }
 
   .message-content {

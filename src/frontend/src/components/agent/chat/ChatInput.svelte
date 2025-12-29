@@ -15,6 +15,8 @@
     onToggleTTS?: () => void
     ttsSpeaking?: boolean
     onStopTTS?: () => void
+    quotedMessage?: string | null
+    onClearQuote?: () => void
   }
 
   let {
@@ -27,7 +29,9 @@
     ttsEnabled = false,
     onToggleTTS,
     ttsSpeaking = false,
-    onStopTTS
+    onStopTTS,
+    quotedMessage = null,
+    onClearQuote
   }: Props = $props()
 
   let textareaElement: HTMLTextAreaElement = $state()
@@ -43,12 +47,33 @@
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       // Clean input message before sending (remove any attachment references)
-      const cleanedInput = cleanInputMessage(inputMessage)
-      if (cleanedInput !== inputMessage) {
+      let cleanedInput = cleanInputMessage(inputMessage)
+
+      // Prepend quote if exists
+      if (quotedMessage) {
+        const quoteBlock = quotedMessage
+          .split('\n')
+          .map((line) => `> ${line}`)
+          .join('\n')
+        cleanedInput = `${quoteBlock}\n\n${cleanedInput}`
+        // We don't update inputMessage displayed value, just what we send if we were sending text directly
+        // But here we call onInputChange then onSend.
+        // We should explicitly invoke onInputChange with the FULL message including quote?
+        // OR we just rely on onSend using the current state?
+        // Typically onSend reads from parent state bonded to inputMessage.
+        // So we MUST update inputMessage to include the quote before sending,
+        // OR we handle this concatenation in parent?
+        // Plan said: "Update onSend logic: If quotedMessage exists, prepend it..."
+        // Since inputMessage is bound, if we change it here, it updates parent.
+
+        onInputChange(cleanedInput)
+      } else if (cleanedInput !== inputMessage) {
         onInputChange(cleanedInput)
       }
+
       onSend()
       clearAttachments()
+      if (onClearQuote) onClearQuote()
     }
   }
 
@@ -285,6 +310,22 @@
 
 <div class="chat-input-container">
   <div class="input-wrapper">
+    {#if quotedMessage}
+      <div class="quote-banner">
+        <div class="quote-content">
+          <MaterialIcon name="format-quote-close" width="16" height="16" />
+          <span class="quote-text">{quotedMessage}</span>
+        </div>
+        <button
+          class="dismiss-quote"
+          onclick={onClearQuote}
+          aria-label="Dismiss quote"
+        >
+          <MaterialIcon name="close" width="14" height="14" />
+        </button>
+      </div>
+    {/if}
+
     <textarea
       bind:this={textareaElement}
       bind:value={inputMessage}
@@ -468,6 +509,53 @@
   .input-wrapper:focus-within {
     border-color: var(--accent-color, #2196f3);
     box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  }
+
+  .quote-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-tertiary, #f0f0f0);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid var(--accent-color, #2196f3);
+  }
+
+  .quote-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    overflow: hidden;
+    color: var(--text-secondary, #666);
+    font-size: 0.9rem;
+  }
+
+  .quote-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: italic;
+  }
+
+  .dismiss-quote {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary, #999);
+    padding: 0.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .dismiss-quote:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary, #100f0f);
   }
 
   .chat-input {

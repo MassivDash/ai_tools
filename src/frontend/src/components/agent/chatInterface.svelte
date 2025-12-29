@@ -27,6 +27,7 @@
 
   let messages: ChatMessage[] = $state([])
   let inputMessage: string = $state('')
+  let quotedMessage: string = $state('')
   let loading: boolean = $state(false)
   let error: string = $state('')
   // Internal conversationId tracks the ID of the current active session
@@ -424,6 +425,14 @@
     inputMessage = value
   }
 
+  const handleQuote = (text: string) => {
+    quotedMessage = text
+  }
+
+  const handleClearQuote = () => {
+    quotedMessage = ''
+  }
+
   const loadMessages = async (id: string) => {
     loading = true
     try {
@@ -495,7 +504,7 @@
     <div class="error">{error}</div>
   {/if}
 
-  <ChatMessages {messages} {loading} bind:chatContainer />
+  <ChatMessages {messages} {loading} bind:chatContainer onQuote={handleQuote} />
 
   <ChatInput
     bind:inputMessage
@@ -506,6 +515,8 @@
     onAttachmentsChange={(attachments) => {
       currentAttachments = attachments
     }}
+    {quotedMessage}
+    onClearQuote={handleClearQuote}
     {ttsEnabled}
     onToggleTTS={() => (ttsEnabled = !ttsEnabled)}
     ttsSpeaking={tts.isSpeaking}
