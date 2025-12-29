@@ -27,6 +27,7 @@ impl ToolSelector {
         let all_tools = self.registry.get_all_tools();
         if !all_tools.is_empty() {
             prompt.push_str("AVAILABLE TOOLS:\n");
+            prompt.push_str("**THINK FIRST:** Do you really need to use a tool? If you can answer with your internal knowledge, do NOT use a tool.\n\n");
             for (i, tool) in all_tools.iter().enumerate() {
                 let func_def = tool.get_function_definition();
                 let name = func_def
