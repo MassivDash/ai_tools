@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte'
+  import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import Button from '../ui/Button.svelte'
@@ -15,7 +15,6 @@
   let suites: TestSuite[] = []
   let questions: TestQuestion[] = []
   let selectedSuite: TestSuite | null = null
-  let loading = false
   let error = ''
 
   // Suite Form
@@ -34,33 +33,31 @@
 
   // Load Suites
   const loadSuites = async () => {
-    loading = true
     error = ''
     try {
       const response = await axiosBackendInstance.get<TestSuite[]>(
         'agent/testing/suites'
       )
       suites = response.data
-    } catch (err: any) {
+    } catch {
       error = 'Failed to load test suites'
     } finally {
-      loading = false
+      // loading not used
     }
   }
 
   // Load Questions
   const loadQuestions = async (suite: TestSuite) => {
     selectedSuite = suite
-    loading = true
     try {
       const response = await axiosBackendInstance.get<TestQuestion[]>(
         `agent/testing/suites/${suite.id}/questions`
       )
       questions = response.data
-    } catch (err: any) {
+    } catch {
       error = 'Failed to load questions'
     } finally {
-      loading = false
+      // loading not used
     }
   }
 
@@ -93,7 +90,7 @@
       suiteName = ''
       suiteDescription = ''
       editingSuiteId = null
-    } catch (err) {
+    } catch {
       error = 'Failed to save suite'
     }
   }
@@ -102,7 +99,7 @@
     try {
       await axiosBackendInstance.delete(`agent/testing/suites/${id}`)
       loadSuites()
-    } catch (err) {
+    } catch {
       error = 'Failed to delete suite'
     }
   }
@@ -142,7 +139,7 @@
       loadQuestions(selectedSuite)
       questionContent = ''
       editingQuestionId = null
-    } catch (err) {
+    } catch {
       error = 'Failed to save question'
     }
   }
@@ -151,7 +148,7 @@
     try {
       await axiosBackendInstance.delete(`agent/testing/questions/${id}`)
       if (selectedSuite) loadQuestions(selectedSuite)
-    } catch (err) {
+    } catch {
       error = 'Failed to delete question'
     }
   }

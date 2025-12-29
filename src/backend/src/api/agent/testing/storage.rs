@@ -32,6 +32,12 @@ impl TestingStorage {
     }
 
     async fn initialize(&self) -> Result<()> {
+        // Enable foreign keys
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&self.pool)
+            .await
+            .context("Failed to enable foreign keys")?;
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS test_suites (
                 id TEXT PRIMARY KEY,

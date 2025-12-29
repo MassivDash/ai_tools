@@ -39,10 +39,8 @@ pub async fn create_suite(
     storage: web::Data<TestingStorage>,
     req: web::Json<CreateSuiteRequest>,
 ) -> impl Responder {
-    match storage
-        .create_suite(req.name.clone(), req.description.clone())
-        .await
-    {
+    let req = req.into_inner();
+    match storage.create_suite(req.name, req.description).await {
         Ok(suite) => HttpResponse::Ok().json(suite),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e.to_string()
@@ -56,10 +54,8 @@ pub async fn update_suite(
     id: web::Path<String>,
     req: web::Json<UpdateSuiteRequest>,
 ) -> impl Responder {
-    match storage
-        .update_suite(&id, req.name.clone(), req.description.clone())
-        .await
-    {
+    let req = req.into_inner();
+    match storage.update_suite(&id, req.name, req.description).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e.to_string()
@@ -99,7 +95,7 @@ pub async fn add_question(
     id: web::Path<String>,
     req: web::Json<AddQuestionRequest>,
 ) -> impl Responder {
-    match storage.add_question(&id, req.content.clone()).await {
+    match storage.add_question(&id, req.into_inner().content).await {
         Ok(question) => HttpResponse::Ok().json(question),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e.to_string()
@@ -113,7 +109,7 @@ pub async fn update_question(
     id: web::Path<i64>,
     req: web::Json<UpdateQuestionRequest>,
 ) -> impl Responder {
-    match storage.update_question(*id, req.content.clone()).await {
+    match storage.update_question(*id, req.into_inner().content).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": e.to_string()
