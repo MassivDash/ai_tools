@@ -164,8 +164,14 @@
   }
 
   // --- Test Runner ---
+  // Metrics
+  let startTime: number | null = null
+  let endTime: number | null = null
+  let totalTokens = 0
+  let totalChars = 0
+
   export const handleRunnerNext = () => {
-    // Called by parent when ready for next question
+    // Called by parent when ready for next question (triggered by loading=false debounce)
     if (running && currentQuestionIndex < questions.length - 1) {
       currentQuestionIndex++
       dispatch('runQuestion', {
@@ -173,7 +179,22 @@
       })
     } else if (running) {
       running = false
+      endTime = Date.now()
       runStatus = 'completed'
+    }
+  }
+
+  export const handleResponseMetrics = (metrics: {
+    usage: any
+    content: string
+  }) => {
+    if (running) {
+      if (metrics.usage) {
+        totalTokens += metrics.usage.total_tokens || 0
+      }
+      if (metrics.content) {
+        totalChars += metrics.content.length
+      }
     }
   }
 
@@ -182,12 +203,17 @@
     running = true
     runStatus = 'running'
     currentQuestionIndex = 0
+    startTime = Date.now()
+    endTime = null
+    totalTokens = 0
+    totalChars = 0
     dispatch('runQuestion', { content: questions[0].content })
   }
 
   const stopRunner = () => {
     running = false
-    runStatus = 'idle'
+    endTime = Date.now()
+    runStatus = 'idle' // Or keep it running if just paused? No, stop means stop.
   }
 
   $: if (isOpen) {
@@ -284,11 +310,13 @@
       <!-- Questions List -->
       <div class="runner-controls">
         {#if running}
-          <Button variant="danger" onclick={stopRunner} title="Stop Testing">
-            <MaterialIcon name="stop" width="20" height="20" /> Stop
-          </Button>
-          <div class="running-indicator">
-            Running ({currentQuestionIndex + 1}/{questions.length})
+          <div class="running-state">
+            <Button variant="danger" onclick={stopRunner} title="Stop Testing">
+              <MaterialIcon name="stop" width="20" height="20" /> Stop
+            </Button>
+            <div class="running-indicator">
+              Running ({currentQuestionIndex + 1}/{questions.length})
+            </div>
           </div>
         {:else}
           <Button
@@ -301,9 +329,15 @@
         {/if}
 
         {#if runStatus === 'completed'}
-          <div class="completed-badge-enhanced">
-            <MaterialIcon name="check-circle" width="18" height="18" />
-            <span>Done</span>
+          <div class="metrics-container">
+            <div class="completed-badge-enhanced">
+              <MaterialIcon name="check-circle" width="18" height="18" />
+              <span>Done in {((endTime || 0) - (startTime || 0)) / 1000}s</span>
+            </div>
+            <div class="metrics-details">
+              <span>{totalTokens} tokens</span>
+              <span>{totalChars} chars</span>
+            </div>
           </div>
         {/if}
       </div>
@@ -535,45 +569,31 @@
   .runner-controls {
     padding: 1rem;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 1rem;
     border-bottom: 1px solid var(--border-light, #eee);
   }
 
-  .completed-badge-enhanced {
+  .running-state {
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: var(--success-color, #4caf50);
-    font-weight: 500;
-    font-size: 0.9rem;
-    padding: 4px 12px;
-    border-radius: 16px;
-    background-color: var(--success-bg, rgba(76, 175, 80, 0.1));
-    border: 1px solid var(--success-color, #4caf50);
+    gap: 1rem;
   }
 
-  .running-indicator {
-    font-size: 0.9rem;
+  .metrics-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    /* No extra padding/border needed here as parent has gap/padding */
+  }
+
+  .metrics-details {
+    display: flex;
+    gap: 8px;
+    font-size: 0.8rem;
     color: var(--text-secondary, #666);
-    font-weight: 500;
-  }
-
-  .error {
-    padding: 0.5rem;
-    background-color: #ffebee;
-    color: #c62828;
-    font-size: 0.9rem;
-    margin: 0.5rem;
-    border-radius: 4px;
-  }
-
-  :global(.sidebar-icon-btn.button-icon-only) {
-    min-width: 2rem !important;
-    min-height: 2rem !important;
-    padding: 0 !important;
-    width: 2rem;
-    height: 2rem;
   }
 </style>

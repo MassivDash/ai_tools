@@ -27,6 +27,7 @@
   const dispatch = createEventDispatcher<{
     newChat: void
     conversationCreated: string
+    responseComplete: { usage: any; content: string }
   }>()
 
   let messages: ChatMessage[] = $state([])
@@ -384,6 +385,18 @@
         if (event.usage) {
           tokenUsage = event.usage
         }
+
+        // Emit completion event for parent components (like Test Runner)
+        dispatch('responseComplete', {
+          usage: tokenUsage,
+          content: currentStreamingMessage // This might be cleared below, so capture it? No, wait.
+          // streamingMessageId is used to find the full message content in 'messages' array if needed,
+          // but currentStreamingMessage holds the accumulated text.
+          // Wait, currentStreamingMessage is cleared at line 407.
+          // So we must capture it before clearing or use the message in the array.
+          // Using the variable before clear is safe.
+        })
+
         // Remove any remaining status messages
         messages = messages.filter((m) => m.role !== 'status')
         // Mark streaming message as complete
@@ -393,6 +406,13 @@
           )
           if (streamingIndex >= 0) {
             messages[streamingIndex].timestamp = Date.now()
+
+            // Capture final content from message to be sure
+            const finalContent = messages[streamingIndex].content
+            dispatch('responseComplete', {
+              usage: tokenUsage,
+              content: finalContent
+            })
 
             // Speak the message if TTS is enabled
             if (ttsEnabled && tts.isSupported && currentStreamingMessage) {

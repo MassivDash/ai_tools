@@ -311,6 +311,11 @@
           {currentConversationId}
           on:newChat={handleNewConversation}
           on:conversationCreated={handleConversationCreated}
+          on:responseComplete={(e) => {
+            if (showTesting && testingSidebar) {
+              testingSidebar.handleResponseMetrics(e.detail)
+            }
+          }}
         />
       {:else}
         <EmptyState />

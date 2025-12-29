@@ -224,30 +224,30 @@ test('runs 4 questions without skipping', async () => {
   // Click Run - Start (Q1)
   const runBtn = screen.getByRole('button', { name: /Run Suite/i })
   await fireEvent.click(runBtn)
-  
+
   await waitFor(() => {
-     const q1 = screen.getByText('Q1').closest('.item')
-     expect(q1?.classList.contains('active')).toBe(true)
+    const q1 = screen.getByText('Q1').closest('.item')
+    expect(q1?.classList.contains('active')).toBe(true)
   })
-  
+
   // Next -> Q2
   ;(component as any).handleRunnerNext()
   await waitFor(() => {
-     const q2 = screen.getByText('Q2').closest('.item')
-     expect(q2?.classList.contains('active')).toBe(true)
+    const q2 = screen.getByText('Q2').closest('.item')
+    expect(q2?.classList.contains('active')).toBe(true)
   })
-  
+
   // Next -> Q3 (This is the reported skip point)
   ;(component as any).handleRunnerNext()
   await waitFor(() => {
-     const q3 = screen.getByText('Q3').closest('.item')
-     expect(q3?.classList.contains('active')).toBe(true)
+    const q3 = screen.getByText('Q3').closest('.item')
+    expect(q3?.classList.contains('active')).toBe(true)
   })
-  
+
   // Next -> Q4
   ;(component as any).handleRunnerNext()
   await waitFor(() => {
-     const q4 = screen.getByText('Q4').closest('.item')
-     expect(q4?.classList.contains('active')).toBe(true)
+    const q4 = screen.getByText('Q4').closest('.item')
+    expect(q4?.classList.contains('active')).toBe(true)
   })
 })
