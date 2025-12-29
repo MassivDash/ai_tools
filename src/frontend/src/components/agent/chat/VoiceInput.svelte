@@ -4,8 +4,8 @@
 
   interface Props {
     loading?: boolean
-    onTranscript: (text: string) => void
-    onCommand: (command: string) => void
+    onTranscript: (_text: string) => void
+    onCommand: (_command: string) => void
     ttsEnabled?: boolean
     onToggleTTS?: () => void
     ttsSpeaking?: boolean
@@ -101,7 +101,24 @@
       stopSilenceTimer()
     }
   })
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.code === 'Space') {
+      const activeElement = document.activeElement as HTMLElement
+      const isInput =
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+
+      if (!isInput && speech.isSupported) {
+        e.preventDefault() // Prevent scrolling
+        speech.toggle()
+      }
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if speech.isSupported}
   <div class="voice-input">
@@ -200,6 +217,7 @@
     align-items: center;
     width: 100%;
     gap: 0.5rem;
+    margin-bottom: 2rem;
   }
 
   .voice-input-button {
@@ -215,7 +233,7 @@
     transition: all 0.2s ease;
     font-size: 0.9rem;
     justify-content: flex-start;
-    min-width: 5rem;
+    min-width: 10rem;
   }
 
   .voice-input-button:active {

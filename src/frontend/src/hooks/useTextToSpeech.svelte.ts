@@ -10,23 +10,18 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
   let isSpeaking = $state(false)
   let issupported = $state(false)
   let error = $state<string | null>(null)
-  
+
   // Initialize state based on browser support
   if (typeof window !== 'undefined') {
     issupported = !!window.speechSynthesis
   }
 
-  const {
-    rate = 1,
-    pitch = 1,
-    volume = 1,
-    lang = 'en-US'
-  } = options
+  const { rate = 1, pitch = 1, volume = 1, lang = 'en-US' } = options
 
   function speak(text: string) {
     if (!issupported) {
-        error = "Text to speech not supported"
-        return
+      error = 'Text to speech not supported'
+      return
     }
 
     // Cancel any current speaking
@@ -48,9 +43,9 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
     }
 
     utterance.onerror = (e) => {
-      console.error("TTS Error", e)
+      console.error('TTS Error', e)
       isSpeaking = false
-      error = "Error speaking text"
+      error = 'Error speaking text'
     }
 
     window.speechSynthesis.speak(utterance)
@@ -58,8 +53,8 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
 
   function cancel() {
     if (issupported && window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-        isSpeaking = false
+      window.speechSynthesis.cancel()
+      isSpeaking = false
     }
   }
 
@@ -68,10 +63,10 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
       return isSpeaking
     },
     get isSupported() {
-        return issupported
+      return issupported
     },
     get error() {
-        return error
+      return error
     },
     speak,
     cancel

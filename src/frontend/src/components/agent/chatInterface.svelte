@@ -14,6 +14,7 @@
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'
+  import TokenUsageDisplay from './chat/TokenUsageDisplay.svelte'
 
   let {
     currentConversationId = undefined
@@ -512,11 +513,7 @@
   />
 
   {#if tokenUsage}
-    <div class="token-display">
-      {ctxSize > 0
-        ? `${tokenUsage.total_tokens} / ${ctxSize} (${Math.round((tokenUsage.total_tokens / ctxSize) * 100)}%)`
-        : `${tokenUsage.total_tokens} tokens`}
-    </div>
+    <TokenUsageDisplay {tokenUsage} {ctxSize} />
   {/if}
 </div>
 
@@ -545,23 +542,9 @@
     font-size: 0.9rem;
   }
 
-  .token-display {
-    padding: 0.5rem 1.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary, #666);
-    text-align: center;
-    background-color: var(--bg-secondary, #f9f9f9);
-    border-top: 1px solid var(--border-color, #e0e0e0);
-  }
-
   @media screen and (max-width: 768px) {
     .chat-interface {
       padding: 0.5rem;
-    }
-
-    .token-display {
-      padding: 0.5rem 1rem;
-      font-size: 0.8rem;
     }
   }
 </style>

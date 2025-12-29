@@ -1,10 +1,9 @@
-
 /* eslint-disable no-undef */
 export interface SpeechRecognitionOptions {
-  onTranscript: (transcript: string, isFinal: boolean) => void
-  onCommand?: (command: 'execute' | 'send') => void
-  onError?: (error: string) => void
-  onEvent?: (eventType: 'start' | 'end' | 'result' | 'error') => void
+  onTranscript: (_transcript: string, _isFinal: boolean) => void
+  onCommand?: (_command: 'execute' | 'send') => void
+  onError?: (_error: string) => void
+  onEvent?: (_eventType: 'start' | 'end' | 'result' | 'error') => void
 }
 
 export function useSpeechRecognition({
