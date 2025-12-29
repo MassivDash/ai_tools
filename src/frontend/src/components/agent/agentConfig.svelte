@@ -76,7 +76,7 @@
       }>('chromadb/models')
       models = response.data.models
     } catch (err: any) {
-      console.error('❌ Failed to load models:', err)
+      console.error('Failed to load models:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load models'
     } finally {
@@ -145,8 +145,6 @@
           : undefined
       }
 
-      console.log('💾 Saving agent config:', payload)
-
       const response = await axiosBackendInstance.post<AgentConfigResponse>(
         'agent/config',
         payload
@@ -161,7 +159,7 @@
         error = response.data.message
       }
     } catch (err: any) {
-      console.error('❌ Failed to save agent config:', err)
+      console.error('Failed to save agent config:', err)
       error =
         err.response?.data?.error ||
         err.response?.data?.message ||
