@@ -17,8 +17,12 @@
   import TokenUsageDisplay from './chat/TokenUsageDisplay.svelte'
 
   let {
-    currentConversationId = undefined
-  }: { currentConversationId?: string } = $props()
+    currentConversationId = undefined,
+    loading = $bindable(false)
+  }: {
+    currentConversationId?: string
+    loading?: boolean
+  } = $props()
 
   const dispatch = createEventDispatcher<{
     newChat: void
@@ -28,7 +32,6 @@
   let messages: ChatMessage[] = $state([])
   let inputMessage: string = $state('')
   let quotedMessage: string = $state('')
-  let loading: boolean = $state(false)
   let error: string = $state('')
   // Internal conversationId tracks the ID of the current active session
   // It syncs with currentConversationId prop
@@ -125,9 +128,13 @@
     agentWs.disconnect()
   })
 
-  const sendMessage = async () => {
-    if ((!inputMessage.trim() && currentAttachments.length === 0) || loading)
+  export const sendMessage = async (overrideMessage?: string) => {
+    const msgToSend = overrideMessage || inputMessage
+    if ((!msgToSend.trim() && currentAttachments.length === 0) || loading)
       return
+
+    // Temporarily set inputMessage to override if provided, for logic reuse
+    if (overrideMessage) inputMessage = overrideMessage
 
     // Build message content
     // If we have images, we must use the structured content format (array of parts)

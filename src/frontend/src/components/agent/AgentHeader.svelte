@@ -11,6 +11,8 @@
   export let onToggleTerminal: () => void
   export let onToggleHistory: () => void
   export let showHistory: boolean = false
+  export let onToggleTesting: () => void
+  export let showTesting: boolean = false
 </script>
 
 <PageSubHeader title="AI Agent">
@@ -46,6 +48,14 @@
       title={showTerminal ? 'Hide Terminal' : 'Show Terminal'}
     >
       <MaterialIcon name="console" width="32" height="32" />
+    </Button>
+    <Button
+      variant="info"
+      class="button-icon-only"
+      onclick={onToggleTesting}
+      title={showTesting ? 'Hide Testing' : 'Show Testing'}
+    >
+      <MaterialIcon name="flask" width="32" height="32" />
     </Button>
     <slot />
   {/snippet}

@@ -19,6 +19,7 @@ use crate::api::agent::core::types::AgentConfig;
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::config::AgentConfigHandle;
 use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState};
+use crate::api::agent::testing::storage::TestingStorage;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::default_configs::DefaultConfigsStorage;
 use crate::api::llama_server::types::{
@@ -71,6 +72,18 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Failed to initialize default configs storage"),
     );
+
+    // SQLite-based testing storage
+    use sqlx::sqlite::SqlitePoolOptions;
+    let testing_pool = SqlitePoolOptions::new()
+        .connect("./data/conversations.db")
+        .await
+        .expect("Failed to connect to testing database");
+
+    let testing_storage = TestingStorage::new(testing_pool)
+        .await
+        .expect("Failed to initialize testing storage");
+    // TestingStorage implements Clone (contains SqlitePool), so we don't need Arc wrapper for Data
 
     // Initialize llama config with default from storage or fallback to hardcoded
     let mut llama_config_init = Config::default();
@@ -204,6 +217,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(sqlite_memory_data.clone())
             .app_data(model_notes_storage_data.clone())
             .app_data(default_configs_storage_data.clone())
+            .app_data(web::Data::new(testing_storage.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

@@ -8,6 +8,10 @@ use crate::api::agent::service::config::{
 use crate::api::agent::service::conversations::{
     delete_conversation, get_conversation_history, get_conversations, update_conversation_title,
 };
+use crate::api::agent::testing::routes::{
+    add_question, create_suite, delete_question, delete_suite, get_questions, get_suites,
+    update_question, update_suite,
+};
 
 /// Configures all agent related endpoints
 pub fn configure_agent_services(cfg: &mut ServiceConfig) {
@@ -21,7 +25,18 @@ pub fn configure_agent_services(cfg: &mut ServiceConfig) {
         .service(get_conversations)
         .service(delete_conversation)
         .service(update_conversation_title)
-        .service(get_conversation_history);
+        .service(get_conversation_history)
+        .service(
+            actix_web::web::scope("/api/agent/testing")
+                .service(get_suites)
+                .service(create_suite)
+                .service(update_suite)
+                .service(delete_suite)
+                .service(get_questions)
+                .service(add_question)
+                .service(update_question)
+                .service(delete_question),
+        );
 }
 
 #[cfg(test)]

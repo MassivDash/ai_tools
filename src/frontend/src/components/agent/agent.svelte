@@ -17,6 +17,8 @@
   import EmptyState from './EmptyState.svelte'
   import HistorySidebar from './HistorySidebar.svelte'
 
+  import TestingSidebar from './TestingSidebar.svelte'
+
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
   let loading = false
   let error = ''
@@ -24,7 +26,13 @@
   let showLlamaConfig = false
   let showTerminal = false
   let showHistory = false
+  let showTesting = false
   let _isStarting = false
+
+  // Refs
+  let chatInterface: ChatInterface
+  let testingSidebar: TestingSidebar
+  let chatLoading = false
 
   // Current conversation state
   let currentConversationId: string | undefined = undefined
@@ -40,6 +48,34 @@
       showTerminal = false
     }
   )
+
+  $: if (!chatLoading && showTesting && testingSidebar) {
+    // Potentially trigger next question if runner is active
+    // We need a clearer signal than just loading false, but for now this is the hook.
+    // Better: pass chatLoading to sidebar or call method?
+    // TestingSidebar exposes handleRunnerNext() which checks internal running state.
+    // So it is safe to call repeatedly?
+    // handleRunnerNext checks: if (running && index < length - 1)
+    // We should only call it once when loading transitions from true to false.
+    // logic below.
+  }
+
+  let prevChatLoading = false
+  let runnerDebounceTimer: any
+
+  $: {
+    if (prevChatLoading && !chatLoading && showTesting && testingSidebar) {
+      // Clear any existing timer to avoid stacking
+      if (runnerDebounceTimer) clearTimeout(runnerDebounceTimer)
+
+      // Debounce the next question trigger slightly more and ensure single execution
+      runnerDebounceTimer = setTimeout(() => {
+        testingSidebar.handleRunnerNext()
+        runnerDebounceTimer = null
+      }, 500)
+    }
+    prevChatLoading = chatLoading
+  }
 
   const startServer = async () => {
     // Check if server is already running
@@ -126,12 +162,28 @@
 
   const handleToggleConfig = () => {
     showConfig = !showConfig
-    if (showConfig) showLlamaConfig = false
+    if (showConfig) {
+      showLlamaConfig = false
+      showTesting = false
+    }
   }
 
   const handleToggleLlamaConfig = () => {
     showLlamaConfig = !showLlamaConfig
-    if (showLlamaConfig) showConfig = false
+    if (showLlamaConfig) {
+      showConfig = false
+      showTesting = false
+    }
+  }
+
+  const handleToggleTesting = () => {
+    showTesting = !showTesting
+    if (showTesting) {
+      showConfig = false
+      showLlamaConfig = false
+      showHistory = false // Maybe overlay or sidebar conflict?
+      // Keep terminal if desired, but sidebar space is limited.
+    }
   }
 
   const handleToggleTerminal = () => {
@@ -141,7 +193,10 @@
 
   const handleToggleHistory = () => {
     showHistory = !showHistory
-    if (showHistory) showTerminal = false
+    if (showHistory) {
+      showTerminal = false
+      showTesting = false
+    }
   }
 
   const handleSelectConversation = (event: CustomEvent<string>) => {
@@ -168,6 +223,13 @@
     setTimeout(() => (shouldRefreshHistory = false), 100)
   }
 
+  const handleRunQuestion = (event: CustomEvent<{ content: string }>) => {
+    const content = event.detail.content
+    if (chatInterface) {
+      chatInterface.sendMessage(content)
+    }
+  }
+
   let shouldRefreshHistory = false
 
   onMount(() => {
@@ -187,10 +249,12 @@
     {showLlamaConfig}
     {showTerminal}
     {showHistory}
+    {showTesting}
     onToggleConfig={handleToggleConfig}
     onToggleLlamaConfig={handleToggleLlamaConfig}
     onToggleTerminal={handleToggleTerminal}
     onToggleHistory={handleToggleHistory}
+    onToggleTesting={handleToggleTesting}
   >
     <ServerControls
       serverActive={serverStatus.active}
@@ -210,6 +274,7 @@
     class:has-history={showHistory}
     class:has-config={showConfig}
     class:has-llama-config={showLlamaConfig}
+    class:has-testing={showTesting}
   >
     <HistorySidebar
       isOpen={showHistory}
@@ -218,6 +283,13 @@
       on:select={handleSelectConversation}
       on:new={handleNewConversation}
       on:close={() => (showHistory = false)}
+    />
+
+    <TestingSidebar
+      bind:this={testingSidebar}
+      isOpen={showTesting}
+      on:close={() => (showTesting = false)}
+      on:runQuestion={handleRunQuestion}
     />
 
     <div class="terminal-sidebar" class:visible={showTerminal}>
@@ -230,9 +302,12 @@
       class:with-history={showHistory}
       class:with-config={showConfig}
       class:with-llama-config={showLlamaConfig}
+      class:with-testing={showTesting}
     >
       {#if serverStatus.active}
         <ChatInterface
+          bind:this={chatInterface}
+          bind:loading={chatLoading}
           {currentConversationId}
           on:newChat={handleNewConversation}
           on:conversationCreated={handleConversationCreated}
@@ -340,6 +415,10 @@
     margin-left: 260px;
   }
 
+  .main-content.with-testing {
+    margin-left: 320px;
+  }
+
   .main-content.with-config,
   .main-content.with-llama-config {
     margin-right: 70%;
@@ -374,6 +453,10 @@
 
     .main-content.with-history {
       margin-left: 0; /* Overlay on mobile */
+    }
+
+    .main-content.with-testing {
+      margin-left: 0;
     }
   }
 </style>

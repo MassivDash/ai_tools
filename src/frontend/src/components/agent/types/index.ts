@@ -137,3 +137,17 @@ export interface AgentChatResponse {
   conversation_id?: string
   tool_calls?: ToolCallResult[]
 }
+
+export interface TestSuite {
+  id: string
+  name: string
+  description?: string
+  created_at: number
+}
+
+export interface TestQuestion {
+  id: number
+  suite_id: string
+  content: string
+  created_at: number
+}

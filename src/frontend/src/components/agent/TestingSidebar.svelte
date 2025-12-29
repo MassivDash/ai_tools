@@ -1,0 +1,555 @@
+<script lang="ts">
+  import { onMount, createEventDispatcher } from 'svelte'
+  import { axiosBackendInstance } from '@axios/axiosBackendInstance'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Button from '../ui/Button.svelte'
+  import type { TestSuite, TestQuestion } from './types'
+
+  export let isOpen = false
+
+  const dispatch = createEventDispatcher<{
+    runQuestion: { content: string }
+    close: void
+  }>()
+
+  let suites: TestSuite[] = []
+  let questions: TestQuestion[] = []
+  let selectedSuite: TestSuite | null = null
+  let loading = false
+  let error = ''
+
+  // Suite Form
+  let editingSuiteId: string | null = null
+  let suiteName = ''
+  let suiteDescription = ''
+
+  // Question Form
+  let editingQuestionId: number | null = null
+  let questionContent = ''
+
+  // Test Runner State
+  let running = false
+  let currentQuestionIndex = -1
+  let runStatus: 'idle' | 'running' | 'completed' = 'idle'
+
+  // Load Suites
+  const loadSuites = async () => {
+    loading = true
+    error = ''
+    try {
+      const response = await axiosBackendInstance.get<TestSuite[]>(
+        'agent/testing/suites'
+      )
+      suites = response.data
+    } catch (err: any) {
+      error = 'Failed to load test suites'
+    } finally {
+      loading = false
+    }
+  }
+
+  // Load Questions
+  const loadQuestions = async (suite: TestSuite) => {
+    selectedSuite = suite
+    loading = true
+    try {
+      const response = await axiosBackendInstance.get<TestQuestion[]>(
+        `agent/testing/suites/${suite.id}/questions`
+      )
+      questions = response.data
+    } catch (err: any) {
+      error = 'Failed to load questions'
+    } finally {
+      loading = false
+    }
+  }
+
+  const handleBackToSuites = () => {
+    selectedSuite = null
+    questions = []
+    runStatus = 'idle'
+  }
+
+  // --- Suite CRUD ---
+  const saveSuite = async () => {
+    if (!suiteName.trim()) return
+
+    try {
+      if (editingSuiteId) {
+        await axiosBackendInstance.put(
+          `agent/testing/suites/${editingSuiteId}`,
+          {
+            name: suiteName,
+            description: suiteDescription
+          }
+        )
+      } else {
+        await axiosBackendInstance.post('agent/testing/suites', {
+          name: suiteName,
+          description: suiteDescription
+        })
+      }
+      loadSuites()
+      suiteName = ''
+      suiteDescription = ''
+      editingSuiteId = null
+    } catch (err) {
+      error = 'Failed to save suite'
+    }
+  }
+
+  const deleteSuite = async (id: string) => {
+    try {
+      await axiosBackendInstance.delete(`agent/testing/suites/${id}`)
+      loadSuites()
+    } catch (err) {
+      error = 'Failed to delete suite'
+    }
+  }
+
+  const startEditSuite = (suite: TestSuite) => {
+    editingSuiteId = suite.id
+    suiteName = suite.name
+    suiteDescription = suite.description || ''
+  }
+
+  const cancelEditSuite = () => {
+    editingSuiteId = null
+    suiteName = ''
+    suiteDescription = ''
+  }
+
+  // --- Question CRUD ---
+  const saveQuestion = async () => {
+    if (!selectedSuite || !questionContent.trim()) return
+
+    try {
+      if (editingQuestionId) {
+        await axiosBackendInstance.put(
+          `agent/testing/questions/${editingQuestionId}`,
+          {
+            content: questionContent
+          }
+        )
+      } else {
+        await axiosBackendInstance.post(
+          `agent/testing/suites/${selectedSuite.id}/questions`,
+          {
+            content: questionContent
+          }
+        )
+      }
+      loadQuestions(selectedSuite)
+      questionContent = ''
+      editingQuestionId = null
+    } catch (err) {
+      error = 'Failed to save question'
+    }
+  }
+
+  const deleteQuestion = async (id: number) => {
+    try {
+      await axiosBackendInstance.delete(`agent/testing/questions/${id}`)
+      if (selectedSuite) loadQuestions(selectedSuite)
+    } catch (err) {
+      error = 'Failed to delete question'
+    }
+  }
+
+  const startEditQuestion = (q: TestQuestion) => {
+    editingQuestionId = q.id
+    questionContent = q.content
+  }
+
+  const cancelEditQuestion = () => {
+    editingQuestionId = null
+    questionContent = ''
+  }
+
+  // --- Test Runner ---
+  export const handleRunnerNext = () => {
+    // Called by parent when ready for next question
+    if (running && currentQuestionIndex < questions.length - 1) {
+      currentQuestionIndex++
+      dispatch('runQuestion', {
+        content: questions[currentQuestionIndex].content
+      })
+    } else if (running) {
+      running = false
+      runStatus = 'completed'
+    }
+  }
+
+  const startRunner = () => {
+    if (questions.length === 0) return
+    running = true
+    runStatus = 'running'
+    currentQuestionIndex = 0
+    dispatch('runQuestion', { content: questions[0].content })
+  }
+
+  $: if (isOpen) {
+    if (!selectedSuite) loadSuites()
+  }
+</script>
+
+<div class="testing-sidebar" class:open={isOpen}>
+  <div class="header">
+    <div class="header-left">
+      {#if selectedSuite}
+        <Button
+          variant="info"
+          class="back-btn sidebar-icon-btn button-icon-only"
+          onclick={handleBackToSuites}
+          title="Back to Suites"
+        >
+          <MaterialIcon name="arrow-left" width="20" height="20" />
+        </Button>
+        <h2 class="suite-title">{selectedSuite.name}</h2>
+      {:else}
+        <h2>Auto Testing</h2>
+      {/if}
+    </div>
+    <div class="actions">
+      <Button
+        variant="info"
+        class="sidebar-icon-btn button-icon-only"
+        onclick={() => dispatch('close')}
+        title="Close Testing"
+      >
+        <MaterialIcon name="chevron-left" width="20" height="20" />
+      </Button>
+    </div>
+  </div>
+
+  <div class="content">
+    {#if error}
+      <div class="error">{error}</div>
+    {/if}
+
+    {#if !selectedSuite}
+      <!-- Suites List -->
+      <div class="form-section">
+        <input type="text" placeholder="Suite Name" bind:value={suiteName} />
+        <input
+          type="text"
+          placeholder="Description"
+          bind:value={suiteDescription}
+        />
+        <div class="form-actions">
+          <Button variant="primary" onclick={saveSuite} disabled={!suiteName}>
+            {editingSuiteId ? 'Update' : 'Create'} Suite
+          </Button>
+          {#if editingSuiteId}
+            <Button variant="secondary" onclick={cancelEditSuite}>Cancel</Button
+            >
+          {/if}
+        </div>
+      </div>
+
+      <div class="list">
+        {#each suites as suite (suite.id)}
+          <div
+            class="item"
+            on:click={() => loadQuestions(suite)}
+            role="button"
+            tabindex="0"
+            on:keypress={(e) => e.key === 'Enter' && loadQuestions(suite)}
+          >
+            <div class="info">
+              <span class="name">{suite.name}</span>
+              <span class="desc">{suite.description || ''}</span>
+            </div>
+            <div class="item-actions">
+              <button
+                on:click|stopPropagation={() => startEditSuite(suite)}
+                title="Edit"
+              >
+                <MaterialIcon name="pencil" width="16" height="16" />
+              </button>
+              <button
+                class="delete"
+                on:click|stopPropagation={() => deleteSuite(suite.id)}
+                title="Delete"
+              >
+                <MaterialIcon name="delete" width="16" height="16" />
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <!-- Questions List -->
+      <div class="runner-controls">
+        <Button
+          variant="primary"
+          onclick={startRunner}
+          disabled={running || questions.length === 0}
+        >
+          {running
+            ? `Running (${currentQuestionIndex + 1}/${questions.length})`
+            : 'Run Suite'}
+        </Button>
+        {#if runStatus === 'completed'}
+          <span class="completed-badge">Done</span>
+        {/if}
+      </div>
+
+      <div class="form-section">
+        <textarea placeholder="Question content..." bind:value={questionContent}
+        ></textarea>
+        <div class="form-actions">
+          <Button
+            variant="primary"
+            onclick={saveQuestion}
+            disabled={!questionContent}
+          >
+            {editingQuestionId ? 'Update' : 'Add'} Question
+          </Button>
+          {#if editingQuestionId}
+            <Button variant="secondary" onclick={cancelEditQuestion}
+              >Cancel</Button
+            >
+          {/if}
+        </div>
+      </div>
+
+      <div class="list">
+        {#each questions as q, i (q.id)}
+          <div
+            class="item question-item"
+            class:active={i === currentQuestionIndex && running}
+          >
+            <span class="index">{i + 1}.</span>
+            <span class="content-text">{q.content}</span>
+            <div class="item-actions">
+              <button
+                on:click|stopPropagation={() => startEditQuestion(q)}
+                title="Edit"
+              >
+                <MaterialIcon name="pencil" width="16" height="16" />
+              </button>
+              <button
+                class="delete"
+                on:click|stopPropagation={() => deleteQuestion(q.id)}
+                title="Delete"
+              >
+                <MaterialIcon name="delete" width="16" height="16" />
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .testing-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 320px; /* Slightly wider for questions */
+    background: var(--bg-secondary, #f5f5f5);
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .testing-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .header {
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .suite-title {
+    font-size: 1rem !important;
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-section {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-light, #eee);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  input,
+  textarea {
+    padding: 8px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    font-family: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-light, #eee);
+    transition: background 0.2s;
+  }
+
+  .item:hover {
+    background-color: var(--bg-tertiary, #fafafa);
+  }
+
+  .item.question-item {
+    cursor: default;
+    align-items: flex-start;
+  }
+
+  .item.active {
+    background-color: rgba(33, 150, 243, 0.1);
+    border-left: 3px solid var(--primary-color, #2196f3);
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .name {
+    font-weight: 500;
+    color: var(--text-primary, #333);
+  }
+
+  .desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #666);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .index {
+    font-weight: bold;
+    color: var(--text-secondary, #999);
+    margin-right: 8px;
+    min-width: 20px;
+  }
+
+  .content-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text-primary, #333);
+    word-break: break-word;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .item:hover .item-actions {
+    opacity: 1;
+  }
+
+  .item-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--text-secondary, #999);
+    display: flex;
+  }
+
+  .item-actions button:hover {
+    color: var(--primary-color, #2196f3);
+  }
+
+  .item-actions button.delete:hover {
+    color: #f44336;
+  }
+
+  .runner-controls {
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-light, #eee);
+  }
+
+  .completed-badge {
+    background: #4caf50;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+  }
+
+  .error {
+    padding: 0.5rem;
+    background-color: #ffebee;
+    color: #c62828;
+    font-size: 0.9rem;
+    margin: 0.5rem;
+    border-radius: 4px;
+  }
+
+  :global(.sidebar-icon-btn.button-icon-only) {
+    min-width: 2rem !important;
+    min-height: 2rem !important;
+    padding: 0 !important;
+    width: 2rem;
+    height: 2rem;
+  }
+</style>
