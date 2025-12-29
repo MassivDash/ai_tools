@@ -437,16 +437,22 @@ impl GitHubAuthenticatedTool {
         response.json().await.context("Failed to parse pulls")
     }
 
-    async fn list_authenticated_issues(&self, filter: &str) -> Result<serde_json::Value> {
+    async fn list_authenticated_issues(
+        &self,
+        filter: &str,
+        state: &str,
+        page: u32,
+    ) -> Result<serde_json::Value> {
         let url = "https://api.github.com/issues";
         let response = self
             .client
             .get(url)
             .query(&[
                 ("filter", filter),
-                ("state", "open"),
+                ("state", state),
                 ("sort", "updated"),
-                ("per_page", "10"),
+                ("per_page", "100"),
+                ("page", &page.to_string()),
             ])
             .send()
             .await
@@ -621,7 +627,17 @@ impl AgentTool for GitHubAuthenticatedTool {
                     "repo": { "type": "string", "description": "Repository name (optional for issues/pulls)." },
                     "org": { "type": "string", "description": "Organization name (required for list_org_repos)." },
                     "username": { "type": "string", "description": "Username for events check." },
-                    "page": { "type": "integer", "description": "Page number for pagination (default: 1)." }
+                    "page": { "type": "integer", "description": "Page number for pagination (default: 1)." },
+                    "filter": {
+                        "type": "string",
+                        "enum": ["assigned", "created", "mentioned", "subscribed", "repos", "all"],
+                        "description": "Filter for listing issues (default: assigned)."
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": ["open", "closed", "all"],
+                        "description": "State of issues to return (default: open)."
+                    }
                 },
                 "required": ["action"]
             }
@@ -698,12 +714,22 @@ impl AgentTool for GitHubAuthenticatedTool {
             "issues" => {
                 let owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
                 let repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
+                let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
 
                 if owner.is_empty() || repo.is_empty() {
                     // List issues assigned to authenticated user
-                    match self.list_authenticated_issues("assigned").await {
+                    let filter = args
+                        .get("filter")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("assigned");
+                    let state = args.get("state").and_then(|v| v.as_str()).unwrap_or("open");
+
+                    match self.list_authenticated_issues(filter, state, page).await {
                         Ok(data) => format!(
-                            "🐛 **Issues Assigned to You**\n\n{}",
+                            "🐛 **Issues ({}, {}) Page {}**\n\n{}",
+                            filter,
+                            state,
+                            page,
                             self.format_issues(&data)
                         ),
                         Err(e) => format!("❌ Failed: {}", e),
@@ -743,7 +769,11 @@ impl AgentTool for GitHubAuthenticatedTool {
                     // Use issues endpoint but perhaps filter differently?
                     // For now reusing list_authenticated_issues ("assigned") but user might want "created" or "mentioned"
                     // Implementation choice: list default (assigned) for 'pulls' context too, or we can use "all"
-                    match self.list_authenticated_issues("all").await {
+                    let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                    match self
+                        .list_authenticated_issues("assigned", "open", page)
+                        .await
+                    {
                         Ok(data) => format!(
                             "🔃 **Your Pull Requests & Issues**\n\n{}",
                             self.format_issues(&data)
