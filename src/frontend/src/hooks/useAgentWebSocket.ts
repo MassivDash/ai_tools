@@ -18,7 +18,7 @@ export interface AgentStreamEvent {
 }
 
 export function useAgentWebSocket(
-  onEvent: (event: AgentStreamEvent) => void,
+  onEvent: (_event: AgentStreamEvent) => void,
   _onError?: (_error: Event) => void
 ) {
   const getWebSocketUrl = (): string => {

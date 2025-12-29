@@ -43,10 +43,8 @@
         selectedCollection = ''
         selectedEmbeddingModel = ''
       }
-      // Store update is handled by parent component (agent.svelte) on mount
-      console.log('📋 Loaded agent config - enabled tools:', enabledTools)
     } catch (err: any) {
-      console.error('❌ Failed to load agent config:', err)
+      console.error('Failed to load agent config:', err)
     }
   }
 
@@ -62,7 +60,7 @@
         error = response.data.error || 'Failed to load collections'
       }
     } catch (err: any) {
-      console.error('❌ Failed to load collections:', err)
+      console.error('Failed to load collections:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load collections'
     } finally {

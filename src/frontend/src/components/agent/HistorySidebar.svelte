@@ -149,7 +149,6 @@
                   if (e.key === 'Enter') saveTitle()
                 }}
                 on:blur={saveTitle}
-                autofocus
               />
             {:else if deleteConfirmId === conv.id}
               <div class="confirm-delete">

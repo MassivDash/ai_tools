@@ -5,7 +5,7 @@
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
   export let enabledTools: string[] = []
-  export let onToggle: (tool: string) => void
+  export let onToggle: (_tool: string) => void
 
   let availableTools: ToolInfo[] = []
   let loadingTools = false

@@ -15,8 +15,8 @@
   export let loadingCollections: boolean = false
   export let loadingModels: boolean = false
   export let onToggle: () => void
-  export let onCollectionSelect: (collection: Collection) => void
-  export let onModelSelect: (model: ModelInfo) => void
+  export let onCollectionSelect: (_collection: Collection) => void
+  export let onModelSelect: (_model: ModelInfo) => void
 
   let modelNotes: Map<string, ModelNote> = new Map()
 
