@@ -5,12 +5,45 @@
   interface Props {
     loading?: boolean
     onTranscript: (text: string) => void
-    onCommand: (command: 'execute' | 'send') => void
+    onCommand: (command: string) => void
+    ttsEnabled?: boolean
+    onToggleTTS?: () => void
+    ttsSpeaking?: boolean
+    onStopTTS?: () => void
   }
 
-  let { loading = false, onTranscript, onCommand }: Props = $props()
+  let {
+    loading = false,
+    onTranscript,
+    onCommand,
+    ttsEnabled = false,
+    onToggleTTS,
+    ttsSpeaking = false,
+    onStopTTS
+  }: Props = $props()
 
   let alwaysOn = $state(false)
+  let silenceTimer: any = $state(null)
+
+  const stopSilenceTimer = () => {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer)
+      silenceTimer = null
+    }
+  }
+
+  const startSilenceTimer = () => {
+    stopSilenceTimer()
+    if (alwaysOn && speech.isListening) {
+      silenceTimer = setTimeout(() => {
+        // Auto-send after 2 seconds of silence
+        if (speech.isListening) {
+          speech.stop()
+          onCommand('send')
+        }
+      }, 2000)
+    }
+  }
 
   const speech = useSpeechRecognition({
     onTranscript: (text) => {
@@ -18,15 +51,54 @@
     },
     onCommand: (command) => {
       onCommand(command)
+      stopSilenceTimer()
+
       if (alwaysOn) {
-        // Little delay to allow the stop to complete and buffer to clear
-        setTimeout(() => {
-          speech.start()
-        }, 200)
+        // If TTS is enabled, we wait for speaking to finish (handled by effect)
+        // If TTS is disabled, we just restart with delay
+        if (!ttsEnabled) {
+          setTimeout(() => {
+            speech.start()
+          }, 200)
+        }
       }
     },
     onError: (err) => {
       console.error('Speech error', err)
+      stopSilenceTimer()
+    },
+    onEvent: (type) => {
+      if (type === 'result') {
+        startSilenceTimer()
+      } else if (type === 'end' || type === 'error') {
+        stopSilenceTimer()
+      }
+    }
+  })
+
+  // Watch for TTS speaking state changes
+  $effect(() => {
+    if (ttsSpeaking) {
+      // Stop listening when speaking starts
+      if (speech.isListening) {
+        speech.stop()
+      }
+      stopSilenceTimer()
+    } else {
+      // Restart listening when speaking ends IF alwaysOn is active
+      // Only restart if we are not currently listening and alwaysOn is true
+      if (alwaysOn && !speech.isListening && !loading) {
+        setTimeout(() => {
+          speech.start()
+        }, 200)
+      }
+    }
+  })
+
+  // Clean up timer on destroy or when alwaysOn changes
+  $effect(() => {
+    if (!alwaysOn) {
+      stopSilenceTimer()
     }
   })
 </script>
@@ -57,15 +129,15 @@
           {speech.error
             ? 'Error'
             : speech.isListening
-              ? "Say 'execute' when finished"
-              : 'Dictate'}
+              ? "Say 'execute' or 2s pause"
+              : 'Talk to agent'}
         </span>
       </button>
 
       <button
         type="button"
-        class="always-on-toggle"
-        class:active={alwaysOn}
+        class="voice-input-button"
+        class:listening={alwaysOn}
         onclick={() => (alwaysOn = !alwaysOn)}
         title="Always On: Auto-restart after sending"
       >
@@ -74,7 +146,47 @@
           width="16"
           height="16"
         />
+        <span class="label">
+          {alwaysOn ? 'Conversation mode on' : 'Conversation mode off'}
+        </span>
       </button>
+
+      {#if onToggleTTS}
+        <button
+          type="button"
+          class="voice-input-button"
+          class:speaking={ttsEnabled || ttsSpeaking}
+          onclick={() => {
+            if (ttsSpeaking && onStopTTS) {
+              onStopTTS()
+            } else if (onToggleTTS) {
+              onToggleTTS()
+            }
+          }}
+          title={ttsSpeaking
+            ? 'Stop Speaking'
+            : ttsEnabled
+              ? 'Read Messages: On'
+              : 'Read Messages: Off'}
+        >
+          <MaterialIcon
+            name={ttsSpeaking
+              ? 'stop'
+              : ttsEnabled
+                ? 'volume-high'
+                : 'volume-off'}
+            width="16"
+            height="16"
+          />
+          <span class="label">
+            {ttsSpeaking
+              ? 'Speaking'
+              : ttsEnabled
+                ? 'Read Messages: On'
+                : 'Read Messages: Off'}
+          </span>
+        </button>
+      {/if}
     </div>
     {#if speech.error}
       <div class="error-tooltip">{speech.error}</div>
@@ -102,8 +214,18 @@
     color: var(--text-secondary, #666);
     transition: all 0.2s ease;
     font-size: 0.9rem;
-    flex: 1;
     justify-content: flex-start;
+    min-width: 5rem;
+  }
+
+  .voice-input-button:active {
+    color: var(--accent-color, #2196f3);
+    background-color: rgba(33, 150, 243, 0.1);
+  }
+
+  .voice-input-button.speaking {
+    color: var(--accent-color, #2196f3);
+    background-color: rgba(33, 150, 243, 0.1);
   }
 
   .voice-input-button:hover:not(:disabled) {
@@ -124,30 +246,6 @@
 
   .voice-input-button.error {
     color: #ff9800;
-  }
-
-  .always-on-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    color: var(--text-tertiary, #999);
-    transition: all 0.2s ease;
-  }
-
-  .always-on-toggle:hover {
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--text-primary, #333);
-  }
-
-  .always-on-toggle.active {
-    color: var(--accent-color, #2196f3);
-    background-color: rgba(33, 150, 243, 0.1);
   }
 
   .voice-input {

@@ -11,6 +11,10 @@
     onSend: () => void
     onInputChange: (_value: string) => void
     onAttachmentsChange?: (_attachments: FileAttachment[]) => void
+    ttsEnabled?: boolean
+    onToggleTTS?: () => void
+    ttsSpeaking?: boolean
+    onStopTTS?: () => void
   }
 
   let {
@@ -19,7 +23,11 @@
     modelCapabilities = { vision: false, audio: false },
     onSend,
     onInputChange,
-    onAttachmentsChange
+    onAttachmentsChange,
+    ttsEnabled = false,
+    onToggleTTS,
+    ttsSpeaking = false,
+    onStopTTS
   }: Props = $props()
 
   let textareaElement: HTMLTextAreaElement = $state()
@@ -375,27 +383,6 @@
         </Button>
       </div>
     </div>
-
-    <div class="voice-input-container">
-      <VoiceInput
-        {loading}
-        onTranscript={(text) => {
-          onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
-        }}
-        onCommand={(command) => {
-          if (command === 'send') {
-            setTimeout(() => {
-              const cleanedInput = cleanInputMessage(inputMessage)
-              if (cleanedInput !== inputMessage) {
-                onInputChange(cleanedInput)
-              }
-              onSend()
-              clearAttachments()
-            }, 100)
-          }
-        }}
-      />
-    </div>
   </div>
 
   <!-- Hidden file inputs -->
@@ -430,6 +417,30 @@
     accept=".pdf"
     onchange={(e) => handleFileSelect(e, 'pdf')}
     style="display: none"
+  />
+</div>
+<div class="voice-input-container">
+  <VoiceInput
+    {loading}
+    {ttsEnabled}
+    {onToggleTTS}
+    {ttsSpeaking}
+    {onStopTTS}
+    onTranscript={(text) => {
+      onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
+    }}
+    onCommand={(command) => {
+      if (command === 'send') {
+        setTimeout(() => {
+          const cleanedInput = cleanInputMessage(inputMessage)
+          if (cleanedInput !== inputMessage) {
+            onInputChange(cleanedInput)
+          }
+          onSend()
+          clearAttachments()
+        }, 100)
+      }
+    }}
   />
 </div>
 

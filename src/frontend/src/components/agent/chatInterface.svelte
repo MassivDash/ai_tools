@@ -2,6 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
+  import { useTextToSpeech } from '../../hooks/useTextToSpeech.svelte'
   import { activeTools as activeToolsStore } from '../../stores/activeTools'
   import type {
     ChatMessage,
@@ -9,7 +10,7 @@
     ModelCapabilities,
     FileAttachment
   } from './types'
-  import { generateMessageId } from './utils/formatting'
+  import { generateMessageId, cleanTextForSpeech } from './utils/formatting'
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'
@@ -33,6 +34,9 @@
   let chatContainer: HTMLDivElement = $state()
   let currentStreamingMessage: string = $state('')
   let streamingMessageId: string | null = $state(null)
+
+  const tts = useTextToSpeech()
+  let ttsEnabled = $state(false)
 
   // Subscribe to active tools store - use $derived for reactivity
   let activeToolsSet: Set<string> = $state(new Set())
@@ -380,6 +384,14 @@
           )
           if (streamingIndex >= 0) {
             messages[streamingIndex].timestamp = Date.now()
+
+            // Speak the message if TTS is enabled
+            if (ttsEnabled && tts.isSupported && currentStreamingMessage) {
+              const speechText = cleanTextForSpeech(currentStreamingMessage)
+              if (speechText) {
+                tts.speak(speechText)
+              }
+            }
           }
           streamingMessageId = null
         }
@@ -493,6 +505,10 @@
     onAttachmentsChange={(attachments) => {
       currentAttachments = attachments
     }}
+    {ttsEnabled}
+    onToggleTTS={() => (ttsEnabled = !ttsEnabled)}
+    ttsSpeaking={tts.isSpeaking}
+    onStopTTS={tts.cancel}
   />
 
   {#if tokenUsage}

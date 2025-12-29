@@ -1,23 +1,27 @@
+
 /* eslint-disable no-undef */
 export interface SpeechRecognitionOptions {
   onTranscript: (transcript: string, isFinal: boolean) => void
   onCommand?: (command: 'execute' | 'send') => void
-  onError?: (error: any) => void
+  onError?: (error: string) => void
+  onEvent?: (eventType: 'start' | 'end' | 'result' | 'error') => void
 }
 
 export function useSpeechRecognition({
   onTranscript,
   onCommand,
-  onError
+  onError,
+  onEvent
 }: SpeechRecognitionOptions) {
   let isListening = $state(false)
   let recognition: any = $state(null)
   let error = $state<string | null>(null)
-  
+
   // Check support immediately
-  const isSupported = 
-    typeof window !== 'undefined' && 
-    (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition)
+  const isSupported =
+    typeof window !== 'undefined' &&
+    (!!(window as any).SpeechRecognition ||
+      !!(window as any).webkitSpeechRecognition)
 
   function toggle() {
     if (isListening) {
@@ -29,10 +33,10 @@ export function useSpeechRecognition({
 
   function start() {
     error = null
-    
+
     if (!isSupported) {
-        error = 'Speech recognition not supported'
-        return
+      error = 'Speech recognition not supported'
+      return
     }
 
     if (!recognition) {
@@ -71,6 +75,8 @@ export function useSpeechRecognition({
       }
 
       recognition.onresult = (event: any) => {
+        onEvent?.('result')
+
         let finalTranscript = ''
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -126,7 +132,7 @@ export function useSpeechRecognition({
       return error
     },
     get isSupported() {
-        return isSupported
+      return isSupported
     },
     toggle,
     start,
