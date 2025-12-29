@@ -185,6 +185,11 @@
     dispatch('runQuestion', { content: questions[0].content })
   }
 
+  const stopRunner = () => {
+    running = false
+    runStatus = 'idle'
+  }
+
   $: if (isOpen) {
     if (!selectedSuite) loadSuites()
   }
@@ -278,17 +283,28 @@
     {:else}
       <!-- Questions List -->
       <div class="runner-controls">
-        <Button
-          variant="primary"
-          onclick={startRunner}
-          disabled={running || questions.length === 0}
-        >
-          {running
-            ? `Running (${currentQuestionIndex + 1}/${questions.length})`
-            : 'Run Suite'}
-        </Button>
+        {#if running}
+          <Button variant="danger" onclick={stopRunner} title="Stop Testing">
+            <MaterialIcon name="stop" width="20" height="20" /> Stop
+          </Button>
+          <div class="running-indicator">
+            Running ({currentQuestionIndex + 1}/{questions.length})
+          </div>
+        {:else}
+          <Button
+            variant="primary"
+            onclick={startRunner}
+            disabled={questions.length === 0}
+          >
+            <MaterialIcon name="play" width="20" height="20" /> Run Suite
+          </Button>
+        {/if}
+
         {#if runStatus === 'completed'}
-          <span class="completed-badge">Done</span>
+          <div class="completed-badge-enhanced">
+            <MaterialIcon name="check-circle" width="18" height="18" />
+            <span>Done</span>
+          </div>
         {/if}
       </div>
 
@@ -525,12 +541,23 @@
     border-bottom: 1px solid var(--border-light, #eee);
   }
 
-  .completed-badge {
-    background: #4caf50;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.8rem;
+  .completed-badge-enhanced {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--success-color, #4caf50);
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 4px 12px;
+    border-radius: 16px;
+    background-color: var(--success-bg, rgba(76, 175, 80, 0.1));
+    border: 1px solid var(--success-color, #4caf50);
+  }
+
+  .running-indicator {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #666);
+    font-weight: 500;
   }
 
   .error {

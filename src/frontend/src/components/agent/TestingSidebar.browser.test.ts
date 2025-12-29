@@ -173,7 +173,7 @@ test('runs questions sequentially', async () => {
   await waitFor(() => expect(screen.getByText('Question 1')).toBeTruthy())
 
   // Click Run
-  const runBtn = screen.getByText('Run Suite')
+  const runBtn = screen.getByRole('button', { name: /Run Suite/i })
   await fireEvent.click(runBtn)
 
   await waitFor(() => {
@@ -216,36 +216,38 @@ test('runs 4 questions without skipping', async () => {
     props: { isOpen: true }
   })
 
-  const runQuestionSpy = vi.fn()
-  ;(component as any).$on('runQuestion', runQuestionSpy)
-
   await waitFor(() => expect(screen.getByText('Suite 1')).toBeTruthy())
   const suiteItem = screen.getByText('Suite 1').closest('.item')
   if (suiteItem) await fireEvent.click(suiteItem)
   await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy())
 
   // Click Run - Start (Q1)
-  const runBtn = screen.getByText('Run Suite')
+  const runBtn = screen.getByRole('button', { name: /Run Suite/i })
   await fireEvent.click(runBtn)
-  expect(runQuestionSpy).toHaveBeenLastCalledWith(
-    expect.objectContaining({ detail: { content: 'Q1' } })
-  )
-
+  
+  await waitFor(() => {
+     const q1 = screen.getByText('Q1').closest('.item')
+     expect(q1?.classList.contains('active')).toBe(true)
+  })
+  
   // Next -> Q2
   ;(component as any).handleRunnerNext()
-  expect(runQuestionSpy).toHaveBeenLastCalledWith(
-    expect.objectContaining({ detail: { content: 'Q2' } })
-  )
-
+  await waitFor(() => {
+     const q2 = screen.getByText('Q2').closest('.item')
+     expect(q2?.classList.contains('active')).toBe(true)
+  })
+  
   // Next -> Q3 (This is the reported skip point)
   ;(component as any).handleRunnerNext()
-  expect(runQuestionSpy).toHaveBeenLastCalledWith(
-    expect.objectContaining({ detail: { content: 'Q3' } })
-  )
-
+  await waitFor(() => {
+     const q3 = screen.getByText('Q3').closest('.item')
+     expect(q3?.classList.contains('active')).toBe(true)
+  })
+  
   // Next -> Q4
   ;(component as any).handleRunnerNext()
-  expect(runQuestionSpy).toHaveBeenLastCalledWith(
-    expect.objectContaining({ detail: { content: 'Q4' } })
-  )
+  await waitFor(() => {
+     const q4 = screen.getByText('Q4').closest('.item')
+     expect(q4?.classList.contains('active')).toBe(true)
+  })
 })
