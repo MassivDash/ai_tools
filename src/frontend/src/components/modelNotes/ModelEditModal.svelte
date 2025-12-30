@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '../ui/Button.svelte'
+  import IconButton from '../ui/IconButton.svelte'
   import Input from '../ui/Input.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import type { ModelNote } from './types'
@@ -55,9 +56,9 @@
   <div class="modal" role="document">
     <div class="modal-header">
       <h3 id="modal-title">Edit Notes: {note.model_name}</h3>
-      <Button variant="info" class="button-icon-only" onclick={onClose}>
+      <IconButton variant="info" onclick={onClose} title="Close" iconSize={24}>
         <MaterialIcon name="close" width="24" height="24" />
-      </Button>
+      </IconButton>
     </div>
     <div class="modal-content">
       <div class="form-group">

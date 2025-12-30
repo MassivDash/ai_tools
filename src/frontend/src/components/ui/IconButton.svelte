@@ -2,13 +2,14 @@
   import Button from './Button.svelte'
 
   interface Props {
-    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info'
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info' | 'ghost'
     disabled?: boolean
     title?: string
     iconSize?: number | string
     class?: string
     onclick?: (_e: MouseEvent) => void
     children?: import('svelte').Snippet
+    [key: string]: any
   }
 
   let {
@@ -43,9 +44,6 @@
 
 <style>
   :global(.button-icon-only) {
-    padding: 0.75rem !important;
-    min-width: 3rem !important;
-    min-height: 3rem !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -54,7 +52,7 @@
 
   :global(.button-icon-only) :global(svg) {
     flex-shrink: 0;
-    width: var(--icon-size, 32px);
-    height: var(--icon-size, 32px);
+    width: var(--icon-size, 24px);
+    height: var(--icon-size, 24px);
   }
 </style>

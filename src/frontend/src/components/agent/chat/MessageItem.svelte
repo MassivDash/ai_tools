@@ -1,5 +1,7 @@
 <script lang="ts">
   import Chart from '../../ui/Chart.svelte'
+  import Button from '../../ui/Button.svelte'
+  import IconButton from '../../ui/IconButton.svelte'
   import type { ChatMessage } from '../types'
   import { renderMarkdown } from '../utils/markdown'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
@@ -393,23 +395,33 @@
       {/if}
       <span>{message.role === 'user' ? 'You' : 'Assistant'}</span>
       <div class="message-actions" bind:this={dropdownRef}>
-        <button
+        <IconButton
+          variant="ghost"
           class="action-button"
           onclick={toggleDropdown}
-          aria-label="Message options"
+          title="Message options"
+          iconSize={16}
         >
           <MaterialIcon name="dots-vertical" width="16" height="16" />
-        </button>
+        </IconButton>
         {#if isDropdownOpen}
           <div class="dropdown-menu">
-            <button class="dropdown-item" onclick={handleCopyMessage}>
+            <Button
+              variant="ghost"
+              class="dropdown-item"
+              onclick={handleCopyMessage}
+            >
               <MaterialIcon name="content-copy" width="14" height="14" />
               <span>Copy</span>
-            </button>
-            <button class="dropdown-item" onclick={handleQuoteMessage}>
+            </Button>
+            <Button
+              variant="ghost"
+              class="dropdown-item"
+              onclick={handleQuoteMessage}
+            >
               <MaterialIcon name="format-quote-close" width="14" height="14" />
               <span>Quote</span>
-            </button>
+            </Button>
           </div>
         {/if}
       </div>
@@ -524,20 +536,12 @@
     opacity: 1;
   }
 
-  .action-button {
-    background: transparent;
-    border: none;
-    cursor: pointer;
+  .message-actions :global(.action-button) {
     color: var(--text-tertiary, #999);
     padding: 0.25rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
   }
 
-  .action-button:hover {
+  .message-actions :global(.action-button:hover) {
     background-color: var(--bg-tertiary, #f0f0f0);
     color: var(--text-primary, #100f0f);
   }
@@ -558,23 +562,16 @@
     gap: 0.125rem;
   }
 
-  .dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary, #666);
-    font-size: 0.85rem;
-    cursor: pointer;
-    text-align: left;
-    border-radius: 4px;
-    white-space: nowrap;
+  .dropdown-menu :global(.dropdown-item) {
     width: 100%;
+    justify-content: flex-start;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #666);
+    border-radius: 4px;
   }
 
-  .dropdown-item:hover {
+  .dropdown-menu :global(.dropdown-item:hover) {
     background-color: var(--bg-secondary, #f5f5f5);
     color: var(--text-primary, #100f0f);
   }

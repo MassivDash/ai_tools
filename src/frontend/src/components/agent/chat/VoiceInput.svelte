@@ -1,5 +1,6 @@
 <script lang="ts">
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import Button from '../../ui/Button.svelte'
   import { useSpeechRecognition } from '../../../hooks/useSpeechRecognition.svelte.ts'
 
   interface Props {
@@ -123,11 +124,11 @@
 {#if speech.isSupported}
   <div class="voice-input">
     <div class="voice-controls">
-      <button
-        type="button"
-        class="voice-input-button"
-        class:listening={speech.isListening}
-        class:error={!!speech.error}
+      <Button
+        variant="ghost"
+        class="voice-input-button {speech.isListening
+          ? 'listening'
+          : ''} {!!speech.error ? 'error' : ''}"
         onclick={speech.toggle}
         disabled={loading}
         title={speech.error ||
@@ -149,12 +150,11 @@
               ? "Say 'execute' or 2s pause"
               : 'Talk to agent'}
         </span>
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        class="voice-input-button"
-        class:listening={alwaysOn}
+      <Button
+        variant="ghost"
+        class="voice-input-button {alwaysOn ? 'listening' : ''}"
         onclick={() => (alwaysOn = !alwaysOn)}
         title="Always On: Auto-restart after sending"
       >
@@ -166,13 +166,14 @@
         <span class="label">
           {alwaysOn ? 'Conversation mode on' : 'Conversation mode off'}
         </span>
-      </button>
+      </Button>
 
       {#if onToggleTTS}
-        <button
-          type="button"
-          class="voice-input-button"
-          class:speaking={ttsEnabled || ttsSpeaking}
+        <Button
+          variant="ghost"
+          class="voice-input-button {ttsEnabled || ttsSpeaking
+            ? 'speaking'
+            : ''}"
           onclick={() => {
             if (ttsSpeaking && onStopTTS) {
               onStopTTS()
@@ -202,7 +203,7 @@
                 ? 'Read Messages: On'
                 : 'Read Messages: Off'}
           </span>
-        </button>
+        </Button>
       {/if}
     </div>
     {#if speech.error}
@@ -221,49 +222,47 @@
     margin-left: 1rem;
   }
 
-  .voice-input-button {
+  :global(.voice-input-button) {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
     border: none;
-    background: transparent;
     border-radius: 8px;
     cursor: pointer;
-    color: var(--text-secondary, #666);
     transition: all 0.2s ease;
     font-size: 0.9rem;
     justify-content: flex-start;
     min-width: 10rem;
   }
 
-  .voice-input-button:active {
+  :global(.voice-input-button:active) {
     color: var(--accent-color, #2196f3);
     background-color: rgba(33, 150, 243, 0.1);
   }
 
-  .voice-input-button.speaking {
+  :global(.voice-input-button.speaking) {
     color: var(--accent-color, #2196f3);
     background-color: rgba(33, 150, 243, 0.1);
   }
 
-  .voice-input-button:hover:not(:disabled) {
+  :global(.voice-input-button:hover:not(:disabled)) {
     background-color: var(--bg-secondary, #f5f5f5);
     color: var(--accent-color, #2196f3);
   }
 
-  .voice-input-button:disabled {
+  :global(.voice-input-button:disabled) {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .voice-input-button.listening {
+  :global(.voice-input-button.listening) {
     color: #f44336;
     background-color: rgba(244, 67, 54, 0.1);
     animation: pulse 2s infinite;
   }
 
-  .voice-input-button.error {
+  :global(.voice-input-button.error) {
     color: #ff9800;
   }
 

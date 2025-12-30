@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '../../ui/Button.svelte'
+  import IconButton from '../../ui/IconButton.svelte'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ModelCapabilities, FileAttachment } from '../types'
@@ -145,11 +146,11 @@
         const fileContent = await file.text()
         attachment.content = fileContent
         // eslint-disable-next-line no-console
-        console.log('📄 Text file processed:', file.name)
+        console.log('Text file processed:', file.name)
       } else if (fileType === 'pdf') {
         // Convert PDF to markdown using backend endpoint
         // eslint-disable-next-line no-console
-        console.log('📄 Converting PDF to text:', file.name)
+        console.log('Converting PDF to text:', file.name)
         const formData = new FormData()
         formData.append('file', file)
         formData.append('count_tokens', 'false')
@@ -166,9 +167,9 @@
 
           attachment.content = response.data.markdown
           // eslint-disable-next-line no-console
-          console.log('✅ PDF converted to text:', file.name)
+          console.log('PDF converted to text:', file.name)
         } catch (err: any) {
-          console.error('❌ Failed to convert PDF:', err)
+          console.error('Failed to convert PDF:', err)
           attachment.content = `Failed to extract text: ${err.response?.data?.error || err.message}`
         }
       } else if (fileType === 'audio') {
@@ -210,7 +211,7 @@
           }
           onAttachmentsChange?.(attachments)
         } catch (err) {
-          console.error('❌ Failed to process image:', err)
+          console.error('Failed to process image:', err)
         }
 
         target.value = ''
@@ -229,7 +230,7 @@
       // Reset file input
       target.value = ''
     } catch (err) {
-      console.error(`❌ Failed to process ${fileType} file:`, err)
+      console.error(`Failed to process ${fileType} file:`, err)
     }
   }
 
@@ -316,13 +317,16 @@
           <MaterialIcon name="format-quote-close" width="16" height="16" />
           <span class="quote-text">{quotedMessage}</span>
         </div>
-        <button
+        <IconButton
+          variant="ghost"
+          size="small"
           class="dismiss-quote"
           onclick={onClearQuote}
           aria-label="Dismiss quote"
+          iconSize="14"
         >
           <MaterialIcon name="close" width="14" height="14" />
-        </button>
+        </IconButton>
       </div>
     {/if}
 
@@ -347,14 +351,14 @@
               height="16"
             />
             <span class="attachment-name">{attachment.name}</span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               class="remove-attachment"
               onclick={() => removeAttachment(index)}
               title="Remove attachment"
             >
               <MaterialIcon name="close" width="14" height="14" />
-            </button>
+            </Button>
           </div>
         {/each}
       </div>
@@ -363,45 +367,49 @@
     <div class="utility-bar">
       <div class="file-buttons">
         {#if modelCapabilities.audio}
-          <button
-            type="button"
-            class="file-button"
+          <IconButton
+            variant="ghost"
+            size="small"
             onclick={() => triggerFileInput('audio')}
             disabled={loading}
             title="Upload audio file"
+            iconSize={20}
           >
             <MaterialIcon name="microphone" width="20" height="20" />
-          </button>
+          </IconButton>
         {/if}
         {#if modelCapabilities.vision}
-          <button
-            type="button"
-            class="file-button"
+          <IconButton
+            variant="ghost"
+            size="small"
             onclick={() => triggerFileInput('image')}
             disabled={loading}
             title="Upload image file"
+            iconSize={20}
           >
             <MaterialIcon name="image" width="20" height="20" />
-          </button>
+          </IconButton>
         {/if}
-        <button
-          type="button"
-          class="file-button"
+        <IconButton
+          variant="ghost"
+          size="small"
           onclick={() => triggerFileInput('text')}
           disabled={loading}
           title="Upload text file (txt, md)"
+          iconSize={20}
         >
           <MaterialIcon name="note-text" width="20" height="20" />
-        </button>
-        <button
-          type="button"
-          class="file-button"
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          size="small"
           onclick={() => triggerFileInput('pdf')}
           disabled={loading}
           title="Upload PDF file"
+          iconSize={20}
         >
           <MaterialIcon name="file-pdf-box" width="20" height="20" />
-        </button>
+        </IconButton>
       </div>
 
       <div class="send-button-wrapper">
@@ -540,22 +548,8 @@
     font-style: italic;
   }
 
-  .dismiss-quote {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--text-tertiary, #999);
-    padding: 0.25rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .dismiss-quote:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary, #100f0f);
+  :global(.dismiss-quote) {
+    margin-left: 0.5rem;
   }
 
   .chat-input {
@@ -607,24 +601,25 @@
     white-space: nowrap;
   }
 
-  .remove-attachment {
+  :global(.remove-attachment) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
     border: none;
     background: transparent;
-    border-radius: 8px;
+    border-radius: 50% !important; /* Make it round */
     cursor: pointer;
     color: var(--text-secondary, #666);
-    padding: 0;
-    transition: all 0.2s ease;
+    padding: 0 !important;
   }
 
-  .remove-attachment:hover {
-    background-color: var(--bg-tertiary, #e0e0e0);
-    color: var(--text-primary, #100f0f);
+  :global(.remove-attachment:hover) {
+    background-color: var(--bg-tertiary, #e0e0e0) !important;
+    color: var(--text-primary, #100f0f) !important;
   }
 
   .voice-input-container {
@@ -651,31 +646,6 @@
     justify-content: flex-start;
   }
 
-  .file-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    color: var(--text-secondary, #666);
-    transition: all 0.2s ease;
-    padding: 0;
-  }
-
-  .file-button:hover:not(:disabled) {
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--accent-color, #2196f3);
-  }
-
-  .file-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .send-button-wrapper {
     display: flex;
     align-items: center;
@@ -694,11 +664,6 @@
 
     .file-buttons {
       gap: 0.5rem;
-    }
-
-    .file-button {
-      width: 32px;
-      height: 32px;
     }
 
     .chat-input {

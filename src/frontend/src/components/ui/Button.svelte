@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info'
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'info' | 'ghost'
     disabled?: boolean
     type?: 'button' | 'submit' | 'reset'
     size?: 'small' | 'medium' | 'large'
@@ -8,6 +8,7 @@
     children?: import('svelte').Snippet
     onclick?: (_e: MouseEvent) => void
     title?: string
+    [key: string]: any
   }
 
   let {
@@ -50,29 +51,35 @@
   }
 
   .button.button-icon-only {
-    padding: 0.75rem !important;
-    min-width: 3rem !important;
-    min-height: 3rem !important;
+    padding: 0.75rem;
+    min-width: 3rem;
+    min-height: 3rem;
+  }
+
+  .button.button-icon-only.button-small {
+    padding: 0.5rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
   }
 
   .button-success.button-icon-only {
-    background-color: var(--md-tertiary) !important;
-    color: var(--md-on-tertiary) !important;
+    background-color: var(--md-tertiary);
+    color: var(--md-on-tertiary);
   }
 
   .button-success.button-icon-only:hover:not(:disabled) {
-    background-color: var(--md-tertiary-container) !important;
-    color: var(--md-on-tertiary-container) !important;
+    background-color: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
   }
 
   .button-danger.button-icon-only {
-    background-color: var(--md-error) !important;
-    color: var(--md-on-error) !important;
+    background-color: var(--md-error);
+    color: var(--md-on-error);
   }
 
   .button-danger.button-icon-only:hover:not(:disabled) {
-    background-color: var(--md-error-container) !important;
-    color: var(--md-on-error-container) !important;
+    background-color: var(--md-error-container);
+    color: var(--md-on-error-container);
   }
 
   .button-small {
@@ -154,6 +161,19 @@
     color: var(--md-on-secondary-container);
   }
 
+  .button-ghost {
+    background-color: transparent;
+    color: var(--text-secondary, #666);
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  .button-ghost:hover:not(:disabled) {
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--accent-color, #2196f3);
+  }
+
   .button-success:disabled,
   .button-danger:disabled {
     opacity: 0.6;
@@ -168,5 +188,10 @@
     transition:
       background-color 0.3s ease,
       color 0.3s ease;
+  }
+
+  .button-ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

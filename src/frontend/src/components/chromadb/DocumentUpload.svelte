@@ -1,12 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ChromaDBResponse, ProcessingStatus } from '@types'
+  import type { ChromaDBResponse, ProcessingStatus } from '../../types'
   import {
     DocumentUploadSchema,
     validateFileType
   } from '@validation/chromadb.ts'
   import Button from '@ui/Button.svelte'
+  import IconButton from '@ui/IconButton.svelte'
   import Dropzone from '@ui/Dropzone.svelte'
   import MaterialIcon from '@ui/MaterialIcon.svelte'
 
@@ -229,14 +230,15 @@
                 <span class="file-name">{file.name}</span>
                 <span class="file-size">{formatFileSize(file.size)}</span>
               </div>
-              <button
+              <IconButton
+                variant="ghost"
                 class="remove-file-btn"
                 onclick={() => removeFile(index)}
-                type="button"
                 title="Remove file"
+                iconSize={18}
               >
                 <MaterialIcon name="close" width="18" height="18" />
-              </button>
+              </IconButton>
             </div>
           {/each}
         </div>
@@ -346,31 +348,6 @@
   .file-size {
     font-size: 0.85rem;
     color: var(--text-secondary, #666);
-  }
-
-  .remove-file-btn {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    padding: 0.4rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.8;
-    transition:
-      opacity 0.2s,
-      background-color 0.3s ease,
-      border-color 0.3s ease,
-      color 0.3s ease;
-    color: var(--text-primary);
-  }
-
-  .remove-file-btn:hover {
-    opacity: 1;
-    background: var(--bg-tertiary);
-    border-color: var(--border-color-hover);
-    color: var(--accent-color, #c33);
   }
 
   .status {

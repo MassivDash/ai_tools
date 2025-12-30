@@ -128,37 +128,32 @@ const mainMenuItems = menuConfig.main
       if (!nav) return
 
       const scrollThreshold = 10
-      // WeakMap to track last scroll position for multiple targets
-      const lastScrollPositions = new WeakMap()
-      let lastWindowScrollY = window.scrollY
+      let lastScrollY = window.scrollY
 
-      // Handlers need to be bound or arrow functions to access vars
-      const handleScroll = (e) => {
-        const target = e.target
-        const isDocument = target === document
+      const handleScroll = () => {
+        const currentScrollY = window.scrollY
 
-        const currentScrollY = isDocument ? window.scrollY : target.scrollTop
-
-        // Get last position
-        const lastScrollY =
-          lastScrollPositions.get(target) ??
-          (isDocument ? lastWindowScrollY : currentScrollY)
-
-        // Store current as last for next time
-        lastScrollPositions.set(target, currentScrollY)
-        if (isDocument) lastWindowScrollY = currentScrollY
-
-        // Filter out small jitter
+        // Filter out small jitter (accumulate delta)
         if (Math.abs(currentScrollY - lastScrollY) < scrollThreshold) return
 
         // Direction check
-        // Hide if scrolling DOWN and not near top
-        if (currentScrollY > lastScrollY && currentScrollY > 60) {
+        const isScrollingDown = currentScrollY > lastScrollY
+        const isScrollingUp = !isScrollingDown
+
+        // Boundary checks
+        // Keep visible at very top
+        const isAtTop = currentScrollY < 60
+        // Keep visible at very bottom (prevent bouncing/unreachable footer)
+        const isAtBottom =
+          window.innerHeight + currentScrollY >= document.body.offsetHeight - 20
+
+        if (isScrollingDown && !isAtTop && !isAtBottom) {
           nav.classList.add('nav-hidden')
-        } else {
-          // Show if scrolling UP
+        } else if (isScrollingUp) {
           nav.classList.remove('nav-hidden')
         }
+
+        lastScrollY = currentScrollY
       }
 
       // Add capture listener to window to catch ALL scrolls
@@ -166,8 +161,6 @@ const mainMenuItems = menuConfig.main
         capture: true,
         passive: true
       })
-
-      // Store reference for cleanup if we were to implement disconnectedCallback
     }
   }
 

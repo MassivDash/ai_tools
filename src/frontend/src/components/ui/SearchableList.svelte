@@ -1,5 +1,7 @@
 <script lang="ts">
   import MaterialIcon from './MaterialIcon.svelte'
+  import Input from './Input.svelte'
+  import IconButton from './IconButton.svelte'
 
   export let items: any[] = []
   export let searchPlaceholder: string = 'Search...'
@@ -38,20 +40,23 @@
 
 <div class="searchable-list">
   <div class="search-wrapper">
-    <input
+    <Input
       type="text"
-      class="search-input"
       placeholder={searchPlaceholder}
       bind:value={searchQuery}
+      class="input search-input"
     />
     {#if searchQuery}
-      <button
+      <IconButton
+        variant="ghost"
+        size="small"
         class="clear-search"
         onclick={() => (searchQuery = '')}
         aria-label="Clear search"
+        iconSize="16"
       >
-        ×
-      </button>
+        <span>×</span>
+      </IconButton>
     {/if}
   </div>
 
@@ -111,50 +116,36 @@
     margin-bottom: 0.5rem;
   }
 
-  .search-input {
-    width: 100%;
-    padding: 0.5rem;
-    padding-right: 2rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    box-sizing: border-box;
-    background-color: var(--bg-primary, white);
-    color: var(--text-primary, #333);
-    transition:
-      border-color 0.2s,
-      background-color 0.3s ease,
-      color 0.3s ease;
+  /* Target the input element inside Input component if possible or via the passed class */
+  :global(.search-input) {
+    padding-right: 2rem !important;
   }
 
-  .search-input:focus {
-    outline: none;
-    border-color: var(--accent-color, #2196f3);
-  }
+  /* :global(.search-input:focus) handled by Input component */
 
-  .clear-search {
+  :global(.clear-search) {
     position: absolute;
     right: 0.5rem;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    color: var(--text-tertiary, #999);
-    padding: 0;
-    width: 1.5rem;
-    height: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: color 0.2s;
     border-radius: 8px;
+    z-index: 2; /* Ensure above input */
+    min-width: 1.5rem !important;
+    min-height: 1.5rem !important;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    padding: 0 !important;
   }
 
-  .clear-search:hover {
-    color: var(--text-primary, #333);
-    background-color: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+  /* Override styles for the icon inside clear button */
+  :global(.clear-search span) {
+    font-size: 1.2rem;
+    line-height: 1;
+    margin-top: -2px; /* Center alignment tweak */
   }
 
   .list-container {

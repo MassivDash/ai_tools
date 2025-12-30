@@ -37,8 +37,18 @@
     transition: background-color 0.3s ease;
     max-width: 1560px;
     width: 100%;
-    height: 75px;
+    /* height: 75px; Removed fixed height to allow wrapping */
+    min-height: 75px;
     margin: 0 auto;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .page-sub-header {
+      padding: 0.75rem;
+      gap: 0.75rem;
+    }
   }
 
   .header-left {
@@ -55,6 +65,13 @@
     font-size: 1.5rem;
     transition: color 0.3s ease;
     white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .page-sub-header h3 {
+      white-space: normal;
+      font-size: 1.25rem;
+    }
   }
 
   .header-actions {

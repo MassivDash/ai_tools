@@ -1,6 +1,9 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { UrlToMarkdownRequestSchema } from '@validation/urlToMarkdown.ts'
+  import Button from '../../ui/Button.svelte'
+  import Input from '../../ui/Input.svelte'
+  import Select from '../../ui/Select.svelte'
 
   interface LinkInfo {
     original: string
@@ -154,32 +157,31 @@
 <div class="url-to-markdown">
   <h3>URL to Markdown Converter</h3>
   <div class="input-container">
-    <input
+    <Input
       type="text"
       bind:value={url}
       placeholder="Enter a URL to convert to markdown..."
       onkeypress={handleKeyPress}
       disabled={loading}
-      class="url-input"
     />
-    <button
+    <Button
       onclick={convertUrlToMarkdown}
       disabled={loading || !url.trim()}
-      class="convert-button"
+      variant="primary"
     >
       {loading ? 'Converting...' : 'Convert'}
-    </button>
+    </Button>
   </div>
 
   <div class="advanced-section">
-    <button
+    <Button
       class="advanced-toggle"
       onclick={() => (showAdvanced = !showAdvanced)}
-      type="button"
+      variant="ghost"
     >
       <span class="toggle-icon">{showAdvanced ? '▼' : '▶'}</span>
       Advanced Options
-    </button>
+    </Button>
 
     {#if showAdvanced}
       <div class="advanced-options">
@@ -217,18 +219,17 @@
               <span>Remove forms</span>
             </label>
 
-            <div class="select-group">
-              <label for="preset-select">Preprocessing Preset:</label>
-              <select
-                id="preset-select"
-                bind:value={preprocessingPreset}
-                class="preset-select"
-              >
-                <option value="minimal">Minimal</option>
-                <option value="standard">Standard</option>
-                <option value="aggressive">Aggressive</option>
-              </select>
-            </div>
+            <Select
+              label="Preprocessing Preset:"
+              id="preset-select"
+              bind:value={preprocessingPreset}
+              options={[
+                { value: 'minimal', label: 'Minimal' },
+                { value: 'standard', label: 'Standard' },
+                { value: 'aggressive', label: 'Aggressive' }
+              ]}
+              class="preset-select"
+            />
           </div>
         {/if}
       </div>
@@ -260,9 +261,10 @@
     <div class="markdown-container">
       <div class="markdown-header">
         <h4>Markdown Output:</h4>
-        <button
+        <Button
           onclick={downloadMarkdown}
           class="download-button"
+          variant="primary"
           title="Download markdown file"
           aria-label="Download markdown file"
         >
@@ -282,7 +284,7 @@
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
           Download
-        </button>
+        </Button>
       </div>
       <pre class="markdown-output"><code>{markdown}</code></pre>
     </div>
@@ -332,49 +334,10 @@
     flex-wrap: wrap;
   }
 
-  .url-input {
+  .input-container :global(.input-wrapper) {
     flex: 1;
     min-width: 200px;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    font-size: 1rem;
-    background-color: var(--bg-primary, white);
-    color: var(--text-primary, #333);
-    transition:
-      border-color 0.3s ease,
-      background-color 0.3s ease,
-      color 0.3s ease;
-  }
-
-  .url-input:focus {
-    outline: none;
-    border-color: var(--accent-color, #b12424);
-  }
-
-  .url-input:disabled {
-    background-color: var(--bg-secondary, #f5f5f5);
-    cursor: not-allowed;
-  }
-
-  .convert-button {
-    padding: 0.75rem 1.5rem;
-    background-color: var(--accent-color, #b12424);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .convert-button:hover:not(:disabled) {
-    background-color: var(--accent-hover, #8a1c1c);
-  }
-
-  .convert-button:disabled {
-    background-color: var(--text-tertiary, #ccc);
-    cursor: not-allowed;
+    margin-bottom: 0 !important;
   }
 
   .error {
@@ -429,32 +392,6 @@
 
   .markdown-header h4 {
     margin: 0;
-  }
-
-  .download-button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background-color: #1976d2;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .download-button:hover {
-    background-color: #1565c0;
-  }
-
-  .download-button:active {
-    background-color: #0d47a1;
-  }
-
-  .download-button svg {
-    flex-shrink: 0;
   }
 
   .markdown-output {
@@ -543,25 +480,24 @@
     transition: border-color 0.3s ease;
   }
 
-  .advanced-toggle {
+  :global(.advanced-toggle) {
     width: 100%;
     padding: 0.75rem;
-    background-color: var(--bg-secondary, #f5f5f5);
     border: none;
     text-align: left;
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 500;
-    color: var(--text-primary, #333);
     display: flex;
     align-items: center;
     gap: 0.5rem;
     transition:
       background-color 0.2s,
       color 0.3s ease;
+    justify-content: flex-start;
   }
 
-  .advanced-toggle:hover {
+  :global(.advanced-toggle:hover) {
     background-color: var(--bg-tertiary, #e8e8e8);
   }
 
@@ -573,78 +509,7 @@
     transition: color 0.3s ease;
   }
 
-  .advanced-options {
-    padding: 1rem;
-    background-color: var(--bg-secondary, #fafafa);
-    border-top: 1px solid var(--border-color, #ddd);
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease;
-  }
-
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .checkbox-label input[type='checkbox'] {
-    cursor: pointer;
-    width: 1.1rem;
-    height: 1.1rem;
-  }
-
-  .checkbox-label span {
-    color: var(--text-primary, #333);
-    font-size: 0.95rem;
-    transition: color 0.3s ease;
-  }
-
-  .preprocessing-options {
-    margin-left: 1.5rem;
-    padding-left: 1rem;
-    border-left: 2px solid #b12424;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-  }
-
-  .select-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .select-group label {
-    font-size: 0.9rem;
-    color: var(--text-primary, #555);
-    font-weight: 500;
-    transition: color 0.3s ease;
-  }
-
-  .preset-select {
-    padding: 0.5rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background-color: var(--bg-primary, white);
-    color: var(--text-primary, #333);
-    cursor: pointer;
+  :global(.preset-select) {
     max-width: 200px;
-    transition:
-      border-color 0.3s ease,
-      background-color 0.3s ease,
-      color 0.3s ease;
-  }
-
-  .preset-select:focus {
-    outline: none;
-    border-color: var(--accent-color, #b12424);
   }
 </style>

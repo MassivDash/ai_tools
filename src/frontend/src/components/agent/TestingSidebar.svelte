@@ -3,6 +3,8 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import Button from '../ui/Button.svelte'
+  import IconButton from '../ui/IconButton.svelte'
+  import Input from '../ui/Input.svelte'
   import type { TestSuite, TestQuestion } from './types'
 
   export let isOpen = false
@@ -225,14 +227,15 @@
   <div class="header">
     <div class="header-left">
       {#if selectedSuite}
-        <Button
+        <IconButton
           variant="info"
-          class="back-btn sidebar-icon-btn button-icon-only"
+          class="back-btn sidebar-icon-btn"
           onclick={handleBackToSuites}
           title="Back to Suites"
+          iconSize={20}
         >
           <MaterialIcon name="arrow-left" width="20" height="20" />
-        </Button>
+        </IconButton>
         <h2 class="suite-title">{selectedSuite.name}</h2>
       {:else}
         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -242,14 +245,15 @@
       {/if}
     </div>
     <div class="actions">
-      <Button
+      <IconButton
         variant="info"
-        class="sidebar-icon-btn button-icon-only"
+        class="sidebar-icon-btn"
         onclick={() => dispatch('close')}
         title="Close Testing"
+        iconSize={20}
       >
         <MaterialIcon name="chevron-left" width="20" height="20" />
-      </Button>
+      </IconButton>
     </div>
   </div>
 
@@ -261,8 +265,8 @@
     {#if !selectedSuite}
       <!-- Suites List -->
       <div class="form-section">
-        <input type="text" placeholder="Suite Name" bind:value={suiteName} />
-        <input
+        <Input type="text" placeholder="Suite Name" bind:value={suiteName} />
+        <Input
           type="text"
           placeholder="Description"
           bind:value={suiteDescription}
@@ -292,19 +296,31 @@
               <span class="desc">{suite.description || ''}</span>
             </div>
             <div class="item-actions">
-              <button
-                on:click|stopPropagation={() => startEditSuite(suite)}
+              <IconButton
+                variant="ghost"
+                size="small"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  startEditSuite(suite)
+                }}
                 title="Edit"
+                iconSize={16}
               >
                 <MaterialIcon name="pencil" width="16" height="16" />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
                 class="delete"
-                on:click|stopPropagation={() => deleteSuite(suite.id)}
+                variant="ghost"
+                size="small"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  deleteSuite(suite.id)
+                }}
                 title="Delete"
+                iconSize={16}
               >
                 <MaterialIcon name="delete" width="16" height="16" />
-              </button>
+              </IconButton>
             </div>
           </div>
         {/each}
@@ -373,19 +389,31 @@
             <span class="index">{i + 1}.</span>
             <span class="content-text">{q.content}</span>
             <div class="item-actions">
-              <button
-                on:click|stopPropagation={() => startEditQuestion(q)}
+              <IconButton
+                variant="ghost"
+                size="small"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  startEditQuestion(q)
+                }}
                 title="Edit"
+                iconSize={16}
               >
                 <MaterialIcon name="pencil" width="16" height="16" />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
                 class="delete"
-                on:click|stopPropagation={() => deleteQuestion(q.id)}
+                variant="ghost"
+                size="small"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  deleteQuestion(q.id)
+                }}
                 title="Delete"
+                iconSize={16}
               >
                 <MaterialIcon name="delete" width="16" height="16" />
-              </button>
+              </IconButton>
             </div>
           </div>
         {/each}
@@ -460,7 +488,6 @@
     gap: 8px;
   }
 
-  input,
   textarea {
     padding: 8px;
     border: 1px solid var(--border-color, #ccc);
@@ -552,21 +579,17 @@
     opacity: 1;
   }
 
-  .item-actions button {
-    background: none;
-    border: none;
-    cursor: pointer;
+  .item-actions :global(.button-icon-only) {
     padding: 4px;
     color: var(--text-secondary, #999);
-    display: flex;
   }
 
-  .item-actions button:hover {
+  .item-actions :global(.button-icon-only:hover) {
     color: var(--primary-color, #2196f3);
   }
 
-  .item-actions button.delete:hover {
-    color: #f44336;
+  .item-actions :global(.delete:hover) {
+    color: #f44336 !important; /* Force red for delete */
   }
 
   .runner-controls {

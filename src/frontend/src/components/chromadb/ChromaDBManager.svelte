@@ -10,6 +10,7 @@
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import PageSubHeader from '../ui/PageSubHeader.svelte'
   import Button from '../ui/Button.svelte'
+  import IconButton from '../ui/IconButton.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
   let collectionListRef: CollectionList
@@ -79,22 +80,22 @@
       </div>
     {/snippet}
     {#snippet actions()}
-      <Button
+      <IconButton
         variant="info"
-        class="button-icon-only"
         onclick={() => (configPanelOpen = true)}
         title="Configure Embedding Models"
+        iconSize={32}
       >
         <MaterialIcon name="cog" width="32" height="32" />
-      </Button>
-      <Button
+      </IconButton>
+      <IconButton
         variant="info"
-        class="button-icon-only"
         onclick={checkHealth}
         title="Refresh Health Status"
+        iconSize={32}
       >
         <MaterialIcon name="refresh" width="32" height="32" />
-      </Button>
+      </IconButton>
     {/snippet}
   </PageSubHeader>
 

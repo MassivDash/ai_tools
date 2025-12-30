@@ -1,6 +1,7 @@
 <script lang="ts">
   import Input from '../ui/Input.svelte'
   import Button from '../ui/Button.svelte'
+  import IconButton from '../ui/IconButton.svelte'
   import SearchableList from '../ui/SearchableList.svelte'
   import HelpIcon from '../ui/HelpIcon.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
@@ -201,9 +202,9 @@
       <MaterialIcon name="cog" width="28" height="28" />
       <h4>ChromaDB Configuration</h4>
     </div>
-    <button class="close-button" on:click={onClose} aria-label="Close">
-      ✕
-    </button>
+    <IconButton variant="ghost" onclick={onClose} title="Close" iconSize={24}>
+      <MaterialIcon name="close" width="24" height="24" />
+    </IconButton>
   </div>
   <div class="config-content">
     {#if error}
@@ -322,29 +323,6 @@
     font-size: 1.2rem;
     font-weight: 600;
     transition: color 0.3s ease;
-  }
-
-  .close-button {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-secondary, #666);
-    padding: 0;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    transition:
-      background-color 0.2s,
-      color 0.3s ease;
-  }
-
-  .close-button:hover {
-    background-color: var(--bg-tertiary, #e0e0e0);
-    color: var(--text-primary, #100f0f);
   }
 
   .config-content {
