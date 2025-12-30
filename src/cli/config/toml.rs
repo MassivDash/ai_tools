@@ -52,11 +52,14 @@ pub fn create_toml_file(file_name: String) -> Result<Config, ()> {
         cookie_domain: None, // Set to None for dev environment by default
         chroma_address: Some("http://localhost:8000".to_string()),
         llama_host: Some("localhost".to_string()),
-        llama_port: Some(8080),
-        llama_server_url: Some("http://localhost:8080".to_string()),
+        llama_port: Some(8090),
         public_keys: {
             let public_api_url = "http://localhost:8080/api".to_string();
-            PublicKeys { public_api_url }
+            let public_llama_url = Some("http://localhost:8090".to_string());
+            PublicKeys {
+                public_api_url,
+                public_llama_url,
+            }
         },
     };
 
@@ -108,11 +111,14 @@ mod tests {
             cookie_domain: None,
             chroma_address: Some("http://localhost:8000".to_string()),
             llama_host: Some("localhost".to_string()),
-            llama_port: Some(8080),
-            llama_server_url: Some("http://localhost:8080".to_string()),
+            llama_port: Some(8090),
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
-                PublicKeys { public_api_url }
+                let public_llama_url = Some("http://localhost:8090".to_string());
+                PublicKeys {
+                    public_api_url,
+                    public_llama_url,
+                }
             },
         };
 
@@ -135,7 +141,9 @@ mod tests {
         assert!(config.cors_url == expected_config.cors_url);
         assert!(config.llama_host == expected_config.llama_host);
         assert!(config.llama_port == expected_config.llama_port);
-        assert!(config.llama_server_url == expected_config.llama_server_url);
+        assert!(
+            config.public_keys.public_llama_url == expected_config.public_keys.public_llama_url
+        );
 
         // delete file after test completion
         remove_file(&file_name)

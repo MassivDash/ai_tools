@@ -42,63 +42,66 @@
 ///     }
 /// }
 /// ```
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
 use std::path::Path;
 
 pub fn create_dotenv_frontend(api_url: &str, llama_url: Option<&str>, dotenv_path: &str) {
-    let dotenv_exists: bool = Path::new(dotenv_path).exists();
-    if dotenv_exists {
-        match File::open(dotenv_path) {
-            Ok(mut file) => {
-                let mut contents = String::new();
-                if let Err(err) = file.read_to_string(&mut contents) {
-                    eprintln!("Error reading file: {}", err)
-                }
-                let mut new_contents = replace_value(&contents, "PUBLIC_API_URL=", api_url);
-                if let Some(url) = llama_url {
-                    new_contents = replace_value(&new_contents, "PUBLIC_LLAMA_URL=", url);
-                }
-                if let Err(err) = File::create(dotenv_path)
-                    .and_then(|mut file| file.write_all(new_contents.as_bytes()))
-                {
-                    eprintln!("Error writing to file: {}", err);
-                }
-            }
-            Err(err) => {
-                eprintln!("Error opening file: {}", err)
+    let path = Path::new(dotenv_path);
+    let mut lines: Vec<String> = Vec::new();
+
+    if path.exists() {
+        if let Ok(file_content) = std::fs::read_to_string(path) {
+            lines = file_content.lines().map(|s| s.to_string()).collect();
+        }
+    }
+
+    // Helper to update or append a key
+    let mut update_or_append = |key: &str, value: &str| {
+        let entry = format!("{}={}", key, value);
+        let mut found = false;
+        for line in lines.iter_mut() {
+            if line.starts_with(&format!("{}=", key)) {
+                *line = entry.clone();
+                found = true;
+                break;
             }
         }
+        if !found {
+            if let Some(last) = lines.last() {
+                if !last.is_empty() {
+                    // Ensure newline before appending if file doesn't end with one?
+                    // splitting by lines() consumes CRLF/LF, so recreating implies joining with newlines.
+                }
+            }
+            lines.push(entry);
+        }
+    };
+
+    update_or_append("PUBLIC_API_URL", api_url);
+
+    if let Some(l_url) = llama_url {
+        update_or_append("PUBLIC_LLAMA_URL", l_url);
+    }
+
+    // Join lines with newlines and write back
+    let new_content = lines.join("\n");
+    // Ensure trailing newline is nice but optional, join adds separators but not trailing.
+    // Adding a trailing newline if not empty
+    let final_content = if new_content.is_empty() {
+        new_content
     } else {
-        match File::create(dotenv_path) {
-            Ok(mut file) => {
-                let mut content = format!("PUBLIC_API_URL={}\n", api_url);
-                if let Some(url) = llama_url {
-                    content.push_str(&format!("PUBLIC_LLAMA_URL={}\n", url));
-                }
-                if let Err(err) = file.write_all(content.as_bytes()) {
-                    eprintln!("Error writing to file: {}", err)
-                }
-            }
-            Err(err) => {
-                eprintln!("Error creating file: {}", err)
-            }
-        }
+        new_content + "\n"
+    };
+
+    if let Err(e) = std::fs::write(path, final_content) {
+        eprintln!("Failed to write to {}: {}", dotenv_path, e);
     }
 }
 
-fn replace_value(contents: &String, key: &str, new_value: &str) -> String {
-    if let Some(index) = contents.find(key) {
-        let (_, old_value) = contents.split_at(index + key.len());
-        contents.replace(old_value, new_value)
-    } else {
-        contents.to_string()
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::{Read, Write};
 
     #[test]
     fn test_create_dotenv_frontend_new_file() {
@@ -114,7 +117,7 @@ mod tests {
         file.read_to_string(&mut contents).unwrap();
 
         // Assert that the file has been created and contains the correct value
-        assert_eq!(contents, format!("PUBLIC_API_URL={}", api_url));
+        assert_eq!(contents, format!("PUBLIC_API_URL={}\n", api_url));
 
         // remove the temporary file
         std::fs::remove_file(dotenv_path).unwrap();
@@ -139,31 +142,36 @@ mod tests {
         file.read_to_string(&mut contents).unwrap();
 
         // Assert that the file has been updated with the new value
-        assert_eq!(contents, format!("PUBLIC_API_URL={}", api_url));
+        assert_eq!(contents, format!("PUBLIC_API_URL={}\n", api_url));
 
         // remove the temporary file
         std::fs::remove_file(dotenv_path).unwrap();
     }
 
     #[test]
-    fn test_replace_value_existing_key() {
-        let contents = String::from("PUBLIC_API_URL=old_value");
-        let key = "PUBLIC_API_URL=";
-        let new_value = "https://api.example.com";
+    fn test_create_dotenv_frontend_append_new_key() {
+        let api_url = "https://api.example.com";
+        let llama_url = "http://llama.local";
+        let dotenv_path = "./src/frontend/.test-append-env";
 
-        let result = replace_value(&contents, key, new_value);
+        // Create initial file
+        {
+            let mut file = File::create(dotenv_path).unwrap();
+            file.write_all(b"PUBLIC_API_URL=old_url\nEXISTING_VAR=keep_me\n")
+                .unwrap();
+        }
 
-        assert_eq!(result, format!("PUBLIC_API_URL={}", new_value));
-    }
+        // Update
+        create_dotenv_frontend(api_url, Some(llama_url), dotenv_path);
 
-    #[test]
-    fn test_replace_value_non_existing_key() {
-        let contents = String::from("OTHER_KEY=value");
-        let key = "PUBLIC_API_URL=";
-        let new_value = "https://api.example.com";
+        // Verify
+        let contents = std::fs::read_to_string(dotenv_path).unwrap();
 
-        let result = replace_value(&contents, key, new_value);
+        assert!(contents.contains(&format!("PUBLIC_API_URL={}", api_url)));
+        assert!(contents.contains(&format!("PUBLIC_LLAMA_URL={}", llama_url)));
+        assert!(contents.contains("EXISTING_VAR=keep_me"));
 
-        assert_eq!(result, contents);
+        // Cleanup
+        std::fs::remove_file(dotenv_path).unwrap();
     }
 }

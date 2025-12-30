@@ -124,11 +124,9 @@ pub fn start_production(config: Config) {
 
     if config.prod_astro_build {
         // take production build url from config
-        let prod_build_url = config.public_keys.public_api_url;
-
         create_dotenv_frontend(
-            &prod_build_url,
-            config.llama_server_url.as_deref(),
+            &config.public_keys.public_api_url,
+            config.public_keys.public_llama_url.as_deref(),
             "./src/frontend/.env",
         );
 

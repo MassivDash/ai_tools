@@ -15,13 +15,13 @@ pub struct Config {
     pub chroma_address: Option<String>,
     pub llama_host: Option<String>,
     pub llama_port: Option<u16>,
-    pub llama_server_url: Option<String>,
     pub public_keys: PublicKeys,
 }
 
 #[derive(Deserialize, Debug, Serialize, PartialEq)]
 pub struct PublicKeys {
     pub public_api_url: String,
+    pub public_llama_url: Option<String>,
 }
 
 pub fn get_config(args: &Vec<String>) -> Config {
@@ -40,10 +40,10 @@ pub fn get_config(args: &Vec<String>) -> Config {
         cookie_domain: None, // Default to None for dev environment
         chroma_address: Some("http://localhost:8000".to_string()),
         llama_host: Some("localhost".to_string()),
-        llama_port: Some(8080),
-        llama_server_url: Some("http://localhost:8080".to_string()),
+        llama_port: Some(8090),
         public_keys: PublicKeys {
             public_api_url: "http://localhost:8080/api".to_string(),
+            public_llama_url: Some("http://localhost:8090".to_string()),
         },
     };
 

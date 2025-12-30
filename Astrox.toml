@@ -12,3 +12,5 @@ chroma_address = "http://localhost:8000"
 
 [public_keys]
 public_api_url = "http://localhost:8080/api"
+public_llama_url = "http://localhost:8090"
+

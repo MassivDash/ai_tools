@@ -16,7 +16,7 @@ pub fn build_production(config: Config) {
 
         create_dotenv_frontend(
             &prod_build_url,
-            config.llama_server_url.as_deref(),
+            config.public_keys.public_llama_url.as_deref(),
             "./src/frontend/.env",
         );
 

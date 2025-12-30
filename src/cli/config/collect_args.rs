@@ -117,7 +117,7 @@ pub fn collect_config_args(config: Config, args: &Vec<String>) -> Config {
         if arg.starts_with("--llama-server-url=") {
             let val = split_and_collect(arg);
             if !val.is_empty() {
-                config.llama_server_url = Some(val);
+                config.public_keys.public_llama_url = Some(val);
             }
         }
     }
@@ -161,10 +161,13 @@ mod tests {
             chroma_address: None,
             llama_host: None,
             llama_port: None,
-            llama_server_url: None,
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
-                PublicKeys { public_api_url }
+                let public_llama_url = None;
+                PublicKeys {
+                    public_api_url,
+                    public_llama_url,
+                }
             },
         };
 
@@ -189,10 +192,13 @@ mod tests {
             chroma_address: None,
             llama_host: None,
             llama_port: None,
-            llama_server_url: None,
             public_keys: {
                 let public_api_url = "https://custom.api/api".to_string();
-                PublicKeys { public_api_url }
+                let public_llama_url = None;
+                PublicKeys {
+                    public_api_url,
+                    public_llama_url,
+                }
             },
         };
 

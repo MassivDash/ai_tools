@@ -205,7 +205,7 @@ mod tests {
     fn test_get_version() {
         // Test when Cargo.toml contains version
         let version = get_version();
-        assert_eq!(version, "0.1.2");
+        assert_eq!(version, "0.1.3");
     }
 
     #[test]
