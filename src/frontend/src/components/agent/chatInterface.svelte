@@ -34,8 +34,6 @@
   let inputMessage: string = $state('')
   let quotedMessage: string = $state('')
   let error: string = $state('')
-  // Internal conversationId tracks the ID of the current active session
-  // It syncs with currentConversationId prop
   let conversationId: string | null = $state(null)
   let chatContainer: HTMLDivElement = $state()
   let currentStreamingMessage: string = $state('')
@@ -79,7 +77,7 @@
       handleStreamEvent(event)
     },
     (err) => {
-      console.error('❌ Agent WebSocket error:', err)
+      console.error('Agent WebSocket error:', err)
     }
   )
 
@@ -133,14 +131,7 @@
     const msgToSend = overrideMessage || inputMessage
     if ((!msgToSend.trim() && currentAttachments.length === 0) || loading)
       return
-
-    // Temporarily set inputMessage to override if provided, for logic reuse
     if (overrideMessage) inputMessage = overrideMessage
-
-    // Build message content
-    // If we have images, we must use the structured content format (array of parts)
-    // If ONLY text/code/pdf (treated as text), we could use string, but array is safe too.
-    // For backward compatibility and simplicity, use string if no images, array if images.
 
     let requestPayload: string | any[] = inputMessage.trim()
     const hasImages = currentAttachments.some((a) => a.type === 'image')
@@ -196,10 +187,6 @@
     const userMessage: ChatMessage = {
       id: generateMessageId(),
       role: 'user',
-      // Store raw text content for UI display (simplification for now)
-      // If array, we might want to just show "Sent X files" or the text part
-      // Store raw content for UI display.
-      // For images, this will be the structured array, which MessageItem now handles correctly.
       content: requestPayload,
       timestamp: Date.now(),
       attachments:
@@ -239,11 +226,6 @@
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-
-      // Events will come via WebSocket only (no SSE reading to avoid duplicates)
-      // Loading will be set to false when 'done' event is received via WebSocket
-      // Don't set loading = false here, let WebSocket handle it
-
       // Scroll to bottom
       setTimeout(() => scrollToBottom(true), 100)
     } catch (err: any) {
@@ -381,20 +363,13 @@
             dispatch('conversationCreated', conversationId)
           }
         }
-        // Update token usage if provided
         if (event.usage) {
           tokenUsage = event.usage
         }
 
-        // Emit completion event for parent components (like Test Runner)
         dispatch('responseComplete', {
           usage: tokenUsage,
-          content: currentStreamingMessage // This might be cleared below, so capture it? No, wait.
-          // streamingMessageId is used to find the full message content in 'messages' array if needed,
-          // but currentStreamingMessage holds the accumulated text.
-          // Wait, currentStreamingMessage is cleared at line 407.
-          // So we must capture it before clearing or use the message in the array.
-          // Using the variable before clear is safe.
+          content: currentStreamingMessage
         })
 
         // Remove any remaining status messages
@@ -408,7 +383,7 @@
             messages[streamingIndex].timestamp = Date.now()
 
             // Capture final content from message to be sure
-            const finalContent = messages[streamingIndex].content
+            const finalContent = messages[streamingIndex].content as string
             dispatch('responseComplete', {
               usage: tokenUsage,
               content: finalContent
@@ -466,18 +441,12 @@
       const response = await axiosBackendInstance.get<ChatMessage[]>(
         `agent/conversations/${id}/messages`
       )
-      // Convert backend ChatMessage to frontend ChatMessage format might be needed
-      // Check types: Backend ChatMessage has role, content, name, tool_calls.
-      // Frontend ChatMessage has id, role, content, timestamp, toolName, statusType.
-
       messages = response.data.map((m: any) => ({
-        id: generateMessageId(), // or use index if needed, but unique is better
-        role: m.role as any, // 'user' | 'assistant' | 'tool'
+        id: generateMessageId(),
+        role: m.role as any,
         content: m.content || '',
-        timestamp: Date.now(), // We don't have stored timestamp in backend message? we do (created_at). But response type might not have it mapped yet?
+        timestamp: Date.now(),
         toolName: m.name
-        // For tool calls/results, we might need mapping logic
-        // But for simple history, this is a start.
       }))
       conversationId = id
     } catch (err) {
@@ -560,7 +529,6 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 80vh;
     background-color: var(--bg-primary, #fff);
     padding: 0;
     width: 100%;

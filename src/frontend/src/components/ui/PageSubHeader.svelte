@@ -31,8 +31,7 @@
     transition: background-color 0.3s ease;
     max-width: 1560px;
     width: 100%;
-    height: 150px;
-    max-height: 150px;
+    height: 75px;
     margin: 0 auto;
   }
 

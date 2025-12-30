@@ -75,6 +75,11 @@ export const menuConfig: MenuConfig = {
       id: 'footer-rag-link'
     },
     {
+      label: 'Model Notes',
+      href: '/model-notes',
+      id: 'footer-model-notes-link'
+    },
+    {
       label: 'Tools',
       href: '/tools',
       id: 'footer-tools-link'

@@ -17,8 +17,6 @@
     onQuote
   }: Props = $props()
 
-  // Only show loading indicator if there's no streaming message
-  // (i.e., when thinking/executing tools but not streaming text)
   const hasStreamingMessage = $derived(
     messages.some((m) => m.role === 'assistant' && m.timestamp === 0)
   )
@@ -64,6 +62,7 @@
     flex-direction: column;
     gap: 1rem;
     scroll-behavior: smooth;
+    min-height: 50vh;
   }
 
   .chat-messages::-webkit-scrollbar {
@@ -122,11 +121,6 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-  }
-
-  .role-icon {
-    color: var(--accent-color, #2196f3);
-    flex-shrink: 0;
   }
 
   .message-content.loading {

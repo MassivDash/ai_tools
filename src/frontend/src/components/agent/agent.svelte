@@ -344,10 +344,9 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    min-height: 80vh;
     background-color: var(--bg-primary, #fff);
     transition: background-color 0.3s ease;
-    box-sizing: border-box;
+    box-sizing: border-box; /* Ensure no scroll on this container */
   }
 
   .error {
@@ -368,7 +367,7 @@
     flex: 1;
     display: flex;
     flex-direction: row;
-    min-height: 80vh;
+    height: 100%;
     position: relative;
     overflow: hidden;
     width: 100%;
@@ -408,8 +407,9 @@
     min-width: 0;
     width: 100%;
     background-color: var(--bg-primary, #fff);
-    overflow: hidden;
+    overflow-y: hidden;
     padding: 0;
+    height: 100%; /* Ensure it fills parent */
   }
 
   .main-content.with-terminal {
@@ -437,7 +437,7 @@
 
   @media screen and (max-width: 768px) {
     .ai-chat {
-      min-height: 70vh;
+      height: 80vh;
       padding: 1rem;
     }
 
