@@ -229,7 +229,7 @@
       // Scroll to bottom
       setTimeout(() => scrollToBottom(true), 100)
     } catch (err: any) {
-      console.error('❌ Failed to send message:', err)
+      console.error('Failed to send message:', err)
       loading = false
       error =
         err.response?.data?.error ||
@@ -300,14 +300,14 @@
         if (toolIndex >= 0) {
           messages[toolIndex].content = event.success
             ? `✅ ${nameToUse} completed`
-            : `❌ ${nameToUse} failed: ${event.result || 'Unknown error'}`
+            : `${nameToUse} failed: ${event.result || 'Unknown error'}`
         } else {
           messages.push({
             id: generateMessageId(),
             role: 'tool',
             content: event.success
               ? `✅ ${nameToUse} completed`
-              : `❌ ${nameToUse} failed: ${event.result || 'Unknown error'}`,
+              : `${nameToUse} failed: ${event.result || 'Unknown error'}`,
             timestamp: Date.now(),
             toolName: event.tool_name
           })

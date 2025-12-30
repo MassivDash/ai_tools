@@ -134,7 +134,7 @@ pub async fn convert_json_to_toon(
     let json_value: Value = match serde_json::from_str(json_string) {
         Ok(value) => value,
         Err(e) => {
-            println!("❌ Invalid JSON: {}", e);
+            println!("Invalid JSON: {}", e);
             return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                 "error": format!("Invalid JSON: {}", e)
             })));

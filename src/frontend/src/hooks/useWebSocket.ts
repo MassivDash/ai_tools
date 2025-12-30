@@ -27,7 +27,7 @@ export function useWebSocket(options: WebSocketOptions) {
       }
 
       ws.onerror = (event) => {
-        console.error('❌ WebSocket error:', event)
+        console.error('WebSocket error:', event)
         isConnected = false
         options.onError?.(event)
       }
@@ -46,7 +46,7 @@ export function useWebSocket(options: WebSocketOptions) {
         }
       }
     } catch (err) {
-      console.error('❌ Failed to connect WebSocket:', err)
+      console.error('Failed to connect WebSocket:', err)
       options.onError?.(err as Event)
     }
   }

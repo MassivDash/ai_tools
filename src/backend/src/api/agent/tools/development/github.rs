@@ -654,7 +654,7 @@ impl AgentTool for GitHubAuthenticatedTool {
         if self.token.is_empty() {
             return Ok(ToolCallResult {
                 tool_name: "github_authenticated".to_string(),
-                result: "❌ GITHUB_TOKEN is not set. This tool requires authentication."
+                result: "GITHUB_TOKEN is not set. This tool requires authentication."
                     .to_string(),
             });
         }
@@ -665,7 +665,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                     "🔔 **Your Notifications**\n\n{}",
                     self.format_notifications(&data)
                 ),
-                Err(e) => format!("❌ Failed: {}", e),
+                Err(e) => format!("Failed: {}", e),
             },
             "list_my_repos" => {
                 let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
@@ -675,7 +675,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                         page,
                         self.format_repo_list(&data)
                     ),
-                    Err(e) => format!("❌ Failed: {}", e),
+                    Err(e) => format!("Failed: {}", e),
                 }
             }
             "list_org_repos" => {
@@ -691,7 +691,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                         page,
                         self.format_repo_list(&data)
                     ),
-                    Err(e) => format!("❌ Failed: {}", e),
+                    Err(e) => format!("Failed: {}", e),
                 }
             }
             "actions" => {
@@ -708,7 +708,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                         repo,
                         self.format_workflow_runs(&data)
                     ),
-                    Err(e) => format!("❌ Failed: {}", e),
+                    Err(e) => format!("Failed: {}", e),
                 }
             }
             "issues" => {
@@ -732,7 +732,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                             page,
                             self.format_issues(&data)
                         ),
-                        Err(e) => format!("❌ Failed: {}", e),
+                        Err(e) => format!("Failed: {}", e),
                     }
                 } else {
                     match self.list_issues(owner, repo).await {
@@ -742,7 +742,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                             repo,
                             self.format_issues(&data)
                         ),
-                        Err(e) => format!("❌ Failed: {}", e),
+                        Err(e) => format!("Failed: {}", e),
                     }
                 }
             }
@@ -758,7 +758,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                         username,
                         self.format_events(&data)
                     ),
-                    Err(e) => format!("❌ Failed: {}", e),
+                    Err(e) => format!("Failed: {}", e),
                 }
             }
             "pulls" => {
@@ -778,7 +778,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                             "🔃 **Your Pull Requests & Issues**\n\n{}",
                             self.format_issues(&data)
                         ),
-                        Err(e) => format!("❌ Failed: {}", e),
+                        Err(e) => format!("Failed: {}", e),
                     }
                 } else {
                     match self.list_pulls(owner, repo).await {
@@ -788,7 +788,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                             repo,
                             self.format_pulls(&data)
                         ),
-                        Err(e) => format!("❌ Failed: {}", e),
+                        Err(e) => format!("Failed: {}", e),
                     }
                 }
             }

@@ -230,7 +230,7 @@ pub async fn execute_agent_loop(
                             tool_results.push(result);
                         }
                         Err(e) => {
-                            println!("   ❌ Tool execution error: {}", e);
+                            println!("   Tool execution error: {}", e);
                             let error_result = ToolCallResult {
                                 tool_name: tool_call.function.name.clone(),
                                 result: format!("Error: {}", e),
@@ -240,7 +240,7 @@ pub async fn execute_agent_loop(
                         }
                     },
                     Err(e) => {
-                        println!("   ❌ Tool task panic: {}", e);
+                        println!("   Tool task panic: {}", e);
                         // Handle panic if needed, though unlikely
                     }
                 }

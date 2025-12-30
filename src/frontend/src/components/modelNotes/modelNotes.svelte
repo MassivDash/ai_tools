@@ -130,7 +130,7 @@
       }>('chromadb/models')
       ollamaModels = ollamaResponse.data.models
     } catch (err: any) {
-      console.error('❌ Failed to load models:', err)
+      console.error('Failed to load models:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load models'
     } finally {
@@ -165,7 +165,7 @@
       modelNotesData = newNotes
       modelNotesKey++
     } catch (err: any) {
-      console.error('❌ Failed to load model notes:', err)
+      console.error('Failed to load model notes:', err)
     }
   }
 
@@ -197,7 +197,7 @@
       modelNotesKey++
       error = ''
     } catch (err: any) {
-      console.error('❌ Failed to toggle favorite:', err)
+      console.error('Failed to toggle favorite:', err)
       const errorMsg =
         err.response?.data?.error || err.message || 'Failed to update favorite'
       error = errorMsg
@@ -294,7 +294,7 @@
       editingNotes = ''
       editingIsDefault = false
     } catch (err: any) {
-      console.error('❌ Failed to save note:', err)
+      console.error('Failed to save note:', err)
       error = err.response?.data?.error || err.message || 'Failed to save note'
     }
   }
@@ -318,7 +318,7 @@
       modelNotesData = new Map(modelNotesData)
       modelNotesKey++
     } catch (err: any) {
-      console.error('❌ Failed to delete note:', err)
+      console.error('Failed to delete note:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to delete note'
     }

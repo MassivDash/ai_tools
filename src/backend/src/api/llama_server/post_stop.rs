@@ -35,7 +35,7 @@ pub async fn post_stop_llama_server(
                 }))
             }
             Err(e) => {
-                println!("❌ Failed to stop llama server: {}", e);
+                println!("Failed to stop llama server: {}", e);
                 Ok(
                     HttpResponse::InternalServerError().json(LlamaServerResponse {
                         success: false,

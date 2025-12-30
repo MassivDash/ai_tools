@@ -27,7 +27,7 @@ export const fetchAvailableTools = async (): Promise<ToolInfo[]> => {
       return response.data
     })
     .catch((err) => {
-      console.error('❌ Failed to fetch available tools:', err)
+      console.error('Failed to fetch available tools:', err)
       // Return empty array on error
       return []
     })

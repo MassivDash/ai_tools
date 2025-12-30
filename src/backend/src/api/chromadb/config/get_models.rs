@@ -11,13 +11,13 @@ pub async fn get_ollama_models() -> ActixResult<HttpResponse> {
         match tokio::task::spawn_blocking(|| Command::new("ollama").arg("list").output()).await {
             Ok(Ok(output)) => output,
             Ok(Err(e)) => {
-                println!("❌ Failed to execute ollama list: {}", e);
+                println!("Failed to execute ollama list: {}", e);
                 return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                     "error": format!("Failed to execute ollama list: {}", e)
                 })));
             }
             Err(e) => {
-                println!("❌ Failed to spawn ollama list task: {}", e);
+                println!("Failed to spawn ollama list task: {}", e);
                 return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                     "error": format!("Failed to spawn task: {}", e)
                 })));
@@ -26,7 +26,7 @@ pub async fn get_ollama_models() -> ActixResult<HttpResponse> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        println!("❌ ollama list command failed: {}", stderr);
+        println!("ollama list command failed: {}", stderr);
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
             "error": format!("ollama list command failed: {}", stderr)
         })));

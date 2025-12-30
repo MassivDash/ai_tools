@@ -11,7 +11,7 @@ pub async fn get_conversations(
     match sqlite_memory.get_conversations().await {
         Ok(conversations) => Ok(HttpResponse::Ok().json(conversations)),
         Err(e) => {
-            println!("❌ Failed to fetch conversations: {}", e);
+            println!("Failed to fetch conversations: {}", e);
             Ok(HttpResponse::InternalServerError()
                 .body(format!("Failed to fetch conversations: {}", e)))
         }
@@ -29,10 +29,7 @@ pub async fn delete_conversation(
     match sqlite_memory.delete_conversation(&conversation_id).await {
         Ok(_) => Ok(HttpResponse::Ok().finish()),
         Err(e) => {
-            println!(
-                "❌ Failed to delete conversation {}: {}",
-                conversation_id, e
-            );
+            println!("Failed to delete conversation {}: {}", conversation_id, e);
             Ok(HttpResponse::InternalServerError()
                 .body(format!("Failed to delete conversation: {}", e)))
         }
@@ -55,7 +52,7 @@ pub async fn update_conversation_title(
         Ok(_) => Ok(HttpResponse::Ok().finish()),
         Err(e) => {
             println!(
-                "❌ Failed to update conversation {} title: {}",
+                "Failed to update conversation {} title: {}",
                 conversation_id, e
             );
             Ok(HttpResponse::InternalServerError()
@@ -76,7 +73,7 @@ pub async fn get_conversation_history(
         Ok(messages) => Ok(HttpResponse::Ok().json(messages)),
         Err(e) => {
             println!(
-                "❌ Failed to fetch messages for conversation {}: {}",
+                "Failed to fetch messages for conversation {}: {}",
                 conversation_id, e
             );
             Ok(

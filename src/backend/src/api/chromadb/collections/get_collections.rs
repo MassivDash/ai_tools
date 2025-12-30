@@ -7,7 +7,7 @@ pub async fn get_collections(chroma_address: web::Data<String>) -> ActixResult<H
     let client = match ChromaDBClient::new(chroma_address.as_str()) {
         Ok(c) => c,
         Err(e) => {
-            println!("❌ Failed to create ChromaDB client: {}", e);
+            println!("Failed to create ChromaDB client: {}", e);
             return Ok(
                 HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Vec<()>> {
                     success: false,
@@ -27,7 +27,7 @@ pub async fn get_collections(chroma_address: web::Data<String>) -> ActixResult<H
             message: None,
         })),
         Err(e) => {
-            println!("❌ Failed to list collections: {}", e);
+            println!("Failed to list collections: {}", e);
             Ok(
                 HttpResponse::InternalServerError().json(ChromaDBResponse::<Vec<()>> {
                     success: false,

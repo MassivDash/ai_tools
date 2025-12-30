@@ -59,7 +59,7 @@ export function useStatusWebSocket(
           previousStatus = newStatus
         }
       } catch (err) {
-        console.error('❌ Failed to parse status WebSocket message:', err)
+        console.error('Failed to parse status WebSocket message:', err)
       }
     }
   }

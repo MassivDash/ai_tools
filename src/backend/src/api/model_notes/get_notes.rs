@@ -15,7 +15,7 @@ pub async fn get_model_notes(
             Ok(HttpResponse::Ok().json(ModelNotesResponse { notes }))
         }
         Err(e) => {
-            println!("❌ Failed to fetch model notes: {}", e);
+            println!("Failed to fetch model notes: {}", e);
             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to fetch model notes: {}", e)
             })))

@@ -177,7 +177,7 @@
         }
       }
     } catch (err: any) {
-      console.error('❌ Error uploading documents:', err)
+      console.error('Error uploading documents:', err)
       _error = ''
       status = {
         status: 'error',

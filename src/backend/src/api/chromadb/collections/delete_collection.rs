@@ -11,7 +11,7 @@ pub async fn delete_collection(
     let client = match ChromaDBClient::new(chroma_address.as_str()) {
         Ok(c) => c,
         Err(e) => {
-            println!("❌ Failed to create ChromaDB client: {}", e);
+            println!("Failed to create ChromaDB client: {}", e);
             return Ok(
                 HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<()> {
                     success: false,
@@ -31,7 +31,7 @@ pub async fn delete_collection(
             message: Some(format!("Collection {} deleted successfully", name)),
         })),
         Err(e) => {
-            println!("❌ Failed to delete collection: {}", e);
+            println!("Failed to delete collection: {}", e);
             Ok(
                 HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
                     success: false,

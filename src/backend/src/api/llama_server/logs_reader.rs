@@ -62,7 +62,7 @@ fn read_stdout_stream(
                 );
             }
             Err(e) => {
-                eprintln!("❌ Error reading stdout line: {}", e);
+                eprintln!("Error reading stdout line: {}", e);
                 break;
             }
         }
@@ -90,7 +90,7 @@ fn read_stderr_stream(
                 );
             }
             Err(e) => {
-                eprintln!("❌ Error reading stderr line: {}", e);
+                eprintln!("Error reading stderr line: {}", e);
                 break;
             }
         }

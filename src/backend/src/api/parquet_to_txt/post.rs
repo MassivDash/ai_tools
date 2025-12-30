@@ -105,7 +105,7 @@ pub async fn convert_parquet_to_txt(mut payload: Multipart) -> Result<HttpRespon
                         Some((Ok(web::Bytes::from(text)), (files, true)))
                     }
                     Err(e) => {
-                        println!("❌ Failed to process {}: {}", filename, e);
+                        println!("Failed to process {}: {}", filename, e);
                         Some((
                             Err(ActixError::from(std::io::Error::other(format!(
                                 "Failed to process {}: {}",

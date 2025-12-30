@@ -45,7 +45,7 @@ pub async fn convert_text_to_tokens(
             count
         }
         Err(e) => {
-            println!("❌ Failed to count tokens: {}", e);
+            println!("Failed to count tokens: {}", e);
             return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to count tokens: {}", e)
             })));

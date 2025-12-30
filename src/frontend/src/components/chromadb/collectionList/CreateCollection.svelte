@@ -79,7 +79,7 @@
         error = response.data.error || 'Failed to create collection'
       }
     } catch (err: any) {
-      console.error('❌ Error creating collection:', err)
+      console.error('Error creating collection:', err)
       error =
         err.response?.data?.error ||
         err.message ||
@@ -108,7 +108,7 @@
       <h3>Create New Collection</h3>
 
       {#if error}
-        <div class="error-message">❌ {error}</div>
+        <div class="error-message">{error}</div>
       {/if}
 
       <div class="form-group">

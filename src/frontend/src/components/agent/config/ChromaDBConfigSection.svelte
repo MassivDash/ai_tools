@@ -33,7 +33,7 @@
       }
       modelNotes = notesMap
     } catch (err: any) {
-      console.error('❌ Failed to load model notes:', err)
+      console.error('Failed to load model notes:', err)
     }
   }
 

@@ -57,47 +57,47 @@
   })
 </script>
 
+<PageSubHeader title="ChromaDB" icon="database">
+  {#snippet leftContent()}
+    <div class="health-status">
+      <MaterialIcon
+        name={healthStatus?.chromadb.connected
+          ? 'check-circle'
+          : 'close-circle'}
+        width="20"
+        height="20"
+        class={healthStatus?.chromadb.connected ? 'success-icon' : 'error-icon'}
+      />
+      <span class="status-text">
+        {healthStatus?.chromadb.connected
+          ? 'ChromaDB Connected'
+          : 'ChromaDB Disconnected'}
+      </span>
+      {#if healthStatus}
+        <span class="version">v{healthStatus.version}</span>
+      {/if}
+    </div>
+  {/snippet}
+  {#snippet actions()}
+    <IconButton
+      variant="info"
+      onclick={() => (configPanelOpen = true)}
+      title="Configure Embedding Models"
+      iconSize={32}
+    >
+      <MaterialIcon name="cog" width="32" height="32" />
+    </IconButton>
+    <IconButton
+      variant="info"
+      onclick={checkHealth}
+      title="Refresh Health Status"
+      iconSize={32}
+    >
+      <MaterialIcon name="refresh" width="32" height="32" />
+    </IconButton>
+  {/snippet}
+</PageSubHeader>
 <div class="chromadb-manager">
-  <PageSubHeader title="ChromaDB" icon="database">
-    {#snippet leftContent()}
-      <div class="health-status">
-        <span
-          class="status-indicator"
-          class:healthy={healthStatus?.chromadb.connected}
-          class:unhealthy={!healthStatus?.chromadb.connected}
-        >
-          {healthStatus?.chromadb.connected ? '🟢' : '🔴'}
-        </span>
-        <span class="status-text">
-          {healthStatus?.chromadb.connected
-            ? 'ChromaDB Connected'
-            : 'ChromaDB Disconnected'}
-        </span>
-        {#if healthStatus}
-          <span class="version">v{healthStatus.version}</span>
-        {/if}
-      </div>
-    {/snippet}
-    {#snippet actions()}
-      <IconButton
-        variant="info"
-        onclick={() => (configPanelOpen = true)}
-        title="Configure Embedding Models"
-        iconSize={32}
-      >
-        <MaterialIcon name="cog" width="32" height="32" />
-      </IconButton>
-      <IconButton
-        variant="info"
-        onclick={checkHealth}
-        title="Refresh Health Status"
-        iconSize={32}
-      >
-        <MaterialIcon name="refresh" width="32" height="32" />
-      </IconButton>
-    {/snippet}
-  </PageSubHeader>
-
   <div class="content-area" class:has-config={configPanelOpen}>
     <div class="manager-content">
       <div class="left-panel">
@@ -156,8 +156,12 @@
     gap: 0.75rem;
   }
 
-  .status-indicator {
-    font-size: 1.2rem;
+  :global(.success-icon) {
+    color: var(--success-color, #4caf50);
+  }
+
+  :global(.error-icon) {
+    color: var(--error-color, #f44336);
   }
 
   .status-text {

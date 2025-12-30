@@ -381,7 +381,7 @@ pub async fn agent_chat(
     )
     .await
     .map_err(|e| {
-        println!("❌ Agent loop error: {}", e);
+        println!("Agent loop error: {}", e);
         actix_web::error::ErrorInternalServerError(format!("Agent loop failed: {}", e))
     })?;
 
@@ -443,7 +443,7 @@ pub async fn agent_chat(
         )
         .await
         .map_err(|e| {
-            println!("❌ Recovery attempt failed: {}", e);
+            println!("Recovery attempt failed: {}", e);
             actix_web::error::ErrorInternalServerError(format!("Recovery failed: {}", e))
         })?;
 
@@ -668,7 +668,7 @@ pub async fn agent_chat_stream(
         )
         .await
         {
-            println!("❌ Streaming agent loop error: {}", e);
+            println!("Streaming agent loop error: {}", e);
         }
 
         // Attempt naming after stream finishes

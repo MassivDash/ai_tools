@@ -65,12 +65,12 @@
             }
           }
         } catch (err) {
-          console.error('❌ Failed to parse WebSocket message:', err)
+          console.error('Failed to parse WebSocket message:', err)
         }
       }
 
       ws.onerror = (err) => {
-        console.error('❌ Logs WebSocket error:', err)
+        console.error('Logs WebSocket error:', err)
         isConnected = false
         _error = 'WebSocket connection error'
       }
@@ -87,7 +87,7 @@
         }, 2000)
       }
     } catch (err: any) {
-      console.error('❌ Failed to connect WebSocket:', err)
+      console.error('Failed to connect WebSocket:', err)
       _error = err.message || 'Failed to connect to logs stream'
     }
   }

@@ -13,7 +13,7 @@ pub async fn search_collection(
     let client = match ChromaDBClient::new(chroma_address.as_str()) {
         Ok(c) => c,
         Err(e) => {
-            println!("❌ Failed to create ChromaDB client: {}", e);
+            println!("Failed to create ChromaDB client: {}", e);
             return Ok(HttpResponse::ServiceUnavailable().json(
                 ChromaDBResponse::<QueryResponse> {
                     success: false,
@@ -99,7 +99,7 @@ pub async fn search_collection(
         Err(e) => {
             // Get the root error message without duplication
             let error_msg = e.to_string();
-            println!("❌ Query failed: {}", error_msg);
+            println!("Query failed: {}", error_msg);
 
             // If the error message already contains detailed information, use it directly
             // Otherwise, try to get more context from the error chain

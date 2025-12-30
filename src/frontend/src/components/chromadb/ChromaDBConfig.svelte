@@ -53,7 +53,7 @@
       newEmbeddingModel = config.embedding_model
       // query_model is no longer used in UI, but we keep it for API compatibility
     } catch (err: any) {
-      console.error('❌ Failed to load config:', err)
+      console.error('Failed to load config:', err)
     }
   }
 
@@ -65,7 +65,7 @@
       }>('chromadb/models')
       localModels = response.data.models
     } catch (err: any) {
-      console.error('❌ Failed to load models:', err)
+      console.error('Failed to load models:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load models'
     } finally {
@@ -89,7 +89,7 @@
       }
       modelNotes = notesMap
     } catch (err: any) {
-      console.error('❌ Failed to load model notes:', err)
+      console.error('Failed to load model notes:', err)
     }
   }
 
@@ -146,7 +146,7 @@
         error = response.data.message
       }
     } catch (err: any) {
-      console.error('❌ Failed to save config:', err)
+      console.error('Failed to save config:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to save config'
     } finally {

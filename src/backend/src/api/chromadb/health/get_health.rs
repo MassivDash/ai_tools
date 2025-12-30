@@ -26,7 +26,7 @@ pub async fn get_chromadb_health(chroma_address: web::Data<String>) -> ActixResu
                 }))
             }
             Err(e) => {
-                println!("❌ ChromaDB health check failed: {}", e);
+                println!("ChromaDB health check failed: {}", e);
                 Ok(HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<
                     ChromaDBHealthResponse,
                 > {
@@ -42,7 +42,7 @@ pub async fn get_chromadb_health(chroma_address: web::Data<String>) -> ActixResu
             }
         },
         Err(e) => {
-            println!("❌ Failed to create ChromaDB client: {}", e);
+            println!("Failed to create ChromaDB client: {}", e);
             Ok(HttpResponse::ServiceUnavailable().json(
                 ChromaDBResponse::<ChromaDBHealthResponse> {
                     success: false,

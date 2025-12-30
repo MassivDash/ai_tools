@@ -126,7 +126,7 @@
       newGpuLayers = config.gpu_layers ?? ''
       newModel = config.model ?? ''
     } catch (err: any) {
-      console.error('❌ Failed to load config:', err)
+      console.error('Failed to load config:', err)
     }
   }
 
@@ -138,7 +138,7 @@
       }>('llama-server/models')
       localModels = response.data.local_models
     } catch (err: any) {
-      console.error('❌ Failed to load models:', err)
+      console.error('Failed to load models:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load models'
     } finally {
@@ -163,7 +163,7 @@
       }
       modelNotes = notesMap
     } catch (err: any) {
-      console.error('❌ Failed to load model notes:', err)
+      console.error('Failed to load model notes:', err)
     }
   }
 
@@ -254,7 +254,7 @@
         error = response.data.message
       }
     } catch (err: any) {
-      console.error('❌ Failed to save config:', err)
+      console.error('Failed to save config:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to save config'
     } finally {

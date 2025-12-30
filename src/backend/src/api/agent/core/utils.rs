@@ -45,7 +45,7 @@ pub fn format_tool_status_message(
             }
         }
         StatusType::Error(duration) => {
-            format!("❌ {} failed after {:.1}s", name, duration.as_secs_f64())
+            format!("{} failed after {:.1}s", name, duration.as_secs_f64())
         }
     }
 }

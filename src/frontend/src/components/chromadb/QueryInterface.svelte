@@ -45,7 +45,7 @@
         error = response.data.error || 'Failed to perform query'
       }
     } catch (err: any) {
-      console.error('❌ Error querying:', err)
+      console.error('Error querying:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to perform query'
     } finally {
@@ -101,7 +101,7 @@
     </div>
 
     {#if error}
-      <div class="error-message">❌ {error}</div>
+      <div class="error-message">{error}</div>
     {/if}
 
     {#if results}

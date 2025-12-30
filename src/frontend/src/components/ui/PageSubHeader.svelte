@@ -33,15 +33,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
     transition: background-color 0.3s ease;
-    max-width: 1560px;
     width: 100%;
-    /* height: 75px; Removed fixed height to allow wrapping */
     min-height: 75px;
     margin: 0 auto;
     flex-wrap: wrap;
     gap: 1rem;
+    max-width: calc(100% - 4rem);
   }
 
   @media (max-width: 768px) {

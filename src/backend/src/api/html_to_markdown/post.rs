@@ -113,7 +113,7 @@ pub async fn convert_html_to_markdown_endpoint(
             }))
         }
         Err(error) => {
-            println!("❌ Conversion failed: {}", error);
+            println!("Conversion failed: {}", error);
             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": error
             })))

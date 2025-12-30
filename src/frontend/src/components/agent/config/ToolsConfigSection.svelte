@@ -16,7 +16,7 @@
       const response = await axiosBackendInstance.get<ToolInfo[]>('agent/tools')
       availableTools = response.data
     } catch (err: any) {
-      console.error('❌ Failed to load available tools:', err)
+      console.error('Failed to load available tools:', err)
       availableTools = []
     } finally {
       loadingTools = false

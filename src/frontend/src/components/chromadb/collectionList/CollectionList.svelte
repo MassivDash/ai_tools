@@ -45,7 +45,7 @@
         error = response.data.error || 'Failed to load collections'
       }
     } catch (err: any) {
-      console.error('❌ Error loading collections:', err)
+      console.error('Error loading collections:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to load collections'
     } finally {
@@ -107,7 +107,7 @@
         error = response.data.error || 'Failed to delete collection'
       }
     } catch (err: any) {
-      console.error('❌ Error deleting collection:', err)
+      console.error('Error deleting collection:', err)
       error =
         err.response?.data?.error ||
         err.message ||
@@ -140,7 +140,7 @@
   </div>
 
   {#if error}
-    <div class="error-message">❌ {error}</div>
+    <div class="error-message">{error}</div>
   {/if}
 
   {#if loading && $collections.length === 0}

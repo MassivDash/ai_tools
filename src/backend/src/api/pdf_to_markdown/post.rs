@@ -102,7 +102,7 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
             text
         }
         Err(e) => {
-            println!("❌ Failed to extract text from PDF: {}", e);
+            println!("Failed to extract text from PDF: {}", e);
             return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to extract text from PDF: {}", e)
             })));

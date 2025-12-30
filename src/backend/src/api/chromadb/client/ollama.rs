@@ -174,13 +174,13 @@ impl OllamaManager {
                         "Failed to pull model '{}'. stderr: {}, stdout: {}",
                         self.config.model, stderr, stdout
                     );
-                    println!("❌ {}", error_msg);
+                    println!("{}", error_msg);
                     return Err(anyhow::anyhow!(error_msg));
                 }
             }
             Err(e) => {
                 let error_msg = format!("Failed to execute ollama pull: {}", e);
-                println!("❌ {}", error_msg);
+                println!("{}", error_msg);
                 return Err(anyhow::anyhow!(error_msg));
             }
         }
@@ -287,7 +287,7 @@ impl OllamaManager {
                     4. Check that Ollama is accessible at {}:{}",
                     self.config.model, endpoint, e, self.config.model, self.config.model, self.config.host, self.config.port
                 );
-                println!("❌ {}", error_msg);
+                println!("{}", error_msg);
                 return Err(anyhow::anyhow!(error_msg));
             }
         };
@@ -305,7 +305,7 @@ impl OllamaManager {
                     3. There's a network issue connecting to Ollama",
                     self.config.model, e, self.config.model
                 );
-                println!("❌ {}", error_msg);
+                println!("{}", error_msg);
                 return Err(anyhow::anyhow!(error_msg));
             }
         };
@@ -375,7 +375,7 @@ impl OllamaManager {
 
         match &result {
             Ok(_) => println!("✅ Embedding generation workflow completed successfully"),
-            Err(e) => println!("❌ Embedding generation workflow failed: {}", e),
+            Err(e) => println!("Embedding generation workflow failed: {}", e),
         }
 
         result

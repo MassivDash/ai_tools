@@ -140,7 +140,7 @@ pub async fn post_start_llama_server(
             }))
         }
         Err(e) => {
-            println!("❌ Failed to start llama server: {}", e);
+            println!("Failed to start llama server: {}", e);
             Ok(
                 HttpResponse::InternalServerError().json(LlamaServerResponse {
                     success: false,

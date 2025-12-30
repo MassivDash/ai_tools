@@ -50,7 +50,7 @@ pub async fn create_or_update_model_note(
             Ok(HttpResponse::Ok().json(ModelNoteResponse { note: saved_note }))
         }
         Err(e) => {
-            println!("❌ Failed to save model note: {}", e);
+            println!("Failed to save model note: {}", e);
             println!(
                 "   Platform: {}, Model: {}, Favorite: {}",
                 note.platform, note.model_name, note.is_favorite

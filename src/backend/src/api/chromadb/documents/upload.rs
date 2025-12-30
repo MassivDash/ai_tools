@@ -141,7 +141,7 @@ pub async fn upload_documents(
             match parse_pdf(&file_data) {
                 Ok((text, meta)) => (text, meta),
                 Err(e) => {
-                    println!("❌ Error parsing PDF {}: {}", filename, e);
+                    println!("Error parsing PDF {}: {}", filename, e);
                     continue;
                 }
             }
@@ -152,7 +152,7 @@ pub async fn upload_documents(
             match parse_text(&file_data) {
                 Ok((text, meta)) => (text, meta),
                 Err(e) => {
-                    println!("❌ Error parsing text file {}: {}", filename, e);
+                    println!("Error parsing text file {}: {}", filename, e);
                     continue;
                 }
             }
@@ -242,7 +242,7 @@ pub async fn upload_documents(
             }))
         }
         Err(e) => {
-            println!("❌ Failed to add documents: {}", e);
+            println!("Failed to add documents: {}", e);
             Ok(
                 HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
                     success: false,

@@ -11,7 +11,7 @@ pub async fn get_collection(
     let client = match ChromaDBClient::new(chroma_address.as_str()) {
         Ok(c) => c,
         Err(e) => {
-            println!("❌ Failed to create ChromaDB client: {}", e);
+            println!("Failed to create ChromaDB client: {}", e);
             return Ok(
                 HttpResponse::ServiceUnavailable().json(ChromaDBResponse::<Collection> {
                     success: false,
@@ -31,7 +31,7 @@ pub async fn get_collection(
             message: None,
         })),
         Err(e) => {
-            println!("❌ Failed to get collection: {}", e);
+            println!("Failed to get collection: {}", e);
             Ok(
                 HttpResponse::NotFound().json(ChromaDBResponse::<Collection> {
                     success: false,

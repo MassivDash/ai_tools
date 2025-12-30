@@ -25,7 +25,7 @@ pub async fn delete_model_note(
             })))
         }
         Err(e) => {
-            println!("❌ Failed to delete model note: {}", e);
+            println!("Failed to delete model note: {}", e);
             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to delete model note: {}", e)
             })))

@@ -38,7 +38,7 @@ export function useAgentWebSocket(
         const streamEvent: AgentStreamEvent = JSON.parse(event.data)
         onEvent(streamEvent)
       } catch (err) {
-        console.error('❌ Failed to parse agent WebSocket message:', err)
+        console.error('Failed to parse agent WebSocket message:', err)
       }
     },
     onError: _onError,

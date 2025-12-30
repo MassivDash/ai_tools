@@ -33,7 +33,7 @@ pub async fn get_default_model(
             })))
         }
         Err(e) => {
-            println!("❌ Failed to fetch default model: {}", e);
+            println!("Failed to fetch default model: {}", e);
             Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": format!("Failed to fetch default model: {}", e)
             })))
