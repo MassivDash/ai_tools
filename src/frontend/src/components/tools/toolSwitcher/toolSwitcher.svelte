@@ -127,7 +127,7 @@
   /* Removed old tool-card styles as Card component handles base styles */
   .tool-switcher {
     width: 100%;
-    max-width: 1200px;
+    max-width: calc(100% - 5rem);
     margin: 0 auto;
     padding: 2rem 1rem;
     margin-bottom: 10rem;

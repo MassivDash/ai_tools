@@ -142,7 +142,7 @@
 <style>
   .chromadb-manager {
     width: 100%;
-    max-width: 1400px;
+    max-width: calc(100% - 5rem);
     margin: 0 auto;
     position: relative;
     display: flex;

@@ -23,7 +23,7 @@
   let error = ''
   let showConfig = false
   let showTerminal = false
-  let _isStarting = false
+  let isStarting = false
 
   // WebSocket hook for status updates
   const statusWs = useStatusWebSocket(
@@ -32,7 +32,7 @@
     },
     () => {
       // Server just became ready
-      _isStarting = false
+      isStarting = false
       showTerminal = false
     }
   )
@@ -40,7 +40,7 @@
   const startServer = async () => {
     loading = true
     error = ''
-    _isStarting = true
+    isStarting = true
     showTerminal = true
     try {
       const response =
@@ -49,13 +49,13 @@
         )
       if (!response.data.success) {
         error = response.data.message
-        _isStarting = false
+        isStarting = false
       }
     } catch (err: any) {
       console.error('Failed to start server:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to start server'
-      _isStarting = false
+      isStarting = false
     } finally {
       loading = false
     }
@@ -64,7 +64,7 @@
   const stopServer = async () => {
     loading = true
     error = ''
-    _isStarting = false
+    isStarting = false
     try {
       const response =
         await axiosBackendInstance.post<LlamaServerResponse>(
@@ -84,10 +84,6 @@
     }
   }
 
-  const handleConfigSave = () => {
-    // Config saved successfully
-  }
-
   onMount(() => {
     statusWs.connect()
   })
@@ -98,7 +94,7 @@
 </script>
 
 <div class="ai-chat">
-  <PageSubHeader title="Llama.cpp Server">
+  <PageSubHeader title="Llama.cpp Server" icon="server-network">
     {#snippet actions()}
       <Button
         variant="info"
@@ -176,11 +172,7 @@
         </div>
       {/if}
     </div>
-    <LlamaConfig
-      isOpen={showConfig}
-      onClose={() => (showConfig = false)}
-      onSave={handleConfigSave}
-    />
+    <LlamaConfig isOpen={showConfig} onClose={() => (showConfig = false)} />
   </div>
 </div>
 
@@ -283,6 +275,8 @@
     min-height: 80vh;
     border: none;
     display: block;
+    margin: 0 auto;
+    max-width: calc(100% - 5rem);
   }
 
   .empty-state {

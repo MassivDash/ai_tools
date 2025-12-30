@@ -36,16 +36,17 @@
     transition: background-color 0.3s ease;
     width: 100%;
     min-height: 75px;
-    margin: 0 auto;
+    margin: 0 4rem 0 2.5rem;
     flex-wrap: wrap;
     gap: 1rem;
-    max-width: calc(100% - 4rem);
+    max-width: calc(100% - 5rem);
   }
 
   @media (max-width: 768px) {
     .page-sub-header {
-      padding: 0.75rem;
       gap: 0.75rem;
+      max-width: 100%;
+      margin: auto;
     }
   }
 

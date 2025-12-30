@@ -422,20 +422,20 @@
   })
 </script>
 
+<PageSubHeader title="Model Notes" icon="note">
+  {#snippet actions()}
+    <Button variant="info" onclick={loadModels} disabled={loading}>
+      <MaterialIcon name="refresh" width="20" height="20" />
+      Refresh Models
+    </Button>
+  {/snippet}
+</PageSubHeader>
+
+{#if error}
+  <div class="error">{error}</div>
+{/if}
+
 <div class="model-notes">
-  <PageSubHeader title="Model Notes" icon="note">
-    {#snippet actions()}
-      <Button variant="info" onclick={loadModels} disabled={loading}>
-        <MaterialIcon name="refresh" width="20" height="20" />
-        Refresh Models
-      </Button>
-    {/snippet}
-  </PageSubHeader>
-
-  {#if error}
-    <div class="error">{error}</div>
-  {/if}
-
   <ModelFilters
     bind:selectedPlatform
     bind:showFavoritesOnly
@@ -555,7 +555,7 @@
   .model-notes {
     width: 100%;
     padding: 1rem;
-    max-width: 1400px;
+    max-width: calc(100% - 5rem);
     margin: 0 auto;
   }
 
