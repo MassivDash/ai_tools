@@ -1,7 +1,7 @@
 {
   "extends": "astro/tsconfigs/base",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist", "**/*.test.ts"],
+  "exclude": ["dist"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
@@ -19,6 +19,7 @@
       "@axios/*": ["src/axiosInstance/*"],
       "@config/*": ["src/config/*"],
       "@types/*": ["src/types/*"],
+      "@types": ["src/types/index.ts"],
       "@stores/*": ["src/stores/*"],
       "@ui/*": ["src/components/ui/*"]
     },

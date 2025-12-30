@@ -6,5 +6,5 @@ import react from '@astrojs/react';
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [svelte(), react()]
+  integrations: [svelte({ extensions: ['.svelte'] }), react()]
 })
