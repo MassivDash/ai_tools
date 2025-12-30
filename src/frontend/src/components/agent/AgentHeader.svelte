@@ -15,7 +15,7 @@
   export let showTesting: boolean = false
 </script>
 
-<PageSubHeader title="AI Agent" icon="robot-confused">
+<PageSubHeader title="Agent Chat" icon="robot-confused">
   {#snippet actions()}
     <Button
       variant="info"

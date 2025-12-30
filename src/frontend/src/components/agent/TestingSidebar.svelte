@@ -4,6 +4,8 @@
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
+  import SidebarHeader from '../ui/SidebarHeader.svelte'
+  import EditableListItem from '../ui/EditableListItem.svelte'
   import Input from '../ui/Input.svelte'
   import type { TestSuite, TestQuestion } from './types'
 
@@ -23,6 +25,7 @@
   let editingSuiteId: string | null = null
   let suiteName = ''
   let suiteDescription = ''
+  let showForm = false
 
   // Question Form
   let editingQuestionId: number | null = null
@@ -67,6 +70,7 @@
     selectedSuite = null
     questions = []
     runStatus = 'idle'
+    showForm = false
   }
 
   // --- Suite CRUD ---
@@ -89,11 +93,33 @@
         })
       }
       loadSuites()
+      loadSuites()
       suiteName = ''
       suiteDescription = ''
       editingSuiteId = null
+      showForm = false
     } catch {
-      error = 'Failed to save suite'
+      // ignore
+    }
+  }
+
+  const updateSuiteName = async (
+    id: string,
+    name: string,
+    description: string
+  ) => {
+    try {
+      await axiosBackendInstance.put(`agent/testing/suites/${id}`, {
+        name,
+        description
+      })
+      // Update local state
+      suites = suites.map((s) => (s.id === id ? { ...s, name } : s))
+      if (selectedSuite && selectedSuite.id === id) {
+        selectedSuite = { ...selectedSuite, name }
+      }
+    } catch {
+      error = 'Failed to update suite name'
     }
   }
 
@@ -106,16 +132,11 @@
     }
   }
 
-  const startEditSuite = (suite: TestSuite) => {
-    editingSuiteId = suite.id
-    suiteName = suite.name
-    suiteDescription = suite.description || ''
-  }
-
   const cancelEditSuite = () => {
     editingSuiteId = null
     suiteName = ''
     suiteDescription = ''
+    showForm = false
   }
 
   // --- Question CRUD ---
@@ -141,8 +162,21 @@
       loadQuestions(selectedSuite)
       questionContent = ''
       editingQuestionId = null
+      showForm = false
     } catch {
       error = 'Failed to save question'
+    }
+  }
+
+  const updateQuestionContent = async (id: number, content: string) => {
+    try {
+      await axiosBackendInstance.put(`agent/testing/questions/${id}`, {
+        content
+      })
+      // Update local state
+      questions = questions.map((q) => (q.id === id ? { ...q, content } : q))
+    } catch {
+      error = 'Failed to update question'
     }
   }
 
@@ -155,14 +189,10 @@
     }
   }
 
-  const startEditQuestion = (q: TestQuestion) => {
-    editingQuestionId = q.id
-    questionContent = q.content
-  }
-
   const cancelEditQuestion = () => {
     editingQuestionId = null
     questionContent = ''
+    showForm = false
   }
 
   // --- Test Runner ---
@@ -224,37 +254,39 @@
 </script>
 
 <div class="testing-sidebar" class:open={isOpen}>
-  <div class="header">
-    <div class="header-left">
-      {#if selectedSuite}
-        <IconButton
-          variant="info"
-          class="back-btn sidebar-icon-btn"
-          onclick={handleBackToSuites}
-          title="Back to Suites"
-          iconSize={20}
-        >
-          <MaterialIcon name="arrow-left" width="20" height="20" />
-        </IconButton>
-        <h2 class="suite-title">{selectedSuite.name}</h2>
-      {:else}
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <MaterialIcon name="flask" width="20" height="20" />
-          <h2>Auto Testing</h2>
-        </div>
-      {/if}
-    </div>
-    <div class="actions">
-      <IconButton
-        variant="info"
-        class="sidebar-icon-btn"
-        onclick={() => dispatch('close')}
-        title="Close Testing"
-        iconSize={20}
+  <div class="header-container">
+    {#if selectedSuite}
+      <SidebarHeader
+        title={selectedSuite.name}
+        showAdd={!showForm}
+        addTitle="Add Question"
+        on:add={() => (showForm = true)}
+        on:close={() => dispatch('close')}
+        closeTitle="Close Testing"
       >
-        <MaterialIcon name="chevron-left" width="20" height="20" />
-      </IconButton>
-    </div>
+        <div slot="prefix">
+          <IconButton
+            variant="ghost"
+            class="back-btn sidebar-icon-btn"
+            onclick={handleBackToSuites}
+            title="Back to Suites"
+            iconSize={20}
+          >
+            <MaterialIcon name="arrow-left" width="20" height="20" />
+          </IconButton>
+        </div>
+      </SidebarHeader>
+    {:else}
+      <SidebarHeader
+        title="Auto Testing"
+        icon="flask"
+        showAdd={!showForm}
+        addTitle="New Suite"
+        on:add={() => (showForm = true)}
+        on:close={() => dispatch('close')}
+        closeTitle="Close Testing"
+      />
+    {/if}
   </div>
 
   <div class="content">
@@ -264,65 +296,42 @@
 
     {#if !selectedSuite}
       <!-- Suites List -->
-      <div class="form-section">
-        <Input type="text" placeholder="Suite Name" bind:value={suiteName} />
-        <Input
-          type="text"
-          placeholder="Description"
-          bind:value={suiteDescription}
-        />
-        <div class="form-actions">
-          <Button variant="primary" onclick={saveSuite} disabled={!suiteName}>
-            {editingSuiteId ? 'Update' : 'Create'} Suite
-          </Button>
-          {#if editingSuiteId}
-            <Button variant="secondary" onclick={cancelEditSuite}>Cancel</Button
-            >
-          {/if}
+      {#if showForm}
+        <div class="form-section">
+          <Input type="text" placeholder="Suite Name" bind:value={suiteName} />
+          <Input
+            type="text"
+            placeholder="Description"
+            bind:value={suiteDescription}
+          />
+          <div class="form-actions">
+            <Button variant="primary" onclick={saveSuite} disabled={!suiteName}>
+              {editingSuiteId ? 'Update' : 'Create'} Suite
+            </Button>
+            <Button variant="secondary" onclick={cancelEditSuite}>
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div>
+      {/if}
 
       <div class="list">
         {#each suites as suite (suite.id)}
-          <div
-            class="item"
+          <EditableListItem
+            title={suite.name}
+            active={selectedSuite?.id === suite.id}
             on:click={() => loadQuestions(suite)}
-            role="button"
-            tabindex="0"
-            on:keypress={(e) => e.key === 'Enter' && loadQuestions(suite)}
+            on:save={(e) =>
+              updateSuiteName(suite.id, e.detail, suite.description || '')}
+            on:delete={() => deleteSuite(suite.id)}
           >
             <div class="info">
               <span class="name">{suite.name}</span>
-              <span class="desc">{suite.description || ''}</span>
+              {#if suite.description}
+                <span class="desc">{suite.description}</span>
+              {/if}
             </div>
-            <div class="item-actions">
-              <IconButton
-                variant="ghost"
-                size="small"
-                onclick={(e) => {
-                  e.stopPropagation()
-                  startEditSuite(suite)
-                }}
-                title="Edit"
-                iconSize={16}
-              >
-                <MaterialIcon name="pencil" width="16" height="16" />
-              </IconButton>
-              <IconButton
-                class="delete"
-                variant="ghost"
-                size="small"
-                onclick={(e) => {
-                  e.stopPropagation()
-                  deleteSuite(suite.id)
-                }}
-                title="Delete"
-                iconSize={16}
-              >
-                <MaterialIcon name="delete" width="16" height="16" />
-              </IconButton>
-            </div>
-          </div>
+          </EditableListItem>
         {/each}
       </div>
     {:else}
@@ -361,61 +370,40 @@
         {/if}
       </div>
 
-      <div class="form-section">
-        <textarea placeholder="Question content..." bind:value={questionContent}
-        ></textarea>
-        <div class="form-actions">
-          <Button
-            variant="primary"
-            onclick={saveQuestion}
-            disabled={!questionContent}
-          >
-            {editingQuestionId ? 'Update' : 'Add'} Question
-          </Button>
-          {#if editingQuestionId}
-            <Button variant="secondary" onclick={cancelEditQuestion}
-              >Cancel</Button
+      {#if showForm}
+        <div class="form-section">
+          <textarea
+            placeholder="Question content..."
+            bind:value={questionContent}
+          ></textarea>
+          <div class="form-actions">
+            <Button
+              variant="primary"
+              onclick={saveQuestion}
+              disabled={!questionContent}
             >
-          {/if}
+              {editingQuestionId ? 'Update' : 'Add'} Question
+            </Button>
+            <Button variant="secondary" onclick={cancelEditQuestion}>
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div>
+      {/if}
 
       <div class="list">
         {#each questions as q, i (q.id)}
-          <div
-            class="item question-item"
-            class:active={i === currentQuestionIndex && running}
+          <EditableListItem
+            title={q.content}
+            active={i === currentQuestionIndex && running}
+            on:save={(e) => updateQuestionContent(q.id, e.detail)}
+            on:delete={() => deleteQuestion(q.id)}
           >
-            <span class="index">{i + 1}.</span>
-            <span class="content-text">{q.content}</span>
-            <div class="item-actions">
-              <IconButton
-                variant="ghost"
-                size="small"
-                onclick={(e) => {
-                  e.stopPropagation()
-                  startEditQuestion(q)
-                }}
-                title="Edit"
-                iconSize={16}
-              >
-                <MaterialIcon name="pencil" width="16" height="16" />
-              </IconButton>
-              <IconButton
-                class="delete"
-                variant="ghost"
-                size="small"
-                onclick={(e) => {
-                  e.stopPropagation()
-                  deleteQuestion(q.id)
-                }}
-                title="Delete"
-                iconSize={16}
-              >
-                <MaterialIcon name="delete" width="16" height="16" />
-              </IconButton>
+            <div style="display: flex; gap: 8px;">
+              <span class="index">{i + 1}.</span>
+              <span class="content-text">{q.content}</span>
             </div>
-          </div>
+          </EditableListItem>
         {/each}
       </div>
     {/if}
@@ -429,8 +417,8 @@
     left: 0;
     bottom: 0;
     width: 320px; /* Slightly wider for questions */
-    background: var(--bg-secondary, #f5f5f5);
-    border-right: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
     transform: translateX(-100%);
     transition: transform 0.3s ease;
     border-top-right-radius: 8px;
@@ -444,35 +432,6 @@
     transform: translateX(0);
   }
 
-  .header {
-    padding: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow: hidden;
-  }
-
-  .header h2 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary, #333);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .suite-title {
-    font-size: 1rem !important;
-  }
-
   .content {
     flex: 1;
     overflow-y: auto;
@@ -482,7 +441,7 @@
 
   .form-section {
     padding: 1rem;
-    border-bottom: 1px solid var(--border-light, #eee);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -490,7 +449,7 @@
 
   textarea {
     padding: 8px;
-    border: 1px solid var(--border-color, #ccc);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     font-family: inherit;
   }
@@ -511,30 +470,6 @@
     overflow-y: auto;
   }
 
-  .item {
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-light, #eee);
-    transition: background 0.2s;
-  }
-
-  .item:hover {
-    background-color: var(--bg-tertiary, #fafafa);
-  }
-
-  .item.question-item {
-    cursor: default;
-    align-items: flex-start;
-  }
-
-  .item.active {
-    background-color: rgba(33, 150, 243, 0.1);
-    border-left: 3px solid var(--primary-color, #2196f3);
-  }
-
   .info {
     display: flex;
     flex-direction: column;
@@ -543,12 +478,12 @@
 
   .name {
     font-weight: 500;
-    color: var(--text-primary, #333);
+    color: var(--text-primary);
   }
 
   .desc {
     font-size: 0.8rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -556,7 +491,7 @@
 
   .index {
     font-weight: bold;
-    color: var(--text-secondary, #999);
+    color: var(--text-secondary);
     margin-right: 8px;
     min-width: 20px;
   }
@@ -564,32 +499,8 @@
   .content-text {
     flex: 1;
     font-size: 0.9rem;
-    color: var(--text-primary, #333);
+    color: var(--text-primary);
     word-break: break-word;
-  }
-
-  .item-actions {
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .item:hover .item-actions {
-    opacity: 1;
-  }
-
-  .item-actions :global(.button-icon-only) {
-    padding: 4px;
-    color: var(--text-secondary, #999);
-  }
-
-  .item-actions :global(.button-icon-only:hover) {
-    color: var(--primary-color, #2196f3);
-  }
-
-  .item-actions :global(.delete:hover) {
-    color: #f44336 !important; /* Force red for delete */
   }
 
   .runner-controls {
@@ -599,7 +510,9 @@
     justify-content: center;
     align-items: center;
     gap: 1rem;
-    border-bottom: 1px solid var(--border-light, #eee);
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
   }
 
   .running-state {
@@ -620,6 +533,6 @@
     display: flex;
     gap: 8px;
     font-size: 0.8rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
   }
 </style>
