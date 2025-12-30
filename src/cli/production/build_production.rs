@@ -14,7 +14,11 @@ pub fn build_production(config: Config) {
         // take production build url from config
         let prod_build_url = config.public_keys.public_api_url;
 
-        create_dotenv_frontend(&prod_build_url, "./src/frontend/.env");
+        create_dotenv_frontend(
+            &prod_build_url,
+            config.llama_server_url.as_deref(),
+            "./src/frontend/.env",
+        );
 
         step("Building the frontend package");
 

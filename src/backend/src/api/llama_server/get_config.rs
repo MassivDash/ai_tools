@@ -83,6 +83,8 @@ mod tests {
             no_mmap: Some(true),
             gpu_layers: Some(10),
             model: Some("/path/to/model".to_string()),
+            host: Some("0.0.0.0".to_string()),
+            port: Some(8080),
         };
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(config));
 

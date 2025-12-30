@@ -24,6 +24,8 @@ pub struct Args {
     pub env: String,
     pub cors_url: String,
     pub chroma_address: Option<String>,
+    pub llama_host: Option<String>,
+    pub llama_port: Option<u16>,
 }
 
 pub fn collect_args(args: Vec<String>) -> Args {
@@ -32,6 +34,8 @@ pub fn collect_args(args: Vec<String>) -> Args {
     let mut port = 8080;
     let mut cors_url = "astrox.spaceout.pl";
     let mut chroma_address: Option<String> = None;
+    let mut llama_host: Option<String> = None;
+    let mut llama_port: Option<u16> = None;
 
     for arg in &args {
         if arg.starts_with("--env=") {
@@ -68,6 +72,21 @@ pub fn collect_args(args: Vec<String>) -> Args {
                 chroma_address = Some(split[1].to_string());
             }
         }
+        if arg.starts_with("--llama_host=") {
+            let split: Vec<&str> = arg.split('=').collect();
+            if split.len() == 2 && !split[1].is_empty() {
+                llama_host = Some(split[1].to_string());
+            }
+        }
+
+        if arg.starts_with("--llama_port=") {
+            let split: Vec<&str> = arg.split('=').collect();
+            if split.len() == 2 {
+                if let Ok(p) = split[1].parse::<u16>() {
+                    llama_port = Some(p);
+                }
+            }
+        }
     }
 
     Args {
@@ -76,6 +95,8 @@ pub fn collect_args(args: Vec<String>) -> Args {
         env: env.to_string(),
         cors_url: cors_url.to_string(),
         chroma_address,
+        llama_host,
+        llama_port,
     }
 }
 #[cfg(test)]

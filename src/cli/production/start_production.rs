@@ -126,7 +126,11 @@ pub fn start_production(config: Config) {
         // take production build url from config
         let prod_build_url = config.public_keys.public_api_url;
 
-        create_dotenv_frontend(&prod_build_url, "./src/frontend/.env");
+        create_dotenv_frontend(
+            &prod_build_url,
+            config.llama_server_url.as_deref(),
+            "./src/frontend/.env",
+        );
 
         step("Bundling the frontend");
 
@@ -161,9 +165,15 @@ pub fn start_production(config: Config) {
             .arg(format!("--cors_url={}", config.cors_url))
             .arg(format!("--chroma_address={}", chromadb_address));
 
-        // Add cookie_domain argument if it exists
         if let Some(ref domain) = config.cookie_domain {
             cargo_command.arg(format!("--cookie_domain={}", domain));
+        }
+
+        if let Some(ref llama_host) = config.llama_host {
+            cargo_command.arg(format!("--llama_host={}", llama_host));
+        }
+        if let Some(ref llama_port) = config.llama_port {
+            cargo_command.arg(format!("--llama_port={}", llama_port));
         }
 
         cargo_command
@@ -206,6 +216,13 @@ pub fn start_production(config: Config) {
 
                 if let Some(ref domain) = config.cookie_domain {
                     cargo_command.arg(format!("--cookie_domain={}", domain));
+                }
+
+                if let Some(ref llama_host) = config.llama_host {
+                    cargo_command.arg(format!("--llama_host={}", llama_host));
+                }
+                if let Some(ref llama_port) = config.llama_port {
+                    cargo_command.arg(format!("--llama_port={}", llama_port));
                 }
 
                 cargo_server = cargo_command

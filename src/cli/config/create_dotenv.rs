@@ -47,7 +47,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 
-pub fn create_dotenv_frontend(api_url: &str, dotenv_path: &str) {
+pub fn create_dotenv_frontend(api_url: &str, llama_url: Option<&str>, dotenv_path: &str) {
     let dotenv_exists: bool = Path::new(dotenv_path).exists();
     if dotenv_exists {
         match File::open(dotenv_path) {
@@ -56,7 +56,10 @@ pub fn create_dotenv_frontend(api_url: &str, dotenv_path: &str) {
                 if let Err(err) = file.read_to_string(&mut contents) {
                     eprintln!("Error reading file: {}", err)
                 }
-                let new_contents = replace_value(&contents, "PUBLIC_API_URL=", api_url);
+                let mut new_contents = replace_value(&contents, "PUBLIC_API_URL=", api_url);
+                if let Some(url) = llama_url {
+                    new_contents = replace_value(&new_contents, "PUBLIC_LLAMA_URL=", url);
+                }
                 if let Err(err) = File::create(dotenv_path)
                     .and_then(|mut file| file.write_all(new_contents.as_bytes()))
                 {
@@ -70,7 +73,11 @@ pub fn create_dotenv_frontend(api_url: &str, dotenv_path: &str) {
     } else {
         match File::create(dotenv_path) {
             Ok(mut file) => {
-                if let Err(err) = file.write_all(format!("PUBLIC_API_URL={}", api_url).as_bytes()) {
+                let mut content = format!("PUBLIC_API_URL={}\n", api_url);
+                if let Some(url) = llama_url {
+                    content.push_str(&format!("PUBLIC_LLAMA_URL={}\n", url));
+                }
+                if let Err(err) = file.write_all(content.as_bytes()) {
                     eprintln!("Error writing to file: {}", err)
                 }
             }
@@ -99,7 +106,7 @@ mod tests {
         let dotenv_path = "./src/frontend/.test-new-env";
 
         // Create a temporary file for testing
-        create_dotenv_frontend(api_url, &dotenv_path);
+        create_dotenv_frontend(api_url, None, &dotenv_path);
 
         // Read the contents of the temporary file
         let mut file = File::open(dotenv_path).unwrap();
@@ -124,7 +131,7 @@ mod tests {
             .unwrap();
 
         // Update the file with the new value
-        create_dotenv_frontend(api_url, &dotenv_path);
+        create_dotenv_frontend(api_url, None, &dotenv_path);
 
         // Read the contents of the temporary file
         let mut file = File::open(dotenv_path).unwrap();

@@ -87,6 +87,39 @@ pub fn collect_config_args(config: Config, args: &Vec<String>) -> Config {
                 Some(address)
             };
         }
+
+        if arg.starts_with("--cors-url=") {
+            config.cors_url = split_and_collect(arg);
+        }
+        // Support underscore version just in case, or match test usage?
+        // Test uses "--cors_url=" (underscore). The existing code uses hyphens for others generally?
+        // Wait, existing code: "--env=", "--host=", "--port=", "--astro-port=", "--prod-astro-build=", "--public-api-url=", "--cookie-domain=", "--chroma-address=".
+        // The test passed "--cors_url=" (underscore). Line 142 in collect_args.rs view step 149.
+        // So I should look for underscore for cors_url if that's what's used.
+        // Actually, standard is usually hyphens. But if test uses underscore, I should support it or change test.
+        // Changing implementation to support underscore for cors_url to match test.
+        if arg.starts_with("--cors_url=") {
+            config.cors_url = split_and_collect(arg);
+        }
+
+        if arg.starts_with("--llama-host=") {
+            let val = split_and_collect(arg);
+            if !val.is_empty() {
+                config.llama_host = Some(val);
+            }
+        }
+        if arg.starts_with("--llama-port=") {
+            let val = split_and_collect(arg);
+            if let Ok(port) = val.parse::<u16>() {
+                config.llama_port = Some(port);
+            }
+        }
+        if arg.starts_with("--llama-server-url=") {
+            let val = split_and_collect(arg);
+            if !val.is_empty() {
+                config.llama_server_url = Some(val);
+            }
+        }
     }
 
     config
@@ -126,6 +159,9 @@ mod tests {
             cors_url: "".to_string(),
             cookie_domain: None,
             chroma_address: None,
+            llama_host: None,
+            llama_port: None,
+            llama_server_url: None,
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
                 PublicKeys { public_api_url }
@@ -151,6 +187,9 @@ mod tests {
             prod_astro_build: true,
             cookie_domain: None,
             chroma_address: None,
+            llama_host: None,
+            llama_port: None,
+            llama_server_url: None,
             public_keys: {
                 let public_api_url = "https://custom.api/api".to_string();
                 PublicKeys { public_api_url }

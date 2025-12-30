@@ -51,6 +51,9 @@ pub fn create_toml_file(file_name: String) -> Result<Config, ()> {
         prod_astro_build: true,
         cookie_domain: None, // Set to None for dev environment by default
         chroma_address: Some("http://localhost:8000".to_string()),
+        llama_host: Some("localhost".to_string()),
+        llama_port: Some(8080),
+        llama_server_url: Some("http://localhost:8080".to_string()),
         public_keys: {
             let public_api_url = "http://localhost:8080/api".to_string();
             PublicKeys { public_api_url }
@@ -104,6 +107,9 @@ mod tests {
             prod_astro_build: true,
             cookie_domain: None,
             chroma_address: Some("http://localhost:8000".to_string()),
+            llama_host: Some("localhost".to_string()),
+            llama_port: Some(8080),
+            llama_server_url: Some("http://localhost:8080".to_string()),
             public_keys: {
                 let public_api_url = "http://localhost:8080/api".to_string();
                 PublicKeys { public_api_url }
@@ -127,6 +133,9 @@ mod tests {
         assert!(config.astro_port == expected_config.astro_port);
         assert!(config.prod_astro_build == expected_config.prod_astro_build);
         assert!(config.cors_url == expected_config.cors_url);
+        assert!(config.llama_host == expected_config.llama_host);
+        assert!(config.llama_port == expected_config.llama_port);
+        assert!(config.llama_server_url == expected_config.llama_server_url);
 
         // delete file after test completion
         remove_file(&file_name)

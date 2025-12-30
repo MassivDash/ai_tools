@@ -138,6 +138,7 @@ pub fn start_development(config: Config) {
     // Crate the host env for astro to call the actix backend server
     create_dotenv_frontend(
         &format!("http://{}:{}/api/", config.host, port),
+        config.llama_server_url.as_deref(),
         "./src/frontend/.env",
     );
 
@@ -156,6 +157,12 @@ pub fn start_development(config: Config) {
             );
             if let Some(ref domain) = config.cookie_domain {
                 cmd.push_str(&format!(" --cookie_domain={}", domain));
+            }
+            if let Some(ref llama_host) = config.llama_host {
+                cmd.push_str(&format!(" --llama_host={}", llama_host));
+            }
+            if let Some(ref llama_port) = config.llama_port {
+                cmd.push_str(&format!(" --llama_port={}", llama_port));
             }
             cmd
         })

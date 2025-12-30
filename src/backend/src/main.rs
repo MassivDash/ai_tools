@@ -99,6 +99,9 @@ async fn main() -> std::io::Result<()> {
             llama_config_init.hf_model
         );
     }
+    llama_config_init.host = args.llama_host.clone();
+    llama_config_init.port = args.llama_port;
+
     let llama_config: Arc<Mutex<Config>> = Arc::new(Mutex::new(llama_config_init));
 
     // Shared state for llama server process

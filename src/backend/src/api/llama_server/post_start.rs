@@ -57,6 +57,8 @@ pub async fn post_start_llama_server(
     let no_mmap = config_guard.no_mmap;
     let gpu_layers = config_guard.gpu_layers;
     let model = config_guard.model.clone();
+    let host = config_guard.host.clone();
+    let port = config_guard.port;
     drop(config_guard);
 
     // Start the llama-server process
@@ -101,6 +103,12 @@ pub async fn post_start_llama_server(
         if !model_path.trim().is_empty() {
             cmd.arg("--model").arg(model_path);
         }
+    }
+    if let Some(host_val) = &host {
+        cmd.arg("--host").arg(host_val);
+    }
+    if let Some(port_val) = port {
+        cmd.arg("--port").arg(port_val.to_string());
     }
 
     match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {

@@ -19,6 +19,8 @@ pub struct Config {
     pub no_mmap: Option<bool>,
     pub gpu_layers: Option<u32>,
     pub model: Option<String>,
+    pub host: Option<String>,
+    pub port: Option<u16>,
 }
 
 impl Default for Config {
@@ -36,6 +38,8 @@ impl Default for Config {
             no_mmap: None,
             gpu_layers: None,
             model: None,
+            host: None,
+            port: None,
         }
     }
 }
