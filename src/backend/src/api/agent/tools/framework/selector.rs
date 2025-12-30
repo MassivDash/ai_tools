@@ -1,3 +1,4 @@
+use crate::api::agent::core::types::ToolType;
 use crate::api::agent::tools::framework::registry::ToolRegistry;
 use chrono::Utc;
 use std::sync::Arc;
@@ -27,7 +28,17 @@ impl ToolSelector {
         let all_tools = self.registry.get_all_tools();
         if !all_tools.is_empty() {
             prompt.push_str("AVAILABLE TOOLS:\n");
-            prompt.push_str("**THINK FIRST:** Do you really need to use a tool? If you can answer with your internal knowledge, do NOT use a tool.\n\n");
+
+            // If knowledge base (chroma db is enabled), let the llm know he should priortise the search before answering from internal knowledge
+            if all_tools
+                .iter()
+                .any(|tool| tool.metadata().tool_type == ToolType::ChromaDB)
+            {
+                prompt.push_str("**USE KNOWLEDGE BASE TOOL ALWAYS:** Do a semantic search using the knowledge base tool before answering from internal knowledge \n\n")
+            }
+
+            prompt.push_str("**THINK FIRST BEFORE USING ANY OTHER TOOLS THAN THE KNOWLEDGE BASE:** Do you really need to use a tool? If you can answer with your internal knowledge, do NOT use a tool.\n\n");
+
             for (i, tool) in all_tools.iter().enumerate() {
                 let func_def = tool.get_function_definition();
                 let name = func_def
