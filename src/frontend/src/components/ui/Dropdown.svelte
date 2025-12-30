@@ -1,35 +1,51 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+  interface Props {
+    id?: string
+    label?: string
+    value?: string
+    options?: Array<{ value: string; label: string }>
+    disabled?: boolean
+    required?: boolean
+    class?: string
+    onchange?: (e: Event) => void
+    row?: boolean
+    [key: string]: any
+  }
 
-  export let id: string = ''
-  export let label: string = ''
-  export let value: string = ''
-  export let options: Array<{ value: string; label: string }> = []
-  export let disabled: boolean = false
-  export let required: boolean = false
-  export let row: boolean = false
-
-  const dispatch = createEventDispatcher()
+  let {
+    id = '',
+    label = '',
+    value = $bindable(),
+    options = [],
+    disabled = false,
+    required = false,
+    class: extraClass = '',
+    onchange,
+    row = false,
+    ...rest
+  }: Props = $props()
 
   function handleChange(event: Event) {
     const target = event.target as HTMLSelectElement
     value = target.value
-    dispatch('change', { value: target.value })
+    if (onchange) {
+      onchange(event)
+    }
   }
 </script>
 
-<div class="select-wrapper" class:row>
+<div class="dropdown-wrapper {extraClass}" class:row>
   {#if label}
-    <label for={id} class="select-label">{label}</label>
+    <label for={id} class="dropdown-label">{label}</label>
   {/if}
   <select
     {id}
     bind:value
     {disabled}
     {required}
-    class="select"
-    on:change={handleChange}
-    {...$$restProps}
+    class="dropdown"
+    onchange={handleChange}
+    {...rest}
   >
     {#each options as option}
       <option value={option.value}>{option.label}</option>
@@ -38,26 +54,26 @@
 </div>
 
 <style>
-  .select-wrapper {
+  .dropdown-wrapper {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  .select-wrapper.row {
+  .dropdown-wrapper.row {
     flex-direction: row;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
 
-  .select-label {
+  .dropdown-label {
     font-size: 0.9rem;
     font-weight: 600;
     color: inherit;
   }
 
-  .select {
+  .dropdown {
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-color, #ddd);
     border-radius: 8px;
@@ -78,24 +94,24 @@
     padding-right: 2.5rem;
   }
 
-  .select:hover:not(:disabled) {
+  .dropdown:hover:not(:disabled) {
     border-color: var(--border-color-hover, #999);
   }
 
-  .select:focus {
+  .dropdown:focus {
     outline: none;
     border-color: var(--accent-color, #2196f3);
     box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
   }
 
-  .select:disabled {
+  .dropdown:disabled {
     background-color: var(--bg-secondary, #f5f5f5);
     cursor: not-allowed;
     opacity: 0.6;
   }
 
   /* Dark theme - update arrow icon color */
-  :global(.dark) .select {
+  :global(.dark) .dropdown {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   }
 </style>

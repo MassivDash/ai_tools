@@ -2,6 +2,7 @@
   import Input from '../ui/Input.svelte'
   import CheckboxWithHelp from '../ui/CheckboxWithHelp.svelte'
   import DualRangeSlider from '../ui/DualRangeSlider.svelte'
+  import Dropdown from '../ui/Dropdown.svelte'
 
   interface Props {
     selectedPlatform?: 'llama' | 'ollama' | 'all'
@@ -23,12 +24,17 @@
 <div class="filters">
   <div class="filter-row">
     <div class="filter-group">
-      <label for="platform-select">Platform:</label>
-      <select id="platform-select" bind:value={selectedPlatform}>
-        <option value="all">All Platforms</option>
-        <option value="llama">Llama.cpp</option>
-        <option value="ollama">Ollama</option>
-      </select>
+      <Dropdown
+        id="platform-select"
+        label="Platform:"
+        row
+        bind:value={selectedPlatform}
+        options={[
+          { value: 'all', label: 'All Platforms' },
+          { value: 'llama', label: 'Llama.cpp' },
+          { value: 'ollama', label: 'Ollama' }
+        ]}
+      />
     </div>
     <div class="filter-group">
       <CheckboxWithHelp
@@ -106,19 +112,6 @@
   .slider-label {
     font-size: 0.9rem;
     color: var(--text-secondary, #666);
-  }
-
-  .filter-group label {
-    font-size: 0.9rem;
-    color: var(--text-secondary, #666);
-  }
-
-  .filter-group select {
-    padding: 0.5rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 8px;
-    background: var(--bg-primary, #fff);
-    color: var(--text-primary, #100f0f);
   }
 
   @media screen and (max-width: 768px) {

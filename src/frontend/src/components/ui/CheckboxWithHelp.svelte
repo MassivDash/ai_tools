@@ -24,7 +24,9 @@
       <input type="checkbox" bind:checked {onchange} class="checkbox-input" />
       <span>{label}</span>
     </label>
-    <HelpIcon text={helpText} />
+    {#if helpText}
+      <HelpIcon text={helpText} />
+    {/if}
   </div>
 </div>
 
