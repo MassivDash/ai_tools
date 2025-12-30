@@ -3,7 +3,7 @@
   import IconButton from '../ui/IconButton.svelte'
   import Input from '../ui/Input.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
-  import type { ModelNote } from './types'
+  import type { ModelNote } from '@types'
 
   interface Props {
     note: ModelNote

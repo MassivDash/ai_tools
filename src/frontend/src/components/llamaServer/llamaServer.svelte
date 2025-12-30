@@ -23,7 +23,6 @@
   let error = ''
   let showConfig = false
   let showTerminal = false
-  let isStarting = false
 
   // WebSocket hook for status updates
   const statusWs = useStatusWebSocket(
@@ -32,7 +31,6 @@
     },
     () => {
       // Server just became ready
-      isStarting = false
       showTerminal = false
     }
   )
@@ -40,7 +38,6 @@
   const startServer = async () => {
     loading = true
     error = ''
-    isStarting = true
     showTerminal = true
     try {
       const response =
@@ -49,13 +46,11 @@
         )
       if (!response.data.success) {
         error = response.data.message
-        isStarting = false
       }
     } catch (err: any) {
       console.error('Failed to start server:', err)
       error =
         err.response?.data?.error || err.message || 'Failed to start server'
-      isStarting = false
     } finally {
       loading = false
     }
@@ -64,7 +59,6 @@
   const stopServer = async () => {
     loading = true
     error = ''
-    isStarting = false
     try {
       const response =
         await axiosBackendInstance.post<LlamaServerResponse>(
@@ -156,7 +150,7 @@
       {#if serverStatus.active}
         <div class="iframe-container">
           <iframe
-            src="http://localhost:8080"
+            src={import.meta.env.PUBLIC_LLAMA_URL || 'http://localhost:8080'}
             class="llama-iframe"
             title="Llama.cpp WebUI"
           ></iframe>

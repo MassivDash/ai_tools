@@ -1,7 +1,7 @@
 <script lang="ts">
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import ModelCard from './ModelCard.svelte'
-  import type { ModelNote } from './types'
+  import type { ModelNote } from '@types'
 
   interface Model {
     name: string

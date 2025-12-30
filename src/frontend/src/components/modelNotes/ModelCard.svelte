@@ -2,7 +2,7 @@
   import Button from '../ui/Button.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import Logo from '../ui/icons/Logo.svelte'
-  import type { ModelNote } from './types'
+  import type { ModelNote } from '@types'
 
   interface Props {
     model: {
@@ -211,28 +211,6 @@
     padding: 0.5rem !important;
     min-width: 2.5rem !important;
     min-height: 2.5rem !important;
-  }
-
-  .logo-container {
-    display: flex;
-    justify-content: center;
-    margin: 0.75rem 0;
-    padding: 0.5rem 0;
-  }
-
-  .default-logo {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .default-logo :global(svg) {
-    width: 100%;
-    height: 100%;
-    color: var(--accent-color, #b12424);
-    opacity: 0.8;
   }
 
   .model-content {

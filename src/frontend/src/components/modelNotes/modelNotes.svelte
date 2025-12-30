@@ -12,7 +12,7 @@
     OllamaModelInfo,
     ModelNote,
     ModelNoteRequest
-  } from './types'
+  } from '@types'
 
   let llamaModels: LlamaModelInfo[] = $state([])
   let ollamaModels: OllamaModelInfo[] = $state([])

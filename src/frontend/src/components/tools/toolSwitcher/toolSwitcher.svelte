@@ -124,7 +124,6 @@
 </div>
 
 <style>
-  /* Removed old tool-card styles as Card component handles base styles */
   .tool-switcher {
     width: 100%;
     max-width: calc(100% - 5rem);

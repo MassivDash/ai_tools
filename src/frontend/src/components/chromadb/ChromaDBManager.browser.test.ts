@@ -8,7 +8,7 @@ import { expect, test, vi, beforeEach } from 'vitest'
 import ChromaDBManager from './ChromaDBManager.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 import { collections, selectedCollection } from '../../stores/chromadb'
-import type { ChromaDBHealthResponse } from '../../../types/chromadb.ts'
+import type { ChromaDBHealthResponse } from '../../types/chromadb.ts'
 
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({
@@ -17,7 +17,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   get: ReturnType<typeof vi.fn>
 }
 
