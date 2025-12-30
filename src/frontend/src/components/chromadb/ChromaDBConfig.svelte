@@ -3,14 +3,14 @@
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import SearchableList from '../ui/SearchableList.svelte'
-  import HelpIcon from '../ui/HelpIcon.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import LabelWithHelp from '../ui/LabelWithHelp.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import {
     ChromaDBConfigRequestSchema,
     buildChromaDBConfigPayload
   } from '@validation/chromadbConfig.ts'
-  import type { ModelNote } from '../modelNotes/types'
+  import type { ModelNote } from '@types'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -117,11 +117,9 @@
 
     try {
       // Build payload using helper function
-      // Note: query_model is no longer used (queries always use embedding_model)
-      // but we send it as undefined to let backend handle defaults
       const payload = buildChromaDBConfigPayload({
         embedding_model: newEmbeddingModel,
-        query_model: undefined // Queries now always use embedding_model
+        query_model: undefined
       })
 
       // Validate with Zod
@@ -213,13 +211,11 @@
 
     <!-- Embedding Model -->
     <div class="config-section">
-      <div class="label-with-help">
-        <label for="embedding-model" class="custom-label">Embedding Model</label
-        >
-        <HelpIcon
-          text="The Ollama model used to generate embeddings for documents when uploading to ChromaDB collections."
-        />
-      </div>
+      <LabelWithHelp
+        id="embedding-model"
+        label="Embedding Model"
+        helpText="The Ollama model used to generate embeddings for documents when uploading to ChromaDB collections."
+      />
       <Input
         id="embedding-model"
         label=""
@@ -389,21 +385,6 @@
       background-color 0.3s ease,
       border-color 0.3s ease,
       color 0.3s ease;
-  }
-
-  .label-with-help {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    position: relative;
-  }
-
-  .custom-label {
-    font-weight: 600;
-    color: var(--text-primary, #333);
-    font-size: 1rem;
-    transition: color 0.3s ease;
   }
 
   @media screen and (max-width: 768px) {

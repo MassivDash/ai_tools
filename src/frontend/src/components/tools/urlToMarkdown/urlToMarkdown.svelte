@@ -4,6 +4,7 @@
   import Button from '../../ui/Button.svelte'
   import Input from '../../ui/Input.svelte'
   import Select from '../../ui/Select.svelte'
+  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
 
   interface LinkInfo {
     original: string
@@ -185,39 +186,35 @@
 
     {#if showAdvanced}
       <div class="advanced-options">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={extractBody} />
-          <span>Extract body content only</span>
-        </label>
+        <CheckboxWithHelp
+          bind:checked={extractBody}
+          label="Extract body content only"
+        />
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={enablePreprocessing} />
-          <span>Enable preprocessing</span>
-        </label>
+        <CheckboxWithHelp
+          bind:checked={enablePreprocessing}
+          label="Enable preprocessing"
+        />
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={followLinks} />
-          <span>Follow internal links (creates zip file)</span>
-        </label>
+        <CheckboxWithHelp
+          bind:checked={followLinks}
+          label="Follow internal links (creates zip file)"
+        />
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={countTokens} />
-          <span
-            >Count tokens (may slow down conversion for large documents)</span
-          >
-        </label>
+        <CheckboxWithHelp
+          bind:checked={countTokens}
+          label="Count tokens"
+          helpText="may slow down conversion for large documents"
+        />
 
         {#if enablePreprocessing}
           <div class="preprocessing-options">
-            <label class="checkbox-label">
-              <input type="checkbox" bind:checked={removeNavigation} />
-              <span>Remove navigation elements</span>
-            </label>
+            <CheckboxWithHelp
+              bind:checked={removeNavigation}
+              label="Remove navigation elements"
+            />
 
-            <label class="checkbox-label">
-              <input type="checkbox" bind:checked={removeForms} />
-              <span>Remove forms</span>
-            </label>
+            <CheckboxWithHelp bind:checked={removeForms} label="Remove forms" />
 
             <Select
               label="Preprocessing Preset:"

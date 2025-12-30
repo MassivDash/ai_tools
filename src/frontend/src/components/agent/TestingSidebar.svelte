@@ -92,8 +92,7 @@
           description: suiteDescription
         })
       }
-      loadSuites()
-      loadSuites()
+      await loadSuites()
       suiteName = ''
       suiteDescription = ''
       editingSuiteId = null
@@ -126,7 +125,7 @@
   const deleteSuite = async (id: string) => {
     try {
       await axiosBackendInstance.delete(`agent/testing/suites/${id}`)
-      loadSuites()
+      await loadSuites()
     } catch {
       error = 'Failed to delete suite'
     }
@@ -159,7 +158,7 @@
           }
         )
       }
-      loadQuestions(selectedSuite)
+      await loadQuestions(selectedSuite)
       questionContent = ''
       editingQuestionId = null
       showForm = false
@@ -183,7 +182,7 @@
   const deleteQuestion = async (id: number) => {
     try {
       await axiosBackendInstance.delete(`agent/testing/questions/${id}`)
-      if (selectedSuite) loadQuestions(selectedSuite)
+      if (selectedSuite) await loadQuestions(selectedSuite)
     } catch {
       error = 'Failed to delete question'
     }

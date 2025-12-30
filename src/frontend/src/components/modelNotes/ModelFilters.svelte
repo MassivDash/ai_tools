@@ -1,5 +1,6 @@
 <script lang="ts">
   import Input from '../ui/Input.svelte'
+  import CheckboxWithHelp from '../ui/CheckboxWithHelp.svelte'
   import DualRangeSlider from '../ui/DualRangeSlider.svelte'
 
   interface Props {
@@ -30,10 +31,10 @@
       </select>
     </div>
     <div class="filter-group">
-      <label>
-        <input type="checkbox" bind:checked={showFavoritesOnly} />
-        Favorites Only
-      </label>
+      <CheckboxWithHelp
+        bind:checked={showFavoritesOnly}
+        label="Favorites Only"
+      />
     </div>
   </div>
   <div class="filter-row filter-row-search">

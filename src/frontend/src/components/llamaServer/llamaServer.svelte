@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Terminal from './terminal.svelte'
-  import LlamaConfig from './llamaConfig.svelte'
+  import LlamaConfig from './config/LlamaConfig.svelte'
   import Button from '../ui/Button.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
@@ -24,13 +24,11 @@
   let showConfig = false
   let showTerminal = false
 
-  // WebSocket hook for status updates
   const statusWs = useStatusWebSocket(
     (status) => {
       serverStatus = status
     },
     () => {
-      // Server just became ready
       showTerminal = false
     }
   )

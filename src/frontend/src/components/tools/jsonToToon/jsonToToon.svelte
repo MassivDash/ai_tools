@@ -1,6 +1,7 @@
 <script lang="ts">
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import { JsonToToonRequestSchema } from '@validation/jsonToToon.ts'
+  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
 
   interface ToonResponse {
     toon: string
@@ -265,12 +266,11 @@
 
     {#if showAdvanced}
       <div class="advanced-options">
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={countTokens} />
-          <span
-            >Count tokens (may slow down conversion for large documents)</span
-          >
-        </label>
+        <CheckboxWithHelp
+          bind:checked={countTokens}
+          label="Count tokens"
+          helpText="may slow down conversion for large documents"
+        />
       </div>
     {/if}
   </div>

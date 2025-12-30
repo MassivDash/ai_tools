@@ -84,6 +84,9 @@ test('creates a new suite', async () => {
     props: { isOpen: true }
   })
 
+  const addBtn = screen.getByTitle('New Suite')
+  await fireEvent.click(addBtn)
+
   const input = screen.getByPlaceholderText('Suite Name')
   await fireEvent.input(input, { target: { value: 'New Suite' } })
 
@@ -96,7 +99,7 @@ test('creates a new suite', async () => {
   })
 
   await waitFor(() => {
-    expect(screen.getByText('New Suite')).toBeTruthy()
+    expect(screen.getByText(/New Suite/)).toBeTruthy()
   })
 })
 
@@ -133,9 +136,13 @@ test('loads questions when clicking a suite', async () => {
     expect(screen.getByText('Suite 1')).toBeTruthy()
   })
 
-  const suiteItem = screen.getByText('Suite 1').closest('.item')
-  expect(suiteItem).toBeTruthy()
-  if (suiteItem) await fireEvent.click(suiteItem)
+  await waitFor(() => {
+    expect(screen.getByText('Suite 1')).toBeTruthy()
+  })
+
+  // EditableListItem renders title in a span, we can find it by text and click it
+  const suiteText = screen.getByText('Suite 1')
+  await fireEvent.click(suiteText)
 
   await waitFor(() => {
     expect(screen.getByText('What is the capital of France?')).toBeTruthy()

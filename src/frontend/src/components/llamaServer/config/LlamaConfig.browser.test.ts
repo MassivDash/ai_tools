@@ -5,7 +5,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
-import LlamaConfig from './llamaConfig.svelte'
+import LlamaConfig from './LlamaConfig.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
 

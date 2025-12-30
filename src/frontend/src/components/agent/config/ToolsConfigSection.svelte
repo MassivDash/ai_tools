@@ -3,7 +3,7 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ToolInfo } from '../types'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
-
+  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
   export let enabledTools: string[] = []
   export let onToggle: (_tool: string) => void
 
@@ -102,15 +102,12 @@
                   : tools[0].description}
 
               <div class="tool-item">
-                <label class="tool-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={isEnabled}
-                    on:change={() => onToggle(toolType)}
-                  />
-                  <span class="tool-name">{displayName}</span>
-                </label>
-                <div class="tool-description">{description}</div>
+                <CheckboxWithHelp
+                  checked={isEnabled}
+                  onchange={() => onToggle(toolType)}
+                  label={displayName}
+                  helpText={description}
+                />
               </div>
             {/each}
           </div>
@@ -216,34 +213,5 @@
 
   .tool-item:hover {
     background-color: var(--bg-tertiary, #fafafa);
-  }
-
-  .tool-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 1rem;
-    color: var(--text-primary);
-  }
-
-  .tool-checkbox input {
-    cursor: pointer;
-    width: 1.25rem;
-    height: 1.25rem;
-    accent-color: var(--accent-color, #2196f3);
-    margin: 0;
-  }
-
-  .tool-name {
-    flex: 1;
-  }
-
-  .tool-description {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-left: 2rem; /* Align with text start (checkbox width + gap) */
-    line-height: 1.5;
   }
 </style>

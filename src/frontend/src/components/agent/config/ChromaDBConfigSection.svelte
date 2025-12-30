@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import SearchableList from '../../ui/SearchableList.svelte'
-  import HelpIcon from '../../ui/HelpIcon.svelte'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
+  import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { Collection, ModelInfo } from '../types'
-  import type { ModelNote } from '../../modelNotes/types'
+  import type { ModelNote } from '@types'
 
   export let chromadbEnabled: boolean = false
   export let collections: Collection[] = []
@@ -98,30 +99,23 @@
 
     <div class="card-content">
       <div class="enable-row" class:has-content={chromadbEnabled}>
-        <label class="tool-checkbox">
-          <input
-            type="checkbox"
-            checked={chromadbEnabled}
-            onchange={onToggle}
-            class="checkbox-input"
-          />
-          <span>Enable ChromaDB</span>
-          <HelpIcon
-            text="Enable ChromaDB to allow the agent to search your knowledge base collections for relevant information."
-          />
-        </label>
+        <CheckboxWithHelp
+          bind:checked={chromadbEnabled}
+          onchange={onToggle}
+          label="Enable ChromaDB"
+          helpText="Enable ChromaDB to allow the agent to search your knowledge base collections for relevant information."
+        />
       </div>
 
       {#if chromadbEnabled}
         <div class="config-settings">
           <!-- Collection Selection -->
           <div class="config-subsection">
-            <div class="label-with-help">
-              <label for="collection" class="custom-label">Collection</label>
-              <HelpIcon
-                text="Select the ChromaDB collection to use for searches. The agent will query this collection when it needs information."
-              />
-            </div>
+            <LabelWithHelp
+              id="collection"
+              label="Collection"
+              helpText="Select the ChromaDB collection to use for searches. The agent will query this collection when it needs information."
+            />
             {#if loadingCollections}
               <div class="loading">Loading collections...</div>
             {:else if collections.length > 0}
@@ -152,14 +146,11 @@
 
           <!-- Embedding Model Selection -->
           <div class="config-subsection">
-            <div class="label-with-help">
-              <label for="embedding-model" class="custom-label"
-                >Embedding Model</label
-              >
-              <HelpIcon
-                text="The Ollama model used to generate embeddings for query searches. Must match the model used when uploading documents."
-              />
-            </div>
+            <LabelWithHelp
+              id="embedding-model"
+              label="Embedding Model"
+              helpText="The Ollama model used to generate embeddings for query searches. Must match the model used when uploading documents."
+            />
             {#if loadingModels}
               <div class="loading">Loading models...</div>
             {:else if models.length > 0}
@@ -257,37 +248,6 @@
 
   .config-subsection:last-child {
     border-bottom: none;
-  }
-
-  .tool-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 1rem;
-    color: var(--text-primary);
-  }
-
-  .checkbox-input {
-    width: 1.25rem;
-    height: 1.25rem;
-    cursor: pointer;
-    accent-color: var(--accent-color, #2196f3);
-    margin: 0;
-  }
-
-  .label-with-help {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .custom-label {
-    font-weight: 600;
-    color: var(--text-primary, #333);
-    font-size: 0.95rem;
   }
 
   .loading,

@@ -3,6 +3,7 @@
   import IconButton from '../ui/IconButton.svelte'
   import Input from '../ui/Input.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import CheckboxWithHelp from '../ui/CheckboxWithHelp.svelte'
   import type { ModelNote } from '@types'
 
   interface Props {
@@ -80,25 +81,16 @@
         ></textarea>
       </div>
       <div class="form-group">
-        <label>
-          <input type="checkbox" bind:checked={isFavorite} />
-          Favorite
-        </label>
+        <CheckboxWithHelp bind:checked={isFavorite} label="Favorite" />
       </div>
       <div class="form-group">
-        <label>
-          <input type="checkbox" bind:checked={isDefault} />
-          Set as Default {note.platform === 'llama' ? 'Llama' : 'Ollama'} Model
-        </label>
-        <p class="help-text">
-          {#if note.platform === 'llama'}
-            This will be used as the default model for the Llama server. Only
-            one model can be default.
-          {:else}
-            This will be used as the default model for ChromaDB and Agent
-            (Ollama). Only one model can be default.
-          {/if}
-        </p>
+        <CheckboxWithHelp
+          bind:checked={isDefault}
+          label={`Set as Default ${note.platform === 'llama' ? 'Llama' : 'Ollama'} Model`}
+          helpText={note.platform === 'llama'
+            ? 'This will be used as the default model for the Llama server. Only one model can be default.'
+            : 'This will be used as the default model for ChromaDB and Agent (Ollama). Only one model can be default.'}
+        />
       </div>
     </div>
     <div class="modal-footer">
@@ -171,13 +163,6 @@
     color: var(--text-primary, #100f0f);
     font-family: inherit;
     resize: vertical;
-  }
-
-  .help-text {
-    margin-top: 0.25rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary, #666);
-    font-style: italic;
   }
 
   .modal-footer {

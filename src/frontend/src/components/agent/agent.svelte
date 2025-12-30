@@ -3,7 +3,7 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Terminal from '../llamaServer/terminal.svelte'
   import AgentConfig from './agentConfig.svelte'
-  import LlamaConfig from '../llamaServer/llamaConfig.svelte'
+  import LlamaConfig from '../llamaServer/config/LlamaConfig.svelte'
   import ChatInterface from './chatInterface.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
   import { enabledTools as enabledToolsStore } from '../../stores/activeTools'

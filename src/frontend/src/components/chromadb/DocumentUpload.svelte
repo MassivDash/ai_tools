@@ -263,9 +263,12 @@
       >
         <div class="status-header">
           <span class="status-icon">
-            {#if status.status === 'processing'}⏳
-            {:else if status.status === 'completed'}✅
-            {:else}❌
+            {#if status.status === 'processing'}
+              processing
+            {:else if status.status === 'completed'}
+              completed
+            {:else}
+              error
             {/if}
           </span>
           <span class="status-message">{status.message}</span>
