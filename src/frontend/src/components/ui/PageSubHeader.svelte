@@ -1,15 +1,21 @@
 <script lang="ts">
+  import MaterialIcon from './MaterialIcon.svelte'
+
   interface Props {
     title: string
+    icon?: string
     actions?: import('svelte').Snippet
     leftContent?: import('svelte').Snippet
   }
 
-  let { title, actions, leftContent }: Props = $props()
+  let { title, icon, actions, leftContent }: Props = $props()
 </script>
 
 <div class="page-sub-header">
   <div class="header-left">
+    {#if icon}
+      <MaterialIcon name={icon} width="32" height="32" />
+    {/if}
     <h3>{title}</h3>
     {#if leftContent}
       {@render leftContent()}

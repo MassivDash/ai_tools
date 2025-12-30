@@ -235,7 +235,10 @@
         </Button>
         <h2 class="suite-title">{selectedSuite.name}</h2>
       {:else}
-        <h2>Auto Testing</h2>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <MaterialIcon name="flask" width="20" height="20" />
+          <h2>Auto Testing</h2>
+        </div>
       {/if}
     </div>
     <div class="actions">

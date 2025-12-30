@@ -102,7 +102,10 @@
 
 <div class="history-sidebar" class:open={isOpen}>
   <div class="header">
-    <h2>History</h2>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <MaterialIcon name="history" width="24" height="24" />
+      <h2>History</h2>
+    </div>
     <div class="actions">
       <Button
         variant="info"

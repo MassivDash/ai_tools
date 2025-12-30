@@ -10,6 +10,7 @@
   } from './types'
   import ChromaDBConfigSection from './config/ChromaDBConfigSection.svelte'
   import ToolsConfigSection from './config/ToolsConfigSection.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -173,7 +174,10 @@
 
 <div class="config-panel" class:visible={isOpen}>
   <div class="config-header">
-    <h4>Agent Configuration</h4>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <MaterialIcon name="robot-confused" width="28" height="28" />
+      <h4>Agent Configuration</h4>
+    </div>
     <button class="close-button" onclick={onClose} aria-label="Close">
       ✕
     </button>

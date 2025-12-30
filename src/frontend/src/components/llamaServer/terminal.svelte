@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
 
   interface LogLine {
     timestamp: number
@@ -114,7 +115,10 @@
 
 <div class="terminal-container">
   <div class="terminal-header">
-    <h4>Server Output</h4>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <MaterialIcon name="console" width="20" height="20" />
+      <h4>Server Output</h4>
+    </div>
     <div class="header-status">
       {#if isConnected}
         <span class="status-indicator connected" title="Connected">🟢</span>

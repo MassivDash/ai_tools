@@ -58,7 +58,7 @@
 </script>
 
 <div class="chromadb-manager">
-  <PageSubHeader title="ChromaDB">
+  <PageSubHeader title="ChromaDB" icon="database">
     {#snippet leftContent()}
       <div class="health-status">
         <span

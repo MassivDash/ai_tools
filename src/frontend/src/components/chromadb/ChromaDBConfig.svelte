@@ -3,6 +3,7 @@
   import Button from '../ui/Button.svelte'
   import SearchableList from '../ui/SearchableList.svelte'
   import HelpIcon from '../ui/HelpIcon.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import {
     ChromaDBConfigRequestSchema,
@@ -196,7 +197,10 @@
 
 <div class="config-panel" class:visible={isOpen}>
   <div class="config-header">
-    <h4>ChromaDB Configuration</h4>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <MaterialIcon name="cog" width="28" height="28" />
+      <h4>ChromaDB Configuration</h4>
+    </div>
     <button class="close-button" on:click={onClose} aria-label="Close">
       ✕
     </button>

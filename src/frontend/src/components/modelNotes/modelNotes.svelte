@@ -423,7 +423,7 @@
 </script>
 
 <div class="model-notes">
-  <PageSubHeader title="Model Notes">
+  <PageSubHeader title="Model Notes" icon="note">
     {#snippet actions()}
       <Button variant="info" onclick={loadModels} disabled={loading}>
         <MaterialIcon name="refresh" width="20" height="20" />
