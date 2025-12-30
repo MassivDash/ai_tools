@@ -49,17 +49,6 @@
     }
   )
 
-  $: if (!chatLoading && showTesting && testingSidebar) {
-    // Potentially trigger next question if runner is active
-    // We need a clearer signal than just loading false, but for now this is the hook.
-    // Better: pass chatLoading to sidebar or call method?
-    // TestingSidebar exposes handleRunnerNext() which checks internal running state.
-    // So it is safe to call repeatedly?
-    // handleRunnerNext checks: if (running && index < length - 1)
-    // We should only call it once when loading transitions from true to false.
-    // logic below.
-  }
-
   let prevChatLoading = false
   let runnerDebounceTimer: any
 
@@ -156,10 +145,6 @@
     loadAgentConfig()
   }
 
-  const handleLlamaConfigSave = () => {
-    // Llama config saved successfully
-  }
-
   const handleToggleConfig = () => {
     showConfig = !showConfig
     if (showConfig) {
@@ -181,8 +166,7 @@
     if (showTesting) {
       showConfig = false
       showLlamaConfig = false
-      showHistory = false // Maybe overlay or sidebar conflict?
-      // Keep terminal if desired, but sidebar space is limited.
+      showHistory = false
     }
   }
 
@@ -211,14 +195,7 @@
   const handleConversationCreated = (event: CustomEvent<string>) => {
     const newId = event.detail
     currentConversationId = newId
-    // Refresh history sidebar logic?
-    // We can force sidebar refresh by keying it or calling a method.
-    // Or just let it refresh on mount/open. But better to refresh now.
-    // Since sidebar component loads on mount/open, we might need a way to tell it to reload.
-    // We can add a refresh trigger prop or call a method if we bind to it.
-    // For now let's use a simple reactive statement in sidebar or just ignore?
-    // User complaint: "history screen is not updating with new conversation"
-    // So we MUST refresh sidebar.
+
     shouldRefreshHistory = true
     setTimeout(() => (shouldRefreshHistory = false), 100)
   }
@@ -333,7 +310,6 @@
       onClose={() => {
         showLlamaConfig = false
       }}
-      onSave={handleLlamaConfigSave}
     />
   </div>
 </div>

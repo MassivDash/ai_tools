@@ -57,15 +57,6 @@
           .map((line) => `> ${line}`)
           .join('\n')
         cleanedInput = `${quoteBlock}\n\n${cleanedInput}`
-        // We don't update inputMessage displayed value, just what we send if we were sending text directly
-        // But here we call onInputChange then onSend.
-        // We should explicitly invoke onInputChange with the FULL message including quote?
-        // OR we just rely on onSend using the current state?
-        // Typically onSend reads from parent state bonded to inputMessage.
-        // So we MUST update inputMessage to include the quote before sending,
-        // OR we handle this concatenation in parent?
-        // Plan said: "Update onSend logic: If quotedMessage exists, prepend it..."
-        // Since inputMessage is bound, if we change it here, it updates parent.
 
         onInputChange(cleanedInput)
       } else if (cleanedInput !== inputMessage) {

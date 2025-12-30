@@ -215,7 +215,7 @@
   const stopRunner = () => {
     running = false
     endTime = Date.now()
-    runStatus = 'idle' // Or keep it running if just paused? No, stop means stop.
+    runStatus = 'idle'
   }
 
   $: if (isOpen) {

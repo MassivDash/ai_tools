@@ -15,7 +15,7 @@
 
   export let isOpen: boolean = false
   export let onClose: () => void
-  export let onSave: () => void
+  export let onSave: (() => void) | undefined = undefined
 
   interface ModelInfo {
     name: string
@@ -248,7 +248,7 @@
       )
       if (response.data.success) {
         await loadConfig()
-        onSave()
+        if (onSave) onSave()
         onClose()
       } else {
         error = response.data.message

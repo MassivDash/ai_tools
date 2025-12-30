@@ -213,7 +213,8 @@
         conversation_id: conversationId || undefined
       }
 
-      // Send message via WebSocket - events will come back via WebSocket
+      // Send message
+
       const baseUrl = axiosBackendInstance.defaults.baseURL || ''
       const response = await window.fetch(`${baseUrl}/agent/chat/stream`, {
         method: 'POST',
@@ -468,10 +469,6 @@
       if (currentConversationId) {
         loadMessages(currentConversationId)
       } else {
-        // Only clear if we are genuinely switching to "New Chat" from outside
-        // and not just because we initialized with undefined.
-        // But if we have messages and conversationId is set (meaning we are mid-chat),
-        // and parent sets currentConversationId to undefined... that means "New Chat" clicked.
         messages = []
         conversationId = null
         error = ''

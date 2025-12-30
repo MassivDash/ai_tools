@@ -654,8 +654,7 @@ impl AgentTool for GitHubAuthenticatedTool {
         if self.token.is_empty() {
             return Ok(ToolCallResult {
                 tool_name: "github_authenticated".to_string(),
-                result: "GITHUB_TOKEN is not set. This tool requires authentication."
-                    .to_string(),
+                result: "GITHUB_TOKEN is not set. This tool requires authentication.".to_string(),
             });
         }
 
