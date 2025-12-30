@@ -209,6 +209,29 @@ pub async fn agent_chat(
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
+    // Construct Llama URL from config
+    let (llama_host, llama_port) = {
+        let llama_config_guard = llama_config.lock().unwrap();
+        (
+            llama_config_guard
+                .host
+                .clone()
+                .unwrap_or_else(|| "localhost".to_string()),
+            llama_config_guard.port.unwrap_or(8090),
+        )
+    };
+
+    // Ensure host is accessible (0.0.0.0 might need to be treated as localhost for internal calls if on same machine,
+    // but usually 0.0.0.0 works or we should use 127.0.0.1. Let's stick to what's configured but default to localhost if 0.0.0.0 to be safe for client calls?)
+    // Actually reqwest to 0.0.0.0 works on linux.
+    // Let's use 127.0.0.1 if host is 0.0.0.0 just in case.
+    let host_for_url = if llama_host == "0.0.0.0" {
+        "127.0.0.1".to_string()
+    } else {
+        llama_host
+    };
+    let llama_base_url = format!("http://{}:{}", host_for_url, llama_port);
+
     // Get or create conversation ID from SQLite
     let conversation_id = sqlite_memory
         .get_or_create_conversation_id(req.conversation_id.clone())
@@ -337,7 +360,8 @@ pub async fn agent_chat(
     };
 
     // Call llama.cpp server
-    let llama_url = "http://localhost:8080/v1/chat/completions";
+    // Call llama.cpp server
+    let llama_url = format!("{}/v1/chat/completions", llama_base_url);
     let client = Client::new();
 
     println!(
@@ -370,7 +394,7 @@ pub async fn agent_chat(
     let loop_config = AgentLoopConfig::default();
     let mut loop_result = execute_agent_loop(
         &client,
-        llama_url,
+        &llama_url,
         model_name.clone(),
         messages.clone(),
         tools.clone(),
@@ -432,7 +456,7 @@ pub async fn agent_chat(
 
         loop_result = execute_agent_loop(
             &client,
-            llama_url,
+            &llama_url,
             model_name.clone(),
             recovery_messages,
             tools,
@@ -496,7 +520,7 @@ pub async fn agent_chat(
     actix_rt::spawn(async move {
         attempt_conversation_naming(
             client_clone,
-            llama_url_clone,
+            llama_url_clone, // already formatted
             model_name_clone,
             sqlite_memory_clone,
             conversation_id_clone,
@@ -529,6 +553,24 @@ pub async fn agent_chat_stream(
     agent_ws_state: web::Data<Arc<AgentWebSocketState>>,
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
+
+    // Construct Llama URL from config
+    let (llama_host, llama_port) = {
+        let llama_config_guard = llama_config.lock().unwrap();
+        (
+            llama_config_guard
+                .host
+                .clone()
+                .unwrap_or_else(|| "localhost".to_string()),
+            llama_config_guard.port.unwrap_or(8090),
+        )
+    };
+    let host_for_url = if llama_host == "0.0.0.0" {
+        "127.0.0.1".to_string()
+    } else {
+        llama_host
+    };
+    let llama_base_url = format!("http://{}:{}", host_for_url, llama_port);
 
     // Get or create conversation ID
     let conversation_id = sqlite_memory
@@ -609,7 +651,7 @@ pub async fn agent_chat_stream(
         llama_config_guard.hf_model.clone()
     };
 
-    let llama_url = "http://localhost:8080/v1/chat/completions";
+    let llama_url = format!("{}/v1/chat/completions", llama_base_url);
     let client = Client::new();
 
     // Create channel for streaming events (SSE)

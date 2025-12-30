@@ -137,7 +137,7 @@ pub fn start_development(config: Config) {
 
     // Crate the host env for astro to call the actix backend server
     create_dotenv_frontend(
-        &format!("http://{}:{}/api/", config.host, port),
+        &format!("http://{}:{}/api", config.host, port),
         config.public_keys.public_llama_url.as_deref(),
         "./src/frontend/.env",
     );

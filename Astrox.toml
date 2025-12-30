@@ -3,14 +3,14 @@ port = 8080
 env = "dev"
 astro_port = 5431
 prod_astro_build = true
-llama_server_url = "http://localhost:8090"
+llama_server_url = "http://localhost:8099"
 llama_host = "0.0.0.0"
-llama_port = 8090
+llama_port = 8099
 cors_url = "http://localhost"
 chroma_address = "http://localhost:8000"
 # cookie_domain = ".spaceout.pl"  # Uncomment for production to enable subdomain cookie sharing
 
 [public_keys]
 public_api_url = "http://localhost:8080/api"
-public_llama_url = "http://localhost:8090"
+public_llama_url = "http://localhost:8099"
 
