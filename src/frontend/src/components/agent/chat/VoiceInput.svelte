@@ -128,7 +128,7 @@
         variant="ghost"
         class="voice-input-button {speech.isListening
           ? 'listening'
-          : ''} {!!speech.error ? 'error' : ''}"
+          : ''} {speech.error ? 'error' : ''}"
         onclick={speech.toggle}
         disabled={loading}
         title={speech.error ||

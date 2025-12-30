@@ -9,7 +9,6 @@
   import ChromaDBConfig from './ChromaDBConfig.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import PageSubHeader from '../ui/PageSubHeader.svelte'
-  import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
 
   let healthStatus: ChromaDBHealthResponse | null = null
@@ -26,7 +25,7 @@
         healthStatus = response.data.data
       }
     } catch (err: any) {
-      console.error('❌ Error checking ChromaDB health:', err)
+      console.error('Error checking ChromaDB health:', err)
       healthStatus = {
         status: 'unhealthy',
         version: 'unknown',
