@@ -119,6 +119,7 @@ export interface ModelCapabilities {
 export interface Conversation {
   id: string
   title: string | null
+  model?: string
   created_at: number
 }
 

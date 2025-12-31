@@ -107,6 +107,7 @@
         {#each conversations as conv (conv.id)}
           <EditableListItem
             title={conv.title || 'New Conversation'}
+            model={conv.model}
             active={currentConversationId === conv.id}
             on:click={() => selectConversation(conv.id)}
             on:save={(e) => saveTitle(conv.id, e.detail)}

@@ -304,6 +304,7 @@ pub enum AgentStreamEvent {
 pub struct Conversation {
     pub id: String,
     pub title: Option<String>,
+    pub model: Option<String>,
     pub created_at: i64,
 }
 

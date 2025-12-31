@@ -437,6 +437,7 @@
     top: 0;
     bottom: 0;
     box-shadow: -2px 0 8px var(--shadow, rgba(0, 0, 0, 0.1));
+    max-height: 100vh;
   }
 
   .config-panel.visible {

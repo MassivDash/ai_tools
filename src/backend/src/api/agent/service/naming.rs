@@ -15,16 +15,53 @@ pub async fn attempt_conversation_naming(
     // Check message count - only rename if it's new (e.g. 2 user/assistant messages)
     let count = match sqlite_memory.message_count(&conversation_id).await {
         Ok(c) => c,
-        Err(_) => return,
+        Err(e) => {
+            println!("⚠️ [Naming] Failed to get message count: {}", e);
+            return;
+        }
     };
 
-    // We only want to rename early in the conversation
-    // Depending on when this is called (during or after), count might vary.
-    // If called after response is stored, count should be >= 2.
-    // Let's safe guard: if count is between 2 and 4.
-    if !(2..=4).contains(&count) {
+    println!(
+        "🔍 [Naming] Conversation {} has {} messages",
+        conversation_id, count
+    );
+
+    // Get current title to see if it's already been renamed
+    let current_title = match sqlite_memory.get_title(&conversation_id).await {
+        Ok(t) => t,
+        Err(e) => {
+            println!("⚠️ [Naming] Failed to get title: {}", e);
+            return;
+        }
+    };
+
+    // Check if title is still default "Chat ..." or "New Conversation"
+    // If it doesn't start with "Chat " and isn't "New Conversation", it's likely been renamed by user or previous run.
+    if !current_title.starts_with("Chat ") && current_title != "New Conversation" {
+        println!(
+            "ℹ️ [Naming] Skipping naming: conversation already named '{}'",
+            current_title
+        );
         return;
     }
+
+    // We only want to rename early in the conversation, but allow for some buffer
+    // Lower bound: need at least 2 messages for context
+    // Upper bound: protect against massive context window costs, but relax it significantly (e.g. 50)
+    if count < 2 {
+        return;
+    }
+    if count > 50 {
+        println!(
+            "ℹ️ [Naming] Skipping naming: message count {} too high (limit 50)",
+            count
+        );
+        return;
+    }
+
+    // Delay a bit to let the LLM server finish processing the previous request
+    // Large models might be slow to release resources/slots
+    tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
 
     // Also check if title is still default "Chat ..." or "New Conversation" to avoid overwriting user rename.
     // Ideally we should check this, but for now we assume if count is low it hasn't been renamed manually yet.
@@ -32,10 +69,14 @@ pub async fn attempt_conversation_naming(
     // Get messages to prompt for title
     let messages = match sqlite_memory.get_messages(&conversation_id).await {
         Ok(m) => m,
-        Err(_) => return,
+        Err(e) => {
+            println!("⚠️ [Naming] Failed to get messages: {}", e);
+            return;
+        }
     };
 
     if messages.is_empty() {
+        println!("ℹ️ [Naming] Skipping naming: no messages found");
         return;
     }
 
@@ -61,7 +102,7 @@ pub async fn attempt_conversation_naming(
     let context = context_msgs.join("\n");
 
     let prompt = format!(
-        "Generate a very short, concise title (max 5 words) for this conversation based on the start. Do not use quotes or prefixes. Just the title.\n\nConversation:\n{}\n\nTitle:", 
+        "Please provide a very short, concise title (max 5 words) for the following conversation. The title should summarize the topic. Return ONLY the title text, no quotes, no prefixes.\n\nConversation:\n{}", 
         context
     );
 
@@ -73,17 +114,35 @@ pub async fn attempt_conversation_naming(
             { "role": "user", "content": prompt }
         ],
         "temperature": 0.7,
-        "max_tokens": 20
+        "max_tokens": 1000
     });
 
+    println!(
+        "📤 [Naming] Sending request to LLM (model: {})...",
+        model_name
+    );
+
     // Fire and forget-ish
-    let res = match client.post(&llama_url).json(&request).send().await {
+    let res = match client
+        .post(&llama_url)
+        .json(&request)
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
-            println!("⚠️ Failed to request title summary: {}", e);
+            println!("⚠️ [Naming] Failed to request title summary: {}", e);
             return;
         }
     };
+
+    let status = res.status();
+    if !status.is_success() {
+        let text = res.text().await.unwrap_or_default();
+        println!("⚠️ [Naming] LLM server error (status {}): {}", status, text);
+        return;
+    }
 
     if let Ok(json) = res.json::<serde_json::Value>().await {
         if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
@@ -97,6 +156,13 @@ pub async fn attempt_conversation_naming(
                     .update_conversation_title(&conversation_id, &title)
                     .await;
             }
+        } else {
+            println!(
+                "⚠️ [Naming] Unexpected JSON response structure (missing content): {:?}",
+                json
+            );
         }
+    } else {
+        println!("⚠️ [Naming] Failed to parse JSON response");
     }
 }

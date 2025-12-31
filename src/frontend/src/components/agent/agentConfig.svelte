@@ -232,6 +232,7 @@
     right: 0;
     top: 0;
     bottom: 0;
+    max-height: 100vh;
   }
 
   .config-panel.visible {

@@ -80,7 +80,7 @@ impl SqliteConversationMemory {
             }
         }
 
-        // Check if conversations table has title
+        // Check if conversations table has title and model
         let conv_table_exists: Option<String> = sqlx::query_scalar(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'",
         )
@@ -96,7 +96,14 @@ impl SqliteConversationMemory {
             .await
             .unwrap_or(None);
 
-            if has_title.is_none() {
+            let has_model: Option<i32> = sqlx::query_scalar(
+                "SELECT 1 FROM pragma_table_info('conversations') WHERE name='model'",
+            )
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+            if has_title.is_none() || has_model.is_none() {
                 println!("⚠️  Detected outdated schema (conversations). Resetting tables (Development Mode)...");
                 // Need to drop messages first due to FK constraint
                 sqlx::query("DROP TABLE IF EXISTS messages")
@@ -115,6 +122,7 @@ impl SqliteConversationMemory {
             "CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 title TEXT,
+                model TEXT,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )",
         )
@@ -153,6 +161,7 @@ impl SqliteConversationMemory {
     pub async fn get_or_create_conversation_id(
         &self,
         conversation_id: Option<String>,
+        model: Option<&str>,
     ) -> Result<String> {
         if let Some(id) = conversation_id {
             // Check if conversation exists
@@ -165,11 +174,15 @@ impl SqliteConversationMemory {
 
             if exists.is_none() {
                 // Create new conversation
-                sqlx::query("INSERT INTO conversations (id) VALUES (?1)")
+                sqlx::query("INSERT INTO conversations (id, model) VALUES (?1, ?2)")
                     .bind(&id)
+                    .bind(model)
                     .execute(&self.pool)
                     .await
                     .context("Failed to create conversation")?;
+            } else if let Some(m) = model {
+                // Update model if provided and conversation exists (implicit update)
+                let _ = self.update_conversation_model(&id, m).await;
             }
 
             Ok(id)
@@ -181,10 +194,11 @@ impl SqliteConversationMemory {
             // Create with default timestamp-based title
             // "Chat" + date/time from SQLite's datetime('now', 'localtime')
             sqlx::query(
-                "INSERT INTO conversations (id, title) 
-                 VALUES (?1, 'Chat ' || datetime('now', 'localtime'))",
+                "INSERT INTO conversations (id, title, model) 
+                 VALUES (?1, 'Chat ' || datetime('now', 'localtime'), ?2)",
             )
             .bind(&id)
+            .bind(model)
             .execute(&self.pool)
             .await
             .context("Failed to create conversation")?;
@@ -382,21 +396,26 @@ impl SqliteConversationMemory {
 
     /// Get all conversations
     pub async fn get_conversations(&self) -> Result<Vec<Conversation>> {
-        let rows =
-            sqlx::query("SELECT id, title, created_at FROM conversations ORDER BY created_at DESC")
-                .fetch_all(&self.pool)
-                .await
-                .context("Failed to fetch conversations")?;
+        let rows = sqlx::query(
+            "SELECT id, title, model, created_at FROM conversations ORDER BY created_at DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context("Failed to fetch conversations")?;
 
         let mut conversations = Vec::new();
         for row in rows {
+            let model: Option<String> = row.get(2);
+            // println!("DEBUG: Fetching conversation: {:?}, model: {:?}", row.get::<String, _>(0), model);
             conversations.push(Conversation {
                 id: row.get(0),
                 title: row.get(1),
-                created_at: row.get(2),
+                model,
+                created_at: row.get(3),
             });
         }
 
+        // println!("DEBUG: Returning {} conversations", conversations.len());
         Ok(conversations)
     }
 
@@ -427,5 +446,33 @@ impl SqliteConversationMemory {
             .context("Failed to update conversation title")?;
 
         Ok(())
+    }
+
+    /// Update conversation model
+    pub async fn update_conversation_model(
+        &self,
+        conversation_id: &str,
+        model: &str,
+    ) -> Result<()> {
+        sqlx::query("UPDATE conversations SET model = ?1 WHERE id = ?2")
+            .bind(model)
+            .bind(conversation_id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update conversation model")?;
+
+        Ok(())
+    }
+
+    /// Get conversation title
+    pub async fn get_title(&self, conversation_id: &str) -> Result<String> {
+        let title: Option<String> =
+            sqlx::query_scalar("SELECT title FROM conversations WHERE id = ?1")
+                .bind(conversation_id)
+                .fetch_optional(&self.pool)
+                .await
+                .context("Failed to get conversation title")?;
+
+        Ok(title.unwrap_or_else(|| "New Conversation".to_string()))
     }
 }

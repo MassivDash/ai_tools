@@ -32,6 +32,12 @@ pub async fn agent_chat(
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
+    // Get model name from llama_server config
+    let model_name = {
+        let llama_config_guard = llama_config.lock().unwrap();
+        llama_config_guard.hf_model.clone()
+    };
+
     // Construct Llama URL from config
     let (llama_host, llama_port) = {
         let llama_config_guard = llama_config.lock().unwrap();
@@ -53,7 +59,7 @@ pub async fn agent_chat(
 
     // Get or create conversation ID from SQLite
     let conversation_id = sqlite_memory
-        .get_or_create_conversation_id(req.conversation_id.clone())
+        .get_or_create_conversation_id(req.conversation_id.clone(), Some(&model_name))
         .await
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!(
@@ -172,21 +178,12 @@ pub async fn agent_chat(
 
     let messages = messages_with_system;
 
-    // Get model name from llama_server config
-    let model_name = {
-        let llama_config_guard = llama_config.lock().unwrap();
-        llama_config_guard.hf_model.clone()
-    };
+    // Model update is now handled by get_or_create_conversation_id
 
     // Call llama.cpp server
     // Call llama.cpp server
     let llama_url = format!("{}/v1/chat/completions", llama_base_url);
     let client = Client::new();
-
-    println!(
-        "🤖 Starting agent loop (conversation: {})...",
-        conversation_id
-    );
 
     // Get conversation message count from SQLite
     let conversation_msg_count = sqlite_memory
@@ -373,6 +370,12 @@ pub async fn agent_chat_stream(
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
+    // Get model name from llama_server config
+    let model_name = {
+        let llama_config_guard = llama_config.lock().unwrap();
+        llama_config_guard.hf_model.clone()
+    };
+
     // Construct Llama URL from config
     let (llama_host, llama_port) = {
         let llama_config_guard = llama_config.lock().unwrap();
@@ -393,7 +396,7 @@ pub async fn agent_chat_stream(
 
     // Get or create conversation ID
     let conversation_id = sqlite_memory
-        .get_or_create_conversation_id(req.conversation_id.clone())
+        .get_or_create_conversation_id(req.conversation_id.clone(), Some(&model_name))
         .await
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(format!(
@@ -465,10 +468,7 @@ pub async fn agent_chat_stream(
             ))
         })?;
 
-    let model_name = {
-        let llama_config_guard = llama_config.lock().unwrap();
-        llama_config_guard.hf_model.clone()
-    };
+    // model_name is already retrieved above
 
     let llama_url = format!("{}/v1/chat/completions", llama_base_url);
     let client = Client::new();
