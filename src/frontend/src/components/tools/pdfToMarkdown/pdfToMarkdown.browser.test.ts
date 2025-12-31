@@ -153,9 +153,7 @@ test('displays token count when count_tokens is enabled', async () => {
   fireEvent.click(toggleButton)
 
   // Enable token counting
-  const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens/i
-  )
+  const countTokensCheckbox = screen.getByLabelText(/Count tokens/i)
   fireEvent.click(countTokensCheckbox)
 
   const fileInput = screen.getByLabelText(
@@ -271,28 +269,16 @@ test('toggles advanced options', async () => {
   const toggleButton = screen.getByRole('button', { name: /Advanced Options/i })
 
   // Initially hidden
-  expect(
-    screen.queryByText(
-      /Count tokens/i
-    )
-  ).not.toBeInTheDocument()
+  expect(screen.queryByText(/Count tokens/i)).not.toBeInTheDocument()
 
   // Click to show
   fireEvent.click(toggleButton)
-  expect(
-    screen.getByText(
-      /Count tokens/i
-    )
-  ).toBeTruthy()
+  expect(screen.getByText(/Count tokens/i)).toBeTruthy()
 
   // Click to hide
   fireEvent.click(toggleButton)
   await waitFor(() => {
-    expect(
-      screen.queryByText(
-        /Count tokens/i
-      )
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Count tokens/i)).not.toBeInTheDocument()
   })
 })
 
@@ -351,9 +337,7 @@ test('sends correct request data with count_tokens enabled', async () => {
   const toggleButton = screen.getByRole('button', { name: /Advanced Options/i })
   fireEvent.click(toggleButton)
 
-  const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens/i
-  )
+  const countTokensCheckbox = screen.getByLabelText(/Count tokens/i)
   fireEvent.click(countTokensCheckbox)
 
   const fileInput = screen.getByLabelText(

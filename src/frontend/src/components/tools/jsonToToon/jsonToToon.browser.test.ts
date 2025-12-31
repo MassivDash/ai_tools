@@ -156,9 +156,7 @@ test('displays token statistics when count_tokens is enabled', async () => {
   fireEvent.click(toggleButton)
 
   // Enable token counting
-  const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens/i
-  )
+  const countTokensCheckbox = screen.getByLabelText(/Count tokens/i)
   fireEvent.click(countTokensCheckbox)
 
   const jsonInput = screen.getByPlaceholderText('Paste your JSON here...')
@@ -263,28 +261,16 @@ test('toggles advanced options', async () => {
   const toggleButton = screen.getByRole('button', { name: /Advanced Options/i })
 
   // Initially hidden
-  expect(
-    screen.queryByText(
-      /Count tokens/i
-    )
-  ).not.toBeInTheDocument()
+  expect(screen.queryByText(/Count tokens/i)).not.toBeInTheDocument()
 
   // Click to show
   fireEvent.click(toggleButton)
-  expect(
-    screen.getByText(
-      /Count tokens/i
-    )
-  ).toBeTruthy()
+  expect(screen.getByText(/Count tokens/i)).toBeTruthy()
 
   // Click to hide
   fireEvent.click(toggleButton)
   await waitFor(() => {
-    expect(
-      screen.queryByText(
-        /Count tokens/i
-      )
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Count tokens/i)).not.toBeInTheDocument()
   })
 })
 
@@ -465,7 +451,7 @@ test('clears all data when clear button is clicked', async () => {
   fireEvent.click(clearButton)
 
   await waitFor(() => {
-  expect((jsonInput as HTMLTextAreaElement).value).toBe('')
+    expect((jsonInput as HTMLTextAreaElement).value).toBe('')
   })
 
   // TOON Output section should show placeholder after clear
@@ -607,9 +593,7 @@ test('sends count_tokens in request when enabled', async () => {
   fireEvent.click(toggleButton)
 
   // Enable token counting
-  const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens/i
-  )
+  const countTokensCheckbox = screen.getByLabelText(/Count tokens/i)
   fireEvent.click(countTokensCheckbox)
 
   const jsonInput = screen.getByPlaceholderText('Paste your JSON here...')
