@@ -15,7 +15,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
 }
 
@@ -157,7 +157,7 @@ test('displays token statistics when count_tokens is enabled', async () => {
 
   // Enable token counting
   const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens \(may slow down conversion for large documents\)/i
+    /Count tokens/i
   )
   fireEvent.click(countTokensCheckbox)
 
@@ -265,7 +265,7 @@ test('toggles advanced options', async () => {
   // Initially hidden
   expect(
     screen.queryByText(
-      /Count tokens \(may slow down conversion for large documents\)/i
+      /Count tokens/i
     )
   ).not.toBeInTheDocument()
 
@@ -273,7 +273,7 @@ test('toggles advanced options', async () => {
   fireEvent.click(toggleButton)
   expect(
     screen.getByText(
-      /Count tokens \(may slow down conversion for large documents\)/i
+      /Count tokens/i
     )
   ).toBeTruthy()
 
@@ -282,7 +282,7 @@ test('toggles advanced options', async () => {
   await waitFor(() => {
     expect(
       screen.queryByText(
-        /Count tokens \(may slow down conversion for large documents\)/i
+        /Count tokens/i
       )
     ).not.toBeInTheDocument()
   })
@@ -405,7 +405,7 @@ test('formats JSON when format button is clicked', async () => {
   fireEvent.click(formatButton)
 
   await waitFor(() => {
-    const formatted = jsonInput.value
+    const formatted = (jsonInput as HTMLTextAreaElement).value
     expect(formatted).toContain('"test"')
     expect(formatted).toContain('"value"')
     // Should be formatted with indentation
@@ -465,7 +465,7 @@ test('clears all data when clear button is clicked', async () => {
   fireEvent.click(clearButton)
 
   await waitFor(() => {
-    expect(jsonInput.value).toBe('')
+  expect((jsonInput as HTMLTextAreaElement).value).toBe('')
   })
 
   // TOON Output section should show placeholder after clear
@@ -608,7 +608,7 @@ test('sends count_tokens in request when enabled', async () => {
 
   // Enable token counting
   const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens \(may slow down conversion for large documents\)/i
+    /Count tokens/i
   )
   fireEvent.click(countTokensCheckbox)
 

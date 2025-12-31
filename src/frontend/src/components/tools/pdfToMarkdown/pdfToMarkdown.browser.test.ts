@@ -15,7 +15,7 @@ vi.mock('@axios/axiosBackendInstance.ts', () => ({
   }
 }))
 
-const mockedAxios = axiosBackendInstance as {
+const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
 }
 
@@ -154,7 +154,7 @@ test('displays token count when count_tokens is enabled', async () => {
 
   // Enable token counting
   const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens \(may slow down conversion for large documents\)/i
+    /Count tokens/i
   )
   fireEvent.click(countTokensCheckbox)
 
@@ -273,7 +273,7 @@ test('toggles advanced options', async () => {
   // Initially hidden
   expect(
     screen.queryByText(
-      /Count tokens \(may slow down conversion for large documents\)/i
+      /Count tokens/i
     )
   ).not.toBeInTheDocument()
 
@@ -281,7 +281,7 @@ test('toggles advanced options', async () => {
   fireEvent.click(toggleButton)
   expect(
     screen.getByText(
-      /Count tokens \(may slow down conversion for large documents\)/i
+      /Count tokens/i
     )
   ).toBeTruthy()
 
@@ -290,7 +290,7 @@ test('toggles advanced options', async () => {
   await waitFor(() => {
     expect(
       screen.queryByText(
-        /Count tokens \(may slow down conversion for large documents\)/i
+        /Count tokens/i
       )
     ).not.toBeInTheDocument()
   })
@@ -352,7 +352,7 @@ test('sends correct request data with count_tokens enabled', async () => {
   fireEvent.click(toggleButton)
 
   const countTokensCheckbox = screen.getByLabelText(
-    /Count tokens \(may slow down conversion for large documents\)/i
+    /Count tokens/i
   )
   fireEvent.click(countTokensCheckbox)
 
