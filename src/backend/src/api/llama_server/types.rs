@@ -62,6 +62,7 @@ pub type LogBuffer = Arc<Mutex<VecDeque<LogEntry>>>;
 #[derive(Clone, Debug)]
 pub struct ServerState {
     pub is_ready: bool,
+    pub generation: u32,
 }
 
 pub type ServerStateHandle = Arc<Mutex<ServerState>>;

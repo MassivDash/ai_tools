@@ -107,8 +107,10 @@ async fn main() -> std::io::Result<()> {
     // Shared state for llama server process
     let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
-    let llama_server_state: ServerStateHandle =
-        Arc::new(Mutex::new(ServerState { is_ready: false }));
+    let llama_server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
+        is_ready: false,
+        generation: 0,
+    }));
 
     // Initialize ChromaDB config with default from storage or fallback to hardcoded
     let mut chromadb_config_init = ChromaDBConfig::default();
@@ -177,12 +179,7 @@ async fn main() -> std::io::Result<()> {
                 state_guard.is_ready
             };
 
-            // Check port
-            let port_check = tokio::net::TcpStream::connect("127.0.0.1:8080")
-                .await
-                .is_ok();
-
-            let active = is_active && (is_ready || port_check);
+            let active = if is_active { is_ready } else { false };
 
             ws_state_status.broadcast_status(active, 8080);
         }

@@ -2,6 +2,8 @@ use actix_web::{post, web, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 
 use crate::api::llama_server::types::{ProcessHandle, ServerStateHandle};
+use crate::api::llama_server::websocket::WebSocketState;
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LlamaServerResponse {
@@ -13,6 +15,7 @@ pub struct LlamaServerResponse {
 pub async fn post_stop_llama_server(
     process: web::Data<ProcessHandle>,
     server_state: web::Data<ServerStateHandle>,
+    ws_state: web::Data<Arc<WebSocketState>>,
 ) -> ActixResult<HttpResponse> {
     let mut process_guard = process.lock().unwrap();
 
@@ -27,6 +30,11 @@ pub async fn post_stop_llama_server(
                 // Reset server state
                 let mut state = server_state.lock().unwrap();
                 state.is_ready = false;
+                drop(state);
+
+                // Broadcast stopped status
+                println!("📡 Broadcasting server stopped status");
+                ws_state.broadcast_status(false, 8080);
 
                 println!("✅ Llama server stopped successfully");
                 Ok(HttpResponse::Ok().json(LlamaServerResponse {
@@ -62,12 +70,22 @@ mod tests {
     #[actix_web::test]
     async fn test_post_stop_llama_server_not_running() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: false }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
+            is_ready: false,
+            generation: 0,
+        }));
+        let log_buffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+        let ws_state = Arc::new(WebSocketState::new(
+            web::Data::new(log_buffer),
+            web::Data::new(process.clone()),
+            web::Data::new(server_state.clone()),
+        ));
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(process))
                 .app_data(web::Data::new(server_state))
+                .app_data(web::Data::new(ws_state))
                 .service(post_stop_llama_server),
         )
         .await;

@@ -12,6 +12,11 @@ pub fn spawn_log_reader(
     server_state: ServerStateHandle,
     ws_state: Option<Arc<WebSocketState>>,
 ) {
+    let current_generation = {
+        let state = server_state.lock().unwrap();
+        state.generation
+    };
+
     if let Some(stdout_handle) = stdout {
         let log_buffer_clone = log_buffer.clone();
         let server_state_clone = server_state.clone();
@@ -22,6 +27,7 @@ pub fn spawn_log_reader(
                 log_buffer_clone,
                 server_state_clone,
                 ws_state_clone,
+                current_generation,
             );
         });
     }
@@ -36,6 +42,7 @@ pub fn spawn_log_reader(
                 log_buffer_clone,
                 server_state_clone,
                 ws_state_clone,
+                current_generation,
             );
         });
     }
@@ -46,6 +53,7 @@ fn read_stdout_stream(
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
     ws_state: Option<Arc<WebSocketState>>,
+    generation: u32,
 ) {
     let reader = BufReader::new(stream);
     let lines = reader.lines();
@@ -59,6 +67,7 @@ fn read_stdout_stream(
                     server_state.clone(),
                     LogSource::Stdout,
                     ws_state.clone(),
+                    generation,
                 );
             }
             Err(e) => {
@@ -74,6 +83,7 @@ fn read_stderr_stream(
     log_buffer: LogBuffer,
     server_state: ServerStateHandle,
     ws_state: Option<Arc<WebSocketState>>,
+    generation: u32,
 ) {
     let reader = BufReader::new(stream);
     let lines = reader.lines();
@@ -87,6 +97,7 @@ fn read_stderr_stream(
                     server_state.clone(),
                     LogSource::Stderr,
                     ws_state.clone(),
+                    generation,
                 );
             }
             Err(e) => {
@@ -103,7 +114,17 @@ fn process_log_line(
     server_state: ServerStateHandle,
     source: LogSource,
     ws_state: Option<Arc<WebSocketState>>,
+    generation: u32,
 ) {
+    // Validate generation
+    {
+        let state = server_state.lock().unwrap();
+        if state.generation != generation {
+            // Stale log reader from previous process, ignore
+            return;
+        }
+    }
+
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -135,20 +156,26 @@ fn process_log_line(
                 LogSource::Stderr => "stderr".to_string(),
             },
         };
-        println!("📡 Broadcasting log via WebSocket: {} clients", {
-            let clients = state.logs_clients.lock().unwrap();
-            clients.len()
-        });
         state.broadcast_log(log_line);
     } else {
         println!("⚠️  WebSocket state not available for broadcasting logs");
     }
 
-    // Check if server is ready
-    if line.contains("main: server is listening on http://127.0.0.1:8080") {
+    // Check if server is ready - Generalize check to support any port/host
+    if line.contains("main: server is listening on http://") {
         println!("✅ Detected server ready message!");
         let mut state = server_state.lock().unwrap();
-        state.is_ready = true;
+        // Double check generation before setting ready
+        if state.generation == generation {
+            state.is_ready = true;
+            drop(state);
+
+            // Broadcast active status
+            if let Some(ref state) = ws_state {
+                println!("📡 Broadcasting server ready status");
+                state.broadcast_status(true, 8080);
+            }
+        }
     }
 
     println!(

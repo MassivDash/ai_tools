@@ -117,6 +117,7 @@ pub async fn post_start_llama_server(
             {
                 let mut state = server_state.lock().unwrap();
                 state.is_ready = false;
+                state.generation = state.generation.wrapping_add(1);
             }
 
             // Clear log buffer

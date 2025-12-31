@@ -46,28 +46,18 @@ pub async fn get_llama_server_status(
         state_guard.is_ready
     };
 
-    // Also check if port 8080 is listening as a fallback
-    let port_check = check_port_8080().await;
+    // Determine final active status
+    let active = if is_active {
+        // If we are managing the process, explicitly wait for the ready signal
+        // ignoring port check to avoid false positives during model download/loading
+        is_ready
+    } else {
+        // If we aren't managing a process, do NOT report active, even if port is open.
+        // This avoids false positives from stuck/zombie processes or other services.
+        false
+    };
 
-    Ok(HttpResponse::Ok().json(LlamaServerStatus {
-        active: is_active && (is_ready || port_check),
-        port: 8080,
-    }))
-}
-
-async fn check_port_8080() -> bool {
-    use tokio::net::TcpStream;
-    use tokio::time::{timeout, Duration};
-
-    // Try to connect to localhost:8080 with a timeout
-    matches!(
-        timeout(
-            Duration::from_millis(100),
-            TcpStream::connect("127.0.0.1:8080")
-        )
-        .await,
-        Ok(Ok(_))
-    )
+    Ok(HttpResponse::Ok().json(LlamaServerStatus { active, port: 8080 }))
 }
 
 #[cfg(test)]
@@ -80,7 +70,10 @@ mod tests {
     #[actix_web::test]
     async fn test_get_llama_server_status_no_process() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: false }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
+            is_ready: false,
+            generation: 0,
+        }));
 
         let app = test::init_service(
             App::new()
@@ -104,7 +97,10 @@ mod tests {
     #[actix_web::test]
     async fn test_get_llama_server_status_with_ready_state() {
         let process: ProcessHandle = Arc::new(Mutex::new(None));
-        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState { is_ready: true }));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
+            is_ready: true,
+            generation: 0,
+        }));
 
         let app = test::init_service(
             App::new()
