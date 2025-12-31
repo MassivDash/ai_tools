@@ -254,25 +254,43 @@
   }
 
   const stopGeneration = async () => {
-    if (abortController) {
-      abortController.abort()
-      abortController = null
-    }
+    // Do not abort the controller or ignore the stream.
+    // We want to receive the final events (like Done with conversation_id) from the backend
+    // after it processes the cancellation.
 
     // Explicitly signal backend to stop, if we have a conversation ID
     if (conversationId) {
       try {
+        console.log('Sending cancellation request...')
         await axiosBackendInstance.post(`agent/chat/${conversationId}/cancel`)
+
+        // Optimistically update status to show we are stopping
+        const statusIndex = messages.findIndex((m) => m.role === 'status')
+        if (statusIndex >= 0) {
+          messages[statusIndex] = {
+            ...messages[statusIndex],
+            statusType: 'tool_error',
+            content: 'Stopping generation...'
+          }
+        }
       } catch (err) {
         console.error('Failed to send explicit cancel signal to backend:', err)
+        // Fallback: If backend is unreachable, then we MUST abort locally
+        if (abortController) {
+          abortController.abort()
+          abortController = null
+        }
+        loading = false
       }
+    } else {
+      // If we don't have a conversation ID yet (rare race condition at very start),
+      // we have to abort locally because we can't tell backend what to cancel.
+      if (abortController) {
+        abortController.abort()
+        abortController = null
+      }
+      loading = false
     }
-
-    ignoringStream = true
-    loading = false
-    // Clear any streaming state
-    currentStreamingMessage = ''
-    streamingMessageId = null
   }
 
   // Auto-scroll function
