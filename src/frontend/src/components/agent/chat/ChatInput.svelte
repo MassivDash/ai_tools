@@ -4,6 +4,7 @@
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { ModelCapabilities, FileAttachment } from '../types'
+  import TokenUsageDisplay from './TokenUsageDisplay.svelte'
 
   interface Props {
     inputMessage?: string
@@ -19,6 +20,12 @@
     quotedMessage?: string | null
     onClearQuote?: () => void
     onStop?: () => void
+    tokenUsage?: {
+      prompt_tokens: number
+      completion_tokens: number
+      total_tokens: number
+    } | null
+    ctxSize?: number
   }
 
   let {
@@ -34,7 +41,9 @@
     onStopTTS,
     quotedMessage = null,
     onClearQuote,
-    onStop = () => {}
+    onStop = () => {},
+    tokenUsage = null,
+    ctxSize = 0
   }: Props = $props()
 
   let textareaElement: HTMLTextAreaElement = $state()
@@ -405,6 +414,10 @@
         </IconButton>
       </div>
 
+      <div class="token-info-wrapper">
+        <TokenUsageDisplay {tokenUsage} {ctxSize} />
+      </div>
+
       <div class="send-button-wrapper">
         {#if loading}
           <Button
@@ -647,6 +660,22 @@
     gap: 0.5rem;
     align-items: center;
     justify-content: flex-start;
+  }
+
+  .token-info-wrapper {
+    margin-left: auto; /* Push to right, but before send button */
+    display: flex;
+    align-items: center;
+    margin-right: 1rem;
+  }
+
+  /* Override internal TokenUsageDisplay styles to fit better */
+  :global(.token-info-wrapper .token-display) {
+    padding: 0.25rem 0.5rem !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-top: none !important; /* Explicitly remove the border-top from the component */
   }
 
   .send-button-wrapper {

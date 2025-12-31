@@ -4,6 +4,8 @@
   import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
   import { useTextToSpeech } from '../../hooks/useTextToSpeech.svelte'
   import { activeTools as activeToolsStore } from '../../stores/activeTools'
+  import { chatLayout } from '../../stores/chatLayout'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
   import type {
     ChatMessage,
     AgentStreamEvent,
@@ -14,7 +16,6 @@
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'
-  import TokenUsageDisplay from './chat/TokenUsageDisplay.svelte'
 
   let {
     currentConversationId = undefined,
@@ -129,7 +130,64 @@
   onDestroy(() => {
     // Disconnect WebSocket when component is destroyed
     agentWs.disconnect()
+
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
   })
+
+  // Resize logic
+  let isResizing = $state(false)
+  let resizeMode: 'vertical' | 'horizontal' | 'both' = 'vertical'
+  let startX = 0
+  let startY = 0
+  let startWidth = 0
+  let startHeight = 0
+
+  const handleResizeStart = (
+    e: MouseEvent,
+    mode: 'vertical' | 'horizontal' | 'both'
+  ) => {
+    isResizing = true
+    resizeMode = mode
+    startX = e.clientX
+    startY = e.clientY
+    startWidth = $chatLayout.width || 1000
+    startHeight = $chatLayout.height
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    e.preventDefault() // Prevent text selection
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return
+
+    if (resizeMode === 'vertical' || resizeMode === 'both') {
+      const dy = e.clientY - startY
+      const newHeight = startHeight + dy
+      // Lower min height (150px), Max height based on window
+      if (newHeight >= 150 && newHeight < window.innerHeight * 0.98) {
+        chatLayout.setHeight(newHeight)
+      }
+    }
+
+    if (resizeMode === 'horizontal' || resizeMode === 'both') {
+      const dx = e.clientX - startX
+      const newWidth = startWidth + dx
+      // Min width 320px, Max width constrained by window
+      if (newWidth >= 320 && newWidth < window.innerWidth - 20) {
+        chatLayout.setWidth(newWidth)
+      }
+    }
+  }
+
+  const handleMouseUp = () => {
+    isResizing = false
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
+  }
 
   export const sendMessage = async (overrideMessage?: string) => {
     const msgToSend = overrideMessage || inputMessage
@@ -540,7 +598,12 @@
   })
 </script>
 
-<div class="chat-interface">
+<div
+  class="chat-interface"
+  style:height="{$chatLayout.height}px"
+  style:width={$chatLayout.width ? `${$chatLayout.width}px` : '100%'}
+  style:transition={isResizing ? 'none' : 'height 0.2s ease, width 0.2s ease'}
+>
   <ChatHeader
     {activeToolsList}
     hasMessages={messages.length > 0}
@@ -570,23 +633,54 @@
     onToggleTTS={() => (ttsEnabled = !ttsEnabled)}
     ttsSpeaking={tts.isSpeaking}
     onStopTTS={tts.cancel}
+    {tokenUsage}
+    {ctxSize}
   />
 
-  {#if tokenUsage}
-    <TokenUsageDisplay {tokenUsage} {ctxSize} />
-  {/if}
+  <div
+    class="resize-handle bottom"
+    onmousedown={(e) => handleResizeStart(e, 'vertical')}
+    role="button"
+    tabindex="0"
+    aria-label="Resize chat height"
+  >
+    <MaterialIcon name="drag-horizontal" width="24" height="24" />
+  </div>
+
+  <div
+    class="resize-handle right"
+    onmousedown={(e) => handleResizeStart(e, 'horizontal')}
+    role="button"
+    tabindex="0"
+    aria-label="Resize chat width"
+  >
+    <div class="handle-bar"></div>
+  </div>
+
+  <div
+    class="resize-handle corner"
+    onmousedown={(e) => handleResizeStart(e, 'both')}
+    role="button"
+    tabindex="0"
+    aria-label="Resize chat both directions"
+  >
+    <MaterialIcon name="resize-bottom-right" width="16" height="16" />
+  </div>
 </div>
+```
 
 <style>
   .chat-interface {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* height is handled by inline style */
     background-color: var(--bg-primary, #fff);
     padding: 0;
-    width: 100%;
-    max-width: 1024px;
+    padding: 0;
+    /* width is handled by inline style */
+    max-width: none; /* remove default constraint */
     margin: 0 auto;
+    position: relative; /* for absolute positioning of handles */
     border-radius: 8px;
     box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
     border: 1px solid var(--border-color, #e0e0e0);
@@ -605,5 +699,75 @@
     .chat-interface {
       padding: 0.5rem;
     }
+  }
+
+  .resize-handle {
+    background-color: transparent;
+    transition: background-color 0.2s;
+    user-select: none;
+    z-index: 10;
+  }
+
+  .resize-handle.bottom {
+    height: 16px;
+    background-color: var(--bg-secondary, #f5f5f5);
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ns-resize;
+    color: var(--text-tertiary, #999);
+    flex-shrink: 0;
+  }
+
+  .resize-handle.bottom:hover,
+  .resize-handle.bottom:active {
+    background-color: var(--border-color, #e0e0e0);
+    color: var(--text-secondary, #666);
+  }
+
+  .resize-handle.right {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 16px; /* Space for corner handle */
+    width: 8px;
+    cursor: ew-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .resize-handle.right:hover,
+  .resize-handle.right:active {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .resize-handle.right .handle-bar {
+    width: 2px;
+    height: 20px;
+    background-color: var(--border-color, #e0e0e0);
+    border-radius: 2px;
+  }
+
+  .resize-handle.corner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-secondary, #f5f5f5);
+    border-top-left-radius: 4px;
+    color: var(--text-tertiary, #999);
+  }
+
+  .resize-handle.corner:hover,
+  .resize-handle.corner:active {
+    background-color: var(--border-color, #e0e0e0);
+    color: var(--text-secondary, #666);
   }
 </style>

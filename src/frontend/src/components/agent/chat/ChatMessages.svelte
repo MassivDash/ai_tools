@@ -62,7 +62,8 @@
     flex-direction: column;
     gap: 1rem;
     scroll-behavior: smooth;
-    min-height: 50vh;
+    scroll-behavior: smooth;
+    /* min-height handled by parent chat-interface resize */
   }
 
   .chat-messages::-webkit-scrollbar {

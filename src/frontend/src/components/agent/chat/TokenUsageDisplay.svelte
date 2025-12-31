@@ -2,26 +2,29 @@
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
 
   interface Props {
-    tokenUsage: {
+    tokenUsage?: {
       prompt_tokens: number
       completion_tokens: number
       total_tokens: number
-    }
+    } | null
     ctxSize: number
   }
 
-  let { tokenUsage, ctxSize }: Props = $props()
+  let { tokenUsage = null, ctxSize }: Props = $props()
+
+  const currentTokens = $derived(tokenUsage?.total_tokens || 0)
+  const percentage = $derived(
+    ctxSize > 0 ? Math.round((currentTokens / ctxSize) * 100) : 0
+  )
 </script>
 
 <div class="token-display">
   <MaterialIcon name="memory" width="16" height="16" />
   <span class="usage-text">
     {#if ctxSize > 0}
-      {tokenUsage.total_tokens} / {ctxSize} tokens ({Math.round(
-        (tokenUsage.total_tokens / ctxSize) * 100
-      )}%)
+      {currentTokens} / {ctxSize} tokens ({percentage}%)
     {:else}
-      {tokenUsage.total_tokens} tokens
+      {currentTokens} tokens
     {/if}
   </span>
 </div>
