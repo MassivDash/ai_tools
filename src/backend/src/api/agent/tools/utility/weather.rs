@@ -24,7 +24,7 @@ impl WeatherTool {
             metadata: ToolMetadata {
                 id: "weather_current".to_string(),
                 name: "Weather Current".to_string(),
-                description: "Get current weather conditions for any location".to_string(),
+                description: "Get current weather conditions for a specific location. Use this for questions about 'simulated' current weather, 'now' or 'today'. Returns current temp, conditions, humidity, wind, etc.".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather,
             },
@@ -348,7 +348,7 @@ impl AgentTool for WeatherTool {
         println!("\x1b[32m✅ Weather data retrieved successfully\x1b[0m");
 
         Ok(ToolCallResult {
-            tool_name: "weather_check".to_string(),
+            tool_name: "weather_current".to_string(),
             result,
         })
     }
@@ -404,7 +404,7 @@ impl ForecastTool {
             metadata: ToolMetadata {
                 id: "weather_forecast".to_string(),
                 name: "Weather Forecast".to_string(),
-                description: "Get 5-day weather forecast".to_string(),
+                description: "Get 5-day weather forecast. Use this for questions about 'tomorrow', 'next week', 'future weather'. DO NOT use for 'today' or 'current' weather.".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather,
             },
