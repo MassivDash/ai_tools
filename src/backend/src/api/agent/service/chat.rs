@@ -1,8 +1,8 @@
 use crate::api::agent::core::agent_loop::{execute_agent_loop, AgentLoopConfig};
 use crate::api::agent::core::streaming::execute_agent_loop_streaming;
 use crate::api::agent::core::types::{
-    AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent, ChatMessage,
-    MessageContent, MessageRole,
+    ActiveGenerations, AgentChatRequest, AgentChatResponse, AgentConfig, AgentStreamEvent,
+    ChatMessage, MessageContent, MessageRole,
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::naming::attempt_conversation_naming;
@@ -13,12 +13,11 @@ use crate::api::agent::tools::{
     framework::{registry::ToolRegistry, selector::ToolSelector},
 };
 use crate::api::llama_server::types::Config;
-use actix_web::{post, web, HttpResponse, Result as ActixResult};
+use actix_web::{post, web, HttpResponse, Responder, Result as ActixResult};
 use futures::StreamExt;
 use reqwest::Client;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// Chat completion endpoint
 #[post("/api/agent/chat")]
@@ -359,6 +358,7 @@ pub async fn agent_chat(
 /// Streaming chat completion endpoint using Server-Sent Events (SSE)
 /// Also broadcasts events via WebSocket for real-time updates
 #[post("/api/agent/chat/stream")]
+#[allow(clippy::too_many_arguments)]
 pub async fn agent_chat_stream(
     req: web::Json<AgentChatRequest>,
     agent_config: web::Data<Arc<Mutex<AgentConfig>>>,
@@ -367,6 +367,7 @@ pub async fn agent_chat_stream(
     llama_config: web::Data<Arc<Mutex<Config>>>,
     sqlite_memory: web::Data<Arc<SqliteConversationMemory>>,
     agent_ws_state: web::Data<Arc<AgentWebSocketState>>,
+    active_generations: web::Data<ActiveGenerations>,
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
@@ -473,8 +474,17 @@ pub async fn agent_chat_stream(
     let llama_url = format!("{}/v1/chat/completions", llama_base_url);
     let client = Client::new();
 
-    // Create channel for streaming events (SSE)
-    let (tx, rx) = mpsc::unbounded_channel::<Result<AgentStreamEvent, anyhow::Error>>();
+    // Create channel for streaming events (SSE) (Bounded for backpressure)
+    let (tx, rx) = mpsc::channel::<Result<AgentStreamEvent, anyhow::Error>>(100);
+
+    // Create Cancellation Token using Watch Channel
+    let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+
+    // Register cancellation token
+    {
+        let mut map = active_generations.lock().unwrap();
+        map.insert(conversation_id.clone(), cancel_tx);
+    }
 
     // Clone necessary data for the streaming task
     let client_clone = client.clone();
@@ -486,15 +496,15 @@ pub async fn agent_chat_stream(
     let conversation_id_clone = conversation_id.clone();
     let agent_ws_state_clone = agent_ws_state.get_ref().clone();
     let loop_config = AgentLoopConfig::default();
+    let active_generations_clone = active_generations.get_ref().clone();
 
     // Spawn the agent loop in a background task
-    // Events will be sent to both SSE (via tx) and WebSocket (via agent_ws_state)
     actix_rt::spawn(async move {
-        // Create a wrapper sender that broadcasts to both SSE and WebSocket
+        // Create a wrapper sender that broadcasts to both SSE and WebSocket (Bounded)
         let tx_sse = tx.clone();
         let agent_ws_broadcast = agent_ws_state_clone.clone();
         let (tx_wrapper, mut rx_wrapper) =
-            mpsc::unbounded_channel::<Result<AgentStreamEvent, anyhow::Error>>();
+            mpsc::channel::<Result<AgentStreamEvent, anyhow::Error>>(100);
 
         // Spawn task to duplicate events to both SSE and WebSocket
         actix_rt::spawn(async move {
@@ -504,32 +514,49 @@ pub async fn agent_chat_stream(
                     agent_ws_broadcast.broadcast(event);
                 }
                 // Send to SSE (need to handle error case)
+                // This await will block if SSE client is slow, or fail if disconnected
                 match &event_result {
                     Ok(event) => {
-                        let _ = tx_sse.send(Ok(event.clone()));
+                        if tx_sse.send(Ok(event.clone())).await.is_err() {
+                            // Client disconnected logic handled by channel drop/backpressure usually,
+                            // but explicit cancel is triggered by API now.
+                            // If network disconnects, we could optionally trigger cancel too?
+                            break;
+                        }
                     }
                     Err(e) => {
-                        let _ = tx_sse.send(Err(anyhow::anyhow!("{}", e)));
+                        if tx_sse.send(Err(anyhow::anyhow!("{}", e))).await.is_err() {
+                            break;
+                        }
                     }
                 }
             }
         });
 
-        if let Err(e) = execute_agent_loop_streaming(
+        // Execute streaming loop with cancellation support
+        let result = execute_agent_loop_streaming(
             &client_clone,
             &llama_url_clone,
-            model_name_clone.clone(), // Clone for the loop
+            model_name_clone.clone(),
             messages_with_system,
             tools_clone,
             tool_registry_clone,
-            sqlite_memory_clone.clone(),   // Clone for the loop
-            conversation_id_clone.clone(), // Clone for the loop
+            sqlite_memory_clone.clone(),
+            conversation_id_clone.clone(),
             loop_config,
             tx_wrapper,
+            cancel_rx, // Pass the watch receiver
         )
-        .await
-        {
+        .await;
+
+        if let Err(e) = result {
             println!("Streaming agent loop error: {}", e);
+        }
+
+        // Cleanup cancellation token
+        {
+            let mut map = active_generations_clone.lock().unwrap();
+            map.remove(&conversation_id_clone);
         }
 
         // Attempt naming after stream finishes
@@ -537,14 +564,14 @@ pub async fn agent_chat_stream(
             client_clone,
             llama_url_clone,
             model_name_clone,
-            sqlite_memory_clone, // already Arc in this scope
+            sqlite_memory_clone,
             conversation_id_clone,
         )
         .await;
     });
 
     // Convert events to SSE format
-    let stream = UnboundedReceiverStream::new(rx).map(
+    let stream = tokio_stream::wrappers::ReceiverStream::new(rx).map(
         move |event_result| -> Result<web::Bytes, actix_web::Error> {
             match event_result {
                 Ok(event) => {
@@ -568,4 +595,28 @@ pub async fn agent_chat_stream(
         .append_header(("Cache-Control", "no-cache"))
         .append_header(("Connection", "keep-alive"))
         .streaming(stream))
+}
+
+#[post("/api/agent/chat/{conversation_id}/cancel")]
+pub async fn cancel_agent_generation(
+    path: web::Path<String>,
+    active_generations: web::Data<ActiveGenerations>,
+) -> impl Responder {
+    let conversation_id = path.into_inner();
+    println!(
+        "Received cancellation request for conversation {}",
+        conversation_id
+    );
+
+    let map = active_generations.lock().unwrap();
+    if let Some(tx) = map.get(&conversation_id) {
+        let _ = tx.send(true); // Send cancellation signal
+        HttpResponse::Ok().json(serde_json::json!({"status": "cancelled"}))
+    } else {
+        println!(
+            "No active generation found for conversation {}",
+            conversation_id
+        );
+        HttpResponse::NotFound().json(serde_json::json!({"error": "No active generation found"}))
+    }
 }

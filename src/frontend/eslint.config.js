@@ -51,6 +51,7 @@ export default [
         getComputedStyle: 'readonly',
         // Event types
         Event: 'readonly',
+        AbortController: 'readonly',
         EventListener: 'readonly',
         CustomEvent: 'readonly',
         KeyboardEvent: 'readonly',

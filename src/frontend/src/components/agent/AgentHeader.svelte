@@ -13,10 +13,19 @@
   export let showHistory: boolean = false
   export let onToggleTesting: () => void
   export let showTesting: boolean = false
+  export let onNewChat: () => void = () => {}
 </script>
 
 <PageSubHeader title="Agent Chat" icon="robot-confused">
   {#snippet actions()}
+    <Button
+      variant="ghost"
+      class="button-icon-only"
+      onclick={onNewChat}
+      title="New Conversation"
+    >
+      <MaterialIcon name="plus" width="32" height="32" />
+    </Button>
     <Button
       variant="info"
       class="button-icon-only"

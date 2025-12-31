@@ -18,6 +18,7 @@
     onStopTTS?: () => void
     quotedMessage?: string | null
     onClearQuote?: () => void
+    onStop?: () => void
   }
 
   let {
@@ -32,7 +33,8 @@
     ttsSpeaking = false,
     onStopTTS,
     quotedMessage = null,
-    onClearQuote
+    onClearQuote,
+    onStop = () => {}
   }: Props = $props()
 
   let textareaElement: HTMLTextAreaElement = $state()
@@ -404,23 +406,33 @@
       </div>
 
       <div class="send-button-wrapper">
-        <Button
-          variant="primary"
-          onclick={() => {
-            // Clean input message before sending (remove any attachment references)
-            const cleanedInput = cleanInputMessage(inputMessage)
-            if (cleanedInput !== inputMessage) {
-              onInputChange(cleanedInput)
-            }
-            onSend()
-            clearAttachments()
-          }}
-          disabled={loading ||
-            (!inputMessage.trim() && attachments.length === 0)}
-          class="send-button"
-        >
-          <MaterialIcon name="send" width="20" height="20" />
-        </Button>
+        {#if loading}
+          <Button
+            variant="danger"
+            onclick={onStop}
+            class="send-button stop-button"
+            title="Stop generation"
+          >
+            <MaterialIcon name="stop" width="20" height="20" />
+          </Button>
+        {:else}
+          <Button
+            variant="primary"
+            onclick={() => {
+              // Clean input message before sending (remove any attachment references)
+              const cleanedInput = cleanInputMessage(inputMessage)
+              if (cleanedInput !== inputMessage) {
+                onInputChange(cleanedInput)
+              }
+              onSend()
+              clearAttachments()
+            }}
+            disabled={!inputMessage.trim() && attachments.length === 0}
+            class="send-button"
+          >
+            <MaterialIcon name="send" width="20" height="20" />
+          </Button>
+        {/if}
       </div>
     </div>
   </div>

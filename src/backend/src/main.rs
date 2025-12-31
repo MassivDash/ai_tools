@@ -15,7 +15,7 @@ mod utils;
 
 use dotenv::dotenv;
 
-use crate::api::agent::core::types::AgentConfig;
+use crate::api::agent::core::types::{ActiveGenerations, AgentConfig};
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::config::AgentConfigHandle;
 use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState};
@@ -59,21 +59,17 @@ async fn main() -> std::io::Result<()> {
             .expect("Failed to initialize SQLite conversation memory"),
     );
 
-    // SQLite-based model notes storage
     let model_notes_storage: Arc<ModelNotesStorage> = Arc::new(
         ModelNotesStorage::new("./data/conversations.db")
             .await
             .expect("Failed to initialize model notes storage"),
     );
-
-    // SQLite-based default configs storage (separate from model notes)
     let default_configs_storage: Arc<DefaultConfigsStorage> = Arc::new(
         DefaultConfigsStorage::new("./data/conversations.db")
             .await
             .expect("Failed to initialize default configs storage"),
     );
 
-    // SQLite-based testing storage
     use sqlx::sqlite::SqlitePoolOptions;
     let testing_pool = SqlitePoolOptions::new()
         .connect("./data/conversations.db")
@@ -83,9 +79,7 @@ async fn main() -> std::io::Result<()> {
     let testing_storage = TestingStorage::new(testing_pool)
         .await
         .expect("Failed to initialize testing storage");
-    // TestingStorage implements Clone (contains SqlitePool), so we don't need Arc wrapper for Data
 
-    // Initialize llama config with default from storage or fallback to hardcoded
     let mut llama_config_init = Config::default();
     if let Ok(Some(default_config)) = default_configs_storage.get_llama_default().await {
         llama_config_init.hf_model = default_config.hf_model.clone();
@@ -131,6 +125,10 @@ async fn main() -> std::io::Result<()> {
 
     // Shared state for agent config
     let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
+
+    // Shared state for Active Generations (cancellation tokens)
+    let active_generations: ActiveGenerations =
+        Arc::new(Mutex::new(std::collections::HashMap::new()));
 
     // Create Agent WebSocket state for real-time agent updates
     let agent_ws_state = Arc::new(AgentWebSocketState::new());
@@ -198,12 +196,11 @@ async fn main() -> std::io::Result<()> {
     let sqlite_memory_data = web::Data::new(sqlite_memory.clone());
     let model_notes_storage_data = web::Data::new(model_notes_storage.clone());
     let default_configs_storage_data = web::Data::new(default_configs_storage.clone());
+    let active_generations_data = web::Data::new(active_generations.clone());
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
 
-        // The services and wrappers are loaded from the last to first
-        // Ensure all the wrappers are after routes and handlers
         App::new()
             .app_data(web::Data::new(llama_process_data.clone()))
             .app_data(web::Data::new(llama_config_data.clone()))
@@ -217,6 +214,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(sqlite_memory_data.clone())
             .app_data(model_notes_storage_data.clone())
             .app_data(default_configs_storage_data.clone())
+            .app_data(active_generations_data.clone())
             .app_data(web::Data::new(testing_storage.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))

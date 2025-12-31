@@ -232,6 +232,7 @@
     onToggleTerminal={handleToggleTerminal}
     onToggleHistory={handleToggleHistory}
     onToggleTesting={handleToggleTesting}
+    onNewChat={handleNewConversation}
   >
     <ServerControls
       serverActive={serverStatus.active}

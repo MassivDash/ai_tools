@@ -1,6 +1,6 @@
 use actix_web::web::ServiceConfig;
 
-use crate::api::agent::service::chat::{agent_chat, agent_chat_stream};
+use crate::api::agent::service::chat::{agent_chat, agent_chat_stream, cancel_agent_generation};
 use crate::api::agent::service::config::{
     get_agent_config, get_agent_status, get_available_tools, get_model_capabilities,
     post_agent_config,
@@ -22,6 +22,7 @@ pub fn configure_agent_services(cfg: &mut ServiceConfig) {
         .service(get_model_capabilities)
         .service(agent_chat)
         .service(agent_chat_stream)
+        .service(cancel_agent_generation)
         .service(get_conversations)
         .service(delete_conversation)
         .service(update_conversation_title)

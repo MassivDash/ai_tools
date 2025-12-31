@@ -46,6 +46,10 @@
   let activeToolsSet: Set<string> = $state(new Set())
   let activeToolsList = $derived(Array.from(activeToolsSet))
 
+  // Abort controller for stopping generation
+  let abortController: AbortController | null = null
+  let ignoringStream = false
+
   // Model capabilities
   let modelCapabilities: ModelCapabilities = $state({
     vision: false,
@@ -207,6 +211,11 @@
     setTimeout(() => scrollToBottom(true), 100)
 
     try {
+      // Create new abort controller
+      if (abortController) abortController.abort()
+      abortController = new AbortController()
+      ignoringStream = false
+
       // Cast to any because specific TS interface might expect string
       const request: any = {
         message: currentInput,
@@ -221,7 +230,8 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        signal: abortController.signal
       })
 
       if (!response.ok) {
@@ -230,6 +240,9 @@
       // Scroll to bottom
       setTimeout(() => scrollToBottom(true), 100)
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return
+      }
       console.error('Failed to send message:', err)
       loading = false
       error =
@@ -238,6 +251,28 @@
         err.message ||
         'Failed to send message'
     }
+  }
+
+  const stopGeneration = async () => {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+
+    // Explicitly signal backend to stop, if we have a conversation ID
+    if (conversationId) {
+      try {
+        await axiosBackendInstance.post(`agent/chat/${conversationId}/cancel`)
+      } catch (err) {
+        console.error('Failed to send explicit cancel signal to backend:', err)
+      }
+    }
+
+    ignoringStream = true
+    loading = false
+    // Clear any streaming state
+    currentStreamingMessage = ''
+    streamingMessageId = null
   }
 
   // Auto-scroll function
@@ -255,6 +290,8 @@
   }
 
   const handleStreamEvent = (event: AgentStreamEvent) => {
+    if (ignoringStream) return
+
     switch (event.type) {
       case 'status':
         if (event.message) {
@@ -504,6 +541,7 @@
     {loading}
     {modelCapabilities}
     onSend={sendMessage}
+    onStop={stopGeneration}
     onInputChange={handleInputChange}
     onAttachmentsChange={(attachments) => {
       currentAttachments = attachments

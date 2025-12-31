@@ -145,6 +145,7 @@ pub async fn execute_agent_loop(
                 Some(tools.clone())
             },
             tool_choice,
+            stream: Some(false),
         };
 
         println!("📤 Sending request to LLM (iteration {})...", iterations);

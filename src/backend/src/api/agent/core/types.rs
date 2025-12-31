@@ -165,6 +165,8 @@ pub struct ChatCompletionRequest {
     pub tools: Option<Vec<Tool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
 }
 
 /// Chat completion response from llama.cpp
@@ -220,6 +222,10 @@ pub struct ToolCallResult {
     pub tool_name: String,
     pub result: String,
 }
+
+pub type ActiveGenerations = std::sync::Arc<
+    std::sync::Mutex<std::collections::HashMap<String, tokio::sync::watch::Sender<bool>>>,
+>;
 
 /// Agent config request
 #[derive(Debug, Clone, Serialize, Deserialize)]
