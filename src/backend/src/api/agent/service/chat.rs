@@ -5,6 +5,8 @@ use crate::api::agent::core::types::{
     MessageContent, MessageRole,
 };
 use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
+use crate::api::agent::service::naming::attempt_conversation_naming;
+use crate::api::agent::service::utils::clean_response;
 use crate::api::agent::service::websocket::AgentWebSocketState;
 use crate::api::agent::tools::{
     self,
@@ -17,185 +19,6 @@ use reqwest::Client;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-
-/// Clean response text by removing internal reasoning markers and redacted content
-fn clean_response(text: &str) -> String {
-    let mut cleaned = text.to_string();
-
-    // Remove redacted reasoning markers
-    cleaned = cleaned.replace("<|redacted_reasoning|>", "");
-    cleaned = cleaned.replace("</think>", "");
-    cleaned = cleaned.replace("<think>", "");
-    cleaned = cleaned.replace("</think>", "");
-
-    // Remove tool call markers
-    cleaned = cleaned.replace("<｜tool▁calls▁begin｜>", "");
-    cleaned = cleaned.replace("<｜tool▁calls▁end｜>", "");
-    cleaned = cleaned.replace("<｜tool▁call▁begin｜>", "");
-    cleaned = cleaned.replace("<｜tool▁call▁end｜>", "");
-    cleaned = cleaned.replace("<｜tool▁sep｜>", "");
-    cleaned = cleaned.replace("<｜tool▁outputs▁begin｜>", "");
-    cleaned = cleaned.replace("<｜tool▁outputs▁end｜>", "");
-    cleaned = cleaned.replace("<｜tool▁output▁begin｜>", "");
-    cleaned = cleaned.replace("<｜tool▁output▁end｜>", "");
-
-    // Remove common internal reasoning patterns (Thought/Action/Observation format)
-    if cleaned.contains("Thought:")
-        || cleaned.contains("Action:")
-        || cleaned.contains("Observation:")
-    {
-        // Try to extract just the answer if present
-        if let Some(answer_start) = cleaned.rfind("Answer:") {
-            cleaned = cleaned[answer_start + 7..].trim().to_string();
-        } else if let Some(answer_start) = cleaned.rfind("answer:") {
-            cleaned = cleaned[answer_start + 7..].trim().to_string();
-        } else {
-            // If no Answer found, try to remove the reasoning blocks
-            // Look for patterns like "Thought: ... Action: ... Observation: ..."
-            let lines: Vec<&str> = cleaned.lines().collect();
-            let mut filtered_lines = Vec::new();
-            let mut skip_until_answer = false;
-
-            for line in lines {
-                let line_lower = line.trim().to_lowercase();
-                if line_lower.starts_with("thought:")
-                    || line_lower.starts_with("action:")
-                    || line_lower.starts_with("observation:")
-                    || line_lower.starts_with("current task:")
-                    || line_lower.starts_with("you are in a new chain")
-                {
-                    skip_until_answer = true;
-                    continue;
-                }
-                if line_lower.starts_with("answer:") {
-                    skip_until_answer = false;
-                    filtered_lines.push(&line[7..]); // Skip "Answer:" prefix
-                    continue;
-                }
-                if !skip_until_answer {
-                    filtered_lines.push(line);
-                }
-            }
-            if !filtered_lines.is_empty() {
-                cleaned = filtered_lines.join("\n");
-            }
-        }
-    }
-
-    // Remove any remaining HTML-like tags that might be internal markers
-    // Use simple string replacement instead of regex for reliability
-    let mut result = String::new();
-    let mut in_tag = false;
-    for ch in cleaned.chars() {
-        if ch == '<' {
-            in_tag = true;
-        } else if ch == '>' && in_tag {
-            in_tag = false;
-        } else if !in_tag {
-            result.push(ch);
-        }
-    }
-    cleaned = result;
-
-    cleaned.trim().to_string()
-}
-
-/// Helper to attempt auto-naming the conversation
-async fn attempt_conversation_naming(
-    client: Client,
-    llama_url: String,
-    model_name: String,
-    sqlite_memory: Arc<SqliteConversationMemory>,
-    conversation_id: String,
-) {
-    // Check message count - only rename if it's new (e.g. 2 user/assistant messages)
-    let count = match sqlite_memory.message_count(&conversation_id).await {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-
-    // We only want to rename early in the conversation
-    // Depending on when this is called (during or after), count might vary.
-    // If called after response is stored, count should be >= 2.
-    // Let's safe guard: if count is between 2 and 4.
-    if !(2..=4).contains(&count) {
-        return;
-    }
-
-    // Also check if title is still default "Chat ..." or "New Conversation" to avoid overwriting user rename.
-    // Ideally we should check this, but for now we assume if count is low it hasn't been renamed manually yet.
-
-    // Get messages to prompt for title
-    let messages = match sqlite_memory.get_messages(&conversation_id).await {
-        Ok(m) => m,
-        Err(_) => return,
-    };
-
-    if messages.is_empty() {
-        return;
-    }
-
-    // Construct prompt
-    // We use the first user message + assistant response for context
-    let context_msgs: Vec<String> = messages
-        .iter()
-        .filter(|m| m.role == MessageRole::User || m.role == MessageRole::Assistant)
-        .take(2)
-        .map(|m| {
-            format!(
-                "{}: {}",
-                if m.role == MessageRole::User {
-                    "User"
-                } else {
-                    "Assistant"
-                },
-                m.content.text()
-            )
-        })
-        .collect();
-
-    let context = context_msgs.join("\n");
-
-    let prompt = format!(
-        "Generate a very short, concise title (max 5 words) for this conversation based on the start. Do not use quotes or prefixes. Just the title.\n\nConversation:\n{}\n\nTitle:", 
-        context
-    );
-
-    // Call LLM for title
-    // We use a simple non-streaming request
-    let request = serde_json::json!({
-        "model": model_name,
-        "messages": [
-            { "role": "user", "content": prompt }
-        ],
-        "temperature": 0.7,
-        "max_tokens": 20
-    });
-
-    // Fire and forget-ish
-    let res = match client.post(&llama_url).json(&request).send().await {
-        Ok(r) => r,
-        Err(e) => {
-            println!("⚠️ Failed to request title summary: {}", e);
-            return;
-        }
-    };
-
-    if let Ok(json) = res.json::<serde_json::Value>().await {
-        if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
-            let title = clean_response(content).replace("\"", "").trim().to_string();
-            if !title.is_empty() {
-                println!(
-                    "📝 Auto-renaming conversation {} to '{}'",
-                    conversation_id, title
-                );
-                let _ = sqlite_memory
-                    .update_conversation_title(&conversation_id, &title)
-                    .await;
-            }
-        }
-    }
-}
 
 /// Chat completion endpoint
 #[post("/api/agent/chat")]
@@ -221,10 +44,6 @@ pub async fn agent_chat(
         )
     };
 
-    // Ensure host is accessible (0.0.0.0 might need to be treated as localhost for internal calls if on same machine,
-    // but usually 0.0.0.0 works or we should use 127.0.0.1. Let's stick to what's configured but default to localhost if 0.0.0.0 to be safe for client calls?)
-    // Actually reqwest to 0.0.0.0 works on linux.
-    // Let's use 127.0.0.1 if host is 0.0.0.0 just in case.
     let host_for_url = if llama_host == "0.0.0.0" {
         "127.0.0.1".to_string()
     } else {
