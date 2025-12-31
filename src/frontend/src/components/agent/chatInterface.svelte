@@ -167,8 +167,8 @@
     if (resizeMode === 'vertical' || resizeMode === 'both') {
       const dy = e.clientY - startY
       const newHeight = startHeight + dy
-      // Lower min height (150px), Max height based on window
-      if (newHeight >= 150 && newHeight < window.innerHeight * 0.98) {
+      // Lower min height (150px), no max limits to allow page scrolling
+      if (newHeight >= 150) {
         chatLayout.setHeight(newHeight)
       }
     }
@@ -667,7 +667,6 @@
     <MaterialIcon name="resize-bottom-right" width="16" height="16" />
   </div>
 </div>
-```
 
 <style>
   .chat-interface {

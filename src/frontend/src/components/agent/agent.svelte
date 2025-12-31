@@ -298,6 +298,11 @@
       {:else}
         <EmptyState />
       {/if}
+      <!-- Add extra space at bottom as requested -->
+      <div
+        class="bottom-spacer"
+        style="height: 500px; width: 100%; flex-shrink: 0;"
+      ></div>
     </div>
     <AgentConfig
       isOpen={showConfig}
@@ -323,7 +328,9 @@
     flex-direction: column;
     background-color: var(--bg-primary, #fff);
     transition: background-color 0.3s ease;
-    box-sizing: border-box; /* Ensure no scroll on this container */
+    box-sizing: border-box;
+    /* Allow expanding beyond viewport */
+    min-height: 85vh;
   }
 
   .error {
@@ -344,9 +351,10 @@
     flex: 1;
     display: flex;
     flex-direction: row;
-    height: 100%;
+    /* Allow growing */
+    min-height: 100%;
     position: relative;
-    overflow: hidden;
+    /* overflow: hidden;  <-- checking this, we might need to remove hidden if we want to scroll page */
     width: 100%;
   }
 
@@ -384,9 +392,10 @@
     min-width: 0;
     width: 100%;
     background-color: var(--bg-primary, #fff);
-    overflow-y: hidden;
+    overflow-y: visible; /* Allow scrolling */
     padding: 0;
-    height: 100%; /* Ensure it fills parent */
+    /* Ensure it fills parent */
+    flex: 1;
   }
 
   .main-content.with-terminal {

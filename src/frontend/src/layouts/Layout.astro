@@ -86,7 +86,9 @@ const { title } = Astro.props
   </head>
   <body>
     <Navbar />
-    <slot />
+    <main style='flex: 1; display: flex; flex-direction: column;'>
+      <slot />
+    </main>
     <Footer />
     <style is:global>
       /* Material Design 3 - Light Theme */
@@ -217,7 +219,15 @@ const { title } = Astro.props
         transition:
           background-color 0.3s ease,
           color 0.3s ease;
+        /* Flex layout to push footer down */
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
+
+      /* Identify the main slot content - assuming it's a direct child or we target it specifically if wrapped */
+      /* Since Astro slots inserted directly into body, we need to ensure the slot content takes available space */
+      /* But purely generic slot might be hard. Let's assume the component inside slot (like Agent) handles flex-grow or we add a wrapper */
 
       /* Headings use Mina */
       h1,
