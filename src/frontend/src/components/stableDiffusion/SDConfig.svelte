@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import { stableDiffusionApi } from '../../api/stableDiffusion'
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
@@ -17,8 +16,6 @@
 
   export let isOpen = false
   export let onClose = () => {}
-
-  const dispatch = createEventDispatcher()
 
   let config: SDConfig = {
     output_path: './public',

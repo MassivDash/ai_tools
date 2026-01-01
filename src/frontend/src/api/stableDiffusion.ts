@@ -33,8 +33,8 @@ export const stableDiffusionApi = {
         typeof sanitizedConfig[k] === 'string' &&
         (sanitizedConfig[k] as string).trim() === ''
       ) {
-         // @ts-ignore
-         sanitizedConfig[k] = null
+        // @ts-ignore
+        sanitizedConfig[k] = null
       }
     }
 
@@ -68,7 +68,10 @@ export const stableDiffusionApi = {
     }
   },
 
-  updateModelSet: async (id: number, set: Partial<SDModelSet>): Promise<void> => {
+  updateModelSet: async (
+    id: number,
+    set: Partial<SDModelSet>
+  ): Promise<void> => {
     try {
       await axiosBackendInstance.put(`sd-server/model-sets/${id}`, set)
     } catch (e: any) {

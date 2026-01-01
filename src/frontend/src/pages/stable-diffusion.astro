@@ -1,10 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import StableDiffusion from '../components/stableDiffusion/StableDiffusion.svelte'
+import StableDiffusionComponent from '../components/stableDiffusion/StableDiffusion.svelte'
 ---
 
 <Layout title='Stable Diffusion - AI Tools'>
   <div transition:animate='fade'>
-    <StableDiffusion client:load />
+    <StableDiffusionComponent client:load />
   </div>
 </Layout>
