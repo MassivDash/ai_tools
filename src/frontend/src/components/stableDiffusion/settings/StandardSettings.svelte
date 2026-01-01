@@ -2,7 +2,7 @@
   import Input from '../../ui/Input.svelte'
   import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
   import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
-  import type { SDConfig } from '../../../schemas/stableDiffusion'
+  import type { SDConfig } from '../../../validation/stableDiffusion'
 
   export let config: SDConfig
 </script>

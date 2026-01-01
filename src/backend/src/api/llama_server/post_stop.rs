@@ -69,7 +69,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_post_stop_llama_server_not_running() {
-        let process: ProcessHandle = Arc::new(Mutex::new(None));
+        let process = ProcessHandle(Arc::new(Mutex::new(None)));
         let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
             is_ready: false,
             generation: 0,

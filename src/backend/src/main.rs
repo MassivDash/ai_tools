@@ -40,7 +40,6 @@ use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
 use crate::services::sd_server::configure_sd_server_services;
 
-use std::process::Child;
 use std::sync::{Arc, Mutex};
 
 #[actix_web::main]
@@ -104,7 +103,7 @@ async fn main() -> std::io::Result<()> {
     let llama_config: Arc<Mutex<Config>> = Arc::new(Mutex::new(llama_config_init));
 
     // Shared state for llama server process
-    let llama_process: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
+    let llama_process = ProcessHandle(Arc::new(Mutex::new(None)));
     let llama_logs: LogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
     let llama_server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
         is_ready: false,
@@ -173,6 +172,7 @@ async fn main() -> std::io::Result<()> {
     let ws_state_status = ws_state.clone();
     let llama_process_status = llama_process.clone();
     let llama_server_state_status = llama_server_state.clone();
+    let llama_config_status = llama_config.clone();
     actix_rt::spawn(async move {
         use tokio::time::{interval, Duration};
         let mut interval = interval(Duration::from_secs(2));
@@ -182,21 +182,55 @@ async fn main() -> std::io::Result<()> {
 
             let process_handle: ProcessHandle = llama_process_status.clone();
             let state_handle: ServerStateHandle = llama_server_state_status.clone();
+            let config_handle = llama_config_status.clone();
 
             let is_active = {
                 let mut process_guard = process_handle.lock().unwrap();
                 if let Some(ref mut child) = *process_guard {
                     match child.try_wait() {
-                        Ok(Some(_)) => {
+                        Ok(Some(status)) => {
+                            let msg = format!(
+                                "⚠️ SYSTEM: Llama server process exited with status: {}",
+                                status
+                            );
+                            println!("{}", msg);
+                            ws_state_status.broadcast_log(
+                                crate::api::llama_server::websocket::LogLine {
+                                    timestamp: std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    line: msg,
+                                    source: "stdout".to_string(),
+                                },
+                            );
+
                             drop(process_guard);
                             let mut p = process_handle.lock().unwrap();
                             *p = None;
                             false
                         }
                         Ok(None) => true,
-                        Err(_) => false,
+                        Err(e) => {
+                            let msg = format!("⚠️ SYSTEM: Error checking process status: {}", e);
+                            println!("{}", msg);
+                            ws_state_status.broadcast_log(
+                                crate::api::llama_server::websocket::LogLine {
+                                    timestamp: std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    line: msg,
+                                    source: "stdout".to_string(),
+                                },
+                            );
+                            false
+                        }
                     }
                 } else {
+                    // Only log once or it will spam
+                    // let msg = "⚠️ SYSTEM: Process guard is None";
+                    // println!("{}", msg);
                     false
                 }
             };
@@ -206,9 +240,14 @@ async fn main() -> std::io::Result<()> {
                 state_guard.is_ready
             };
 
+            let port = {
+                let config = config_handle.lock().unwrap();
+                config.port.unwrap_or(8080)
+            };
+
             let active = if is_active { is_ready } else { false };
 
-            ws_state_status.broadcast_status(active, 8080);
+            ws_state_status.broadcast_status(active, port);
         }
     });
 

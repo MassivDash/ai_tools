@@ -3,7 +3,7 @@
   import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
   import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
   import Accordion from '../../ui/Accordion.svelte'
-  import type { SDConfig } from '../../../schemas/stableDiffusion'
+  import type { SDConfig } from '../../../validation/stableDiffusion'
 
   export let config: SDConfig
 </script>

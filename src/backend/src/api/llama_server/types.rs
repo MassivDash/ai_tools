@@ -2,7 +2,15 @@ use std::collections::VecDeque;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
-pub type ProcessHandle = Arc<Mutex<Option<Child>>>;
+#[derive(Clone)]
+pub struct ProcessHandle(pub Arc<Mutex<Option<Child>>>);
+
+impl std::ops::Deref for ProcessHandle {
+    type Target = Mutex<Option<Child>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Config {

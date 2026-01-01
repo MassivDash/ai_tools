@@ -18,7 +18,7 @@
     message: string
   }
 
-  let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
+  let serverStatus: LlamaServerStatus = { active: false, port: 8099 }
   let loading = false
   let error = ''
   let showConfig = false
@@ -29,6 +29,7 @@
       serverStatus = status
     },
     () => {
+      // Keep terminal open so user can see logs/errors -- restored auto-hide as requested
       showTerminal = false
     }
   )
@@ -148,7 +149,7 @@
       {#if serverStatus.active}
         <div class="iframe-container">
           <iframe
-            src={import.meta.env.PUBLIC_LLAMA_URL || 'http://localhost:8080'}
+            src={`http://localhost:${serverStatus.port}`}
             class="llama-iframe"
             title="Llama.cpp WebUI"
           ></iframe>

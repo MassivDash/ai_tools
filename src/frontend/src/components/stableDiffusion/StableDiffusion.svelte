@@ -8,7 +8,7 @@
   import SDConfig from './SDConfig.svelte'
   import Terminal from './Terminal.svelte'
   import Gallery from './Gallery.svelte'
-  import { GenerationSchema } from '../../schemas/stableDiffusion'
+  import { GenerationSchema } from '../../validation/stableDiffusion'
 
   let prompt = ''
   let negative_prompt = ''

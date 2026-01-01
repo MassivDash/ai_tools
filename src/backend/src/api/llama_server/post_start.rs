@@ -138,6 +138,7 @@ pub async fn post_start_llama_server(
                     log_buffer.get_ref().clone(),
                     server_state.get_ref().clone(),
                     Some(ws_state.get_ref().clone()),
+                    port,
                 );
             }
 

@@ -69,7 +69,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_llama_server_status_no_process() {
-        let process: ProcessHandle = Arc::new(Mutex::new(None));
+        let process = ProcessHandle(Arc::new(Mutex::new(None)));
         let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
             is_ready: false,
             generation: 0,
@@ -96,7 +96,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_llama_server_status_with_ready_state() {
-        let process: ProcessHandle = Arc::new(Mutex::new(None));
+        let process = ProcessHandle(Arc::new(Mutex::new(None)));
         let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
             is_ready: true,
             generation: 0,
