@@ -56,6 +56,12 @@ export const menuConfig: MenuConfig = {
       href: '/tools',
       id: 'tools-link',
       icon: 'wrench'
+    },
+    {
+      label: 'Stable Diffusion',
+      href: '/stable-diffusion',
+      id: 'sd-link',
+      icon: 'image-filter-hdr'
     }
   ],
   footer: [
@@ -83,6 +89,11 @@ export const menuConfig: MenuConfig = {
       label: 'Tools',
       href: '/tools',
       id: 'footer-tools-link'
+    },
+    {
+      label: 'Stable Diffusion',
+      href: '/stable-diffusion',
+      id: 'footer-sd-link'
     }
   ],
   footerLinks: {

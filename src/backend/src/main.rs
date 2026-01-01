@@ -27,6 +27,7 @@ use crate::api::llama_server::types::{
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
 use crate::api::model_notes::ModelNotesStorage;
+use crate::api::sd_server::types::{SDConfig, SDConfigHandle, SDProcessHandle};
 use crate::args::collect_args::collect_args;
 use crate::cors::get_cors_options::get_cors_options;
 use crate::services::agent::configure_agent_services;
@@ -34,9 +35,17 @@ use crate::services::chromadb::configure_chromadb_services;
 use crate::services::converters::configure_converter_services;
 use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
+use crate::services::sd_server::configure_sd_server_services;
 
+use serde::Deserialize;
+use std::fs;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
+
+#[derive(Deserialize)]
+struct AstroxConfig {
+    sd_models_path: Option<String>,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -51,6 +60,14 @@ async fn main() -> std::io::Result<()> {
         .chroma_address
         .unwrap_or_else(|| "http://localhost:8000".to_string());
     println!("🔗 ChromaDB address: {}", chroma_address);
+
+    // Read Astrox.toml
+    let mut astrox_sd_path = None;
+    if let Ok(contents) = fs::read_to_string("../../Astrox.toml") {
+        if let Ok(config) = toml::from_str::<AstroxConfig>(&contents) {
+            astrox_sd_path = config.sd_models_path;
+        }
+    }
 
     // SQLite-based conversation storage (persists user/assistant messages)
     let sqlite_memory: Arc<SqliteConversationMemory> = Arc::new(
@@ -130,6 +147,15 @@ async fn main() -> std::io::Result<()> {
     let active_generations: ActiveGenerations =
         Arc::new(Mutex::new(std::collections::HashMap::new()));
 
+    // Stable Diffusion State
+    let mut sd_config_init = SDConfig::default();
+    if let Some(path) = astrox_sd_path {
+        println!("✅ Using SD models path from Astrox.toml: {}", path);
+        sd_config_init.models_path = path;
+    }
+    let sd_config: SDConfigHandle = Arc::new(Mutex::new(sd_config_init));
+    let sd_process: SDProcessHandle = Arc::new(Mutex::new(None));
+
     // Create Agent WebSocket state for real-time agent updates
     let agent_ws_state = Arc::new(AgentWebSocketState::new());
 
@@ -197,6 +223,9 @@ async fn main() -> std::io::Result<()> {
     let model_notes_storage_data = web::Data::new(model_notes_storage.clone());
     let default_configs_storage_data = web::Data::new(default_configs_storage.clone());
     let active_generations_data = web::Data::new(active_generations.clone());
+    let sd_config_data = sd_config.clone();
+    let sd_process_data = sd_process.clone();
+
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
         let cors = get_cors_options(env, cors_url.clone()); //Prod CORS URL address, for dev run the cors is set to *
@@ -216,6 +245,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(default_configs_storage_data.clone())
             .app_data(active_generations_data.clone())
             .app_data(web::Data::new(testing_storage.clone()))
+            .app_data(web::Data::new(sd_config_data.clone()))
+            .app_data(web::Data::new(sd_process_data.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
@@ -228,6 +259,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_chromadb_services)
             .configure(configure_agent_services)
             .configure(configure_model_notes_services)
+            .configure(configure_sd_server_services)
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)
