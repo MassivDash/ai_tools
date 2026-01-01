@@ -21,6 +21,7 @@ pub async fn post_start_sd_server(
     log_buffer: web::Data<LogBuffer>,
     sd_state: web::Data<SDStateHandle>,
     ws_state: web::Data<Arc<WebSocketState>>,
+    sd_images_storage: web::Data<Arc<crate::api::sd_server::storage::SDImagesStorage>>,
 ) -> ActixResult<HttpResponse> {
     let mut process_guard = process.lock().unwrap();
 
@@ -262,6 +263,47 @@ pub async fn post_start_sd_server(
     ws_state.broadcast_status(true, None);
 
     println!("🚀 Starting sd-cli: {:?}", cmd);
+
+    // Save Metadata to DB
+    // Construct additional info
+    #[derive(Serialize)]
+    struct AdditionalInfo {
+        vae: Option<String>,
+        control_net: Option<String>,
+        lora_model_dir: Option<String>,
+        t5xxl: Option<String>,
+        clip_l: Option<String>,
+        clip_g: Option<String>,
+    }
+    let additional_info = AdditionalInfo {
+        vae: config.vae.clone(),
+        control_net: config.control_net.clone(),
+        lora_model_dir: config.lora_model_dir.clone(),
+        t5xxl: config.t5xxl.clone(),
+        clip_l: config.clip_l.clone(),
+        clip_g: config.clip_g.clone(),
+    };
+
+    use crate::api::sd_server::storage::SDImageMetadata;
+    let metadata = SDImageMetadata {
+        filename: unique_filename.clone(),
+        prompt: config.prompt.clone(),
+        diffusion_model: config.diffusion_model.clone(),
+        width: config.width as i64,
+        height: config.height as i64,
+        steps: config.steps.map(|v| v as i64),
+        cfg_scale: config.cfg_scale,
+        seed: config.seed, // stored as i64
+        created_at: timestamp as i64,
+        additional_info: Some(serde_json::to_string(&additional_info).unwrap_or_default()),
+    };
+
+    let storage_clone = sd_images_storage.clone();
+    actix_rt::spawn(async move {
+        if let Err(e) = storage_clone.add_image(metadata).await {
+            println!("❌ Failed to save image metadata: {:?}", e);
+        }
+    });
 
     // FIX: Spawn logger
     match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {

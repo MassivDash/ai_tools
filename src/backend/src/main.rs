@@ -144,6 +144,12 @@ async fn main() -> std::io::Result<()> {
         is_generating: false,
         current_output_file: None,
     }));
+    use crate::api::sd_server::storage::SDImagesStorage;
+    let sd_images_storage = Arc::new(
+        SDImagesStorage::new("./data/conversations.db")
+            .await
+            .expect("Failed to initialize SD images storage"),
+    );
 
     // Create SD WebSocket State
     let sd_ws_state = Arc::new(crate::api::sd_server::websocket::WebSocketState::new(
@@ -260,6 +266,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(sd_logs_data.clone()))
             .app_data(web::Data::new(sd_server_state_data.clone()))
             .app_data(web::Data::new(sd_ws_state_data.clone()))
+            .app_data(web::Data::new(sd_images_storage.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

@@ -1,0 +1,81 @@
+<script lang="ts">
+  import Input from '../../ui/Input.svelte'
+  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
+  import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
+  import Accordion from '../../ui/Accordion.svelte'
+  import type { SDConfig } from '../../../schemas/stableDiffusion'
+
+  export let config: SDConfig
+</script>
+
+<Accordion title="System & Paths">
+  <div class="config-section">
+    <LabelWithHelp
+      id="output-path"
+      label="Output Path"
+      helpText="Directory for generated images"
+    />
+    <Input
+      id="output-path"
+      label=""
+      bind:value={config.output_path}
+      placeholder="./public"
+    />
+  </div>
+  <div class="config-section">
+    <LabelWithHelp
+      id="models-path"
+      label="Models Path"
+      helpText="Base directory for models"
+    />
+    <Input
+      id="models-path"
+      label=""
+      bind:value={config.models_path}
+      placeholder="./sd_models"
+    />
+  </div>
+  <div class="form-row">
+    <div class="form-group half">
+      <LabelWithHelp id="threads" label="Threads" helpText="-1 for auto" />
+      <Input id="threads" label="" type="number" bind:value={config.threads} />
+    </div>
+    <div class="form-group half">
+      <LabelWithHelp id="rng" label="RNG" helpText="Random Number Generator" />
+      <Input
+        id="rng"
+        label=""
+        bind:value={config.rng}
+        placeholder="std_default"
+      />
+    </div>
+  </div>
+  <div class="config-section">
+    <CheckboxWithHelp
+      bind:checked={config.offload_to_cpu}
+      label="Offload to CPU"
+      helpText="Save VRAM by offloading weights"
+    />
+  </div>
+  <div class="config-section">
+    <CheckboxWithHelp
+      bind:checked={config.color}
+      label="Color Logging"
+      helpText="Enable colored logs"
+    />
+  </div>
+</Accordion>
+
+<style>
+  .config-section {
+    margin-bottom: 1.5rem;
+  }
+  .form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .form-group {
+    flex: 1;
+  }
+</style>

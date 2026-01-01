@@ -8,8 +8,9 @@
   import SDConfig from './SDConfig.svelte'
   import Terminal from './Terminal.svelte'
   import Gallery from './Gallery.svelte'
+  import { GenerationSchema } from '../../schemas/stableDiffusion'
 
-  let prompt = 'A beautiful landscape'
+  let prompt = ''
   let negative_prompt = ''
   let isGenerating = false
   let error = ''
@@ -38,7 +39,6 @@
             const wasGenerating = isGenerating
             isGenerating = msg.is_generating
 
-            // Refresh gallery if generation just finished or we got a new file
             if ((wasGenerating && !isGenerating) || msg.current_file) {
               if (galleryComponent) galleryComponent.refresh()
               if (wasGenerating && !isGenerating) {
@@ -67,11 +67,17 @@
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
   })
 
-  // Start Generation
   const generateImage = async () => {
     error = ''
+
+    // Validate with Zod
+    const validation = GenerationSchema.safeParse({ prompt, negative_prompt })
+    if (!validation.success) {
+      error = validation.error.issues[0].message
+      return
+    }
+
     try {
-      // First update config with current prompts
       await axiosBackendInstance.post('sd-server/config', {
         prompt,
         negative_prompt
@@ -80,7 +86,6 @@
       const response = await axiosBackendInstance.post('sd-server/start')
       if (response.data.success) {
         showTerminal = true
-        // isGenerating will be updated by WS
       } else {
         error = response.data.message
       }
@@ -90,6 +95,13 @@
         err.response?.data?.message ||
         err.message ||
         'Failed to start generation'
+    }
+  }
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (!isGenerating) generateImage()
     }
   }
 </script>
@@ -121,12 +133,10 @@
     class:has-terminal={showTerminal}
     class:has-config={showConfig}
   >
-    <!-- Terminal Sidebar -->
     <div class="terminal-sidebar" class:visible={showTerminal}>
       <Terminal />
     </div>
 
-    <!-- Main Content -->
     <div
       class="main-content"
       class:with-terminal={showTerminal}
@@ -140,6 +150,7 @@
             placeholder="Describe your image..."
             multiline={true}
             rows={3}
+            onkeydown={handleKeydown}
           />
         </div>
         <div class="input-group">
@@ -147,6 +158,9 @@
             label="Negative Prompt"
             bind:value={negative_prompt}
             placeholder="What to avoid..."
+            onkeydown={(e) => {
+              if (e.key === 'Enter') generateImage()
+            }}
           />
         </div>
 
@@ -172,7 +186,6 @@
       </div>
     </div>
 
-    <!-- Config Sidebar -->
     <SDConfig isOpen={showConfig} onClose={() => (showConfig = false)} />
   </div>
 </div>
@@ -193,10 +206,9 @@
     flex-direction: row;
     position: relative;
     overflow: hidden;
-    height: calc(100vh - 120px); /* Adjust based on header */
+    height: calc(100vh - 120px);
   }
 
-  /* Sidebar Styles (Config matches LlamaConfig logic, Terminal matches Llama logic) */
   .terminal-sidebar {
     width: 40%;
     min-width: 400px;
@@ -230,7 +242,7 @@
   }
 
   .main-content.with-config {
-    margin-right: 400px; /* Assuming config width */
+    margin-right: 400px;
   }
 
   .controls-section {
@@ -264,7 +276,7 @@
 
   .gallery-section {
     flex: 1;
-    min-height: 0; /* Allow scrolling inside if needed */
+    min-height: 0;
   }
 
   @media (max-width: 768px) {

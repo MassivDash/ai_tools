@@ -2,11 +2,20 @@
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import IconButton from '../ui/IconButton.svelte'
 
   interface SDImage {
     filename: string
     created: number
     path: string
+    prompt?: string
+    diffusion_model?: string
+    width?: number
+    height?: number
+    steps?: number
+    cfg_scale?: number
+    seed?: number
+    additional_info?: string
   }
 
   export let isGenerating = false
@@ -42,6 +51,20 @@
     }
   }
 
+  const deleteImage = async (image: SDImage) => {
+    if (!confirm(`Permanently delete this image?`)) return
+    try {
+      await axiosBackendInstance.delete(`sd-server/image/${image.filename}`)
+      images = images.filter((img) => img.filename !== image.filename)
+      if (fullscreenImage?.filename === image.filename) {
+        fullscreenImage = null
+      }
+    } catch (err) {
+      console.error('Failed to delete image:', err)
+      alert('Failed to delete image')
+    }
+  }
+
   onMount(() => {
     refresh()
   })
@@ -50,9 +73,9 @@
 <div class="gallery-container">
   <div class="gallery-header">
     <h3>Generated Images</h3>
-    <button class="refresh-btn" onclick={refresh} title="Refresh Gallery">
+    <IconButton variant="ghost" onclick={refresh} title="Refresh Gallery">
       <MaterialIcon name="refresh" width="20" height="20" />
-    </button>
+    </IconButton>
   </div>
 
   {#if error}
@@ -77,12 +100,14 @@
         <div class="image-wrapper" onclick={() => (fullscreenImage = image)}>
           <img
             src={getBackendUrl(image.path)}
-            alt={image.filename}
+            alt={image.prompt || image.filename}
             loading="lazy"
           />
         </div>
         <div class="image-info">
-          <span class="filename" title={image.filename}>{image.filename}</span>
+          <span class="prompt-preview" title={image.prompt || image.filename}>
+            {image.prompt || image.filename}
+          </span>
           <span class="timestamp"
             >{new Date(image.created * 1000).toLocaleString()}</span
           >
@@ -102,14 +127,74 @@
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="fullscreen-overlay" onclick={() => (fullscreenImage = null)}>
-      <img
-        src={getBackendUrl(fullscreenImage.path)}
-        alt={fullscreenImage.filename}
-        onclick={(e) => e.stopPropagation()}
-      />
-      <button class="close-btn" onclick={() => (fullscreenImage = null)}>
-        <MaterialIcon name="close" width="32" height="32" />
-      </button>
+      <div class="overlay-content" onclick={(e) => e.stopPropagation()}>
+        <div class="overlay-image-container">
+          <img
+            src={getBackendUrl(fullscreenImage.path)}
+            alt={fullscreenImage.prompt || fullscreenImage.filename}
+          />
+        </div>
+        <div class="overlay-sidebar">
+          <div class="sidebar-header">
+            <h4>Details</h4>
+            <IconButton
+              variant="ghost"
+              onclick={() => (fullscreenImage = null)}
+              title="Close"
+            >
+              <MaterialIcon name="close" width="20" height="20" />
+            </IconButton>
+          </div>
+
+          <div class="detail-row">
+            <span class="label">Model</span>
+            <span class="value"
+              >{fullscreenImage.diffusion_model || 'Unknown'}</span
+            >
+          </div>
+          {#if fullscreenImage.prompt}
+            <div class="detail-row prompt">
+              <span class="label">Prompt</span>
+              <div class="value prompt-text">{fullscreenImage.prompt}</div>
+            </div>
+          {/if}
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Size</span>
+              <span class="value"
+                >{fullscreenImage.width} x {fullscreenImage.height}</span
+              >
+            </div>
+            {#if fullscreenImage.steps}
+              <div class="detail-item">
+                <span class="label">Steps</span>
+                <span class="value">{fullscreenImage.steps}</span>
+              </div>
+            {/if}
+            {#if fullscreenImage.cfg_scale}
+              <div class="detail-item">
+                <span class="label">CFG</span>
+                <span class="value">{fullscreenImage.cfg_scale}</span>
+              </div>
+            {/if}
+            {#if fullscreenImage.seed !== undefined}
+              <div class="detail-item">
+                <span class="label">Seed</span>
+                <span class="value">{fullscreenImage.seed}</span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="actions">
+            <button
+              class="delete-btn"
+              onclick={() => fullscreenImage && deleteImage(fullscreenImage)}
+            >
+              <MaterialIcon name="delete" width="20" height="20" /> Delete
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   {/if}
 </div>
@@ -134,31 +219,17 @@
     color: var(--md-on-surface);
   }
 
-  .refresh-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--md-primary);
-    padding: 0.5rem;
-    border-radius: 50%;
-    transition: background-color 0.3s;
-  }
-
-  .refresh-btn:hover {
-    background-color: var(--md-surface-variant);
-  }
-
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
   }
 
   .image-card {
     background-color: var(--md-surface);
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transition:
       transform 0.2s,
       box-shadow 0.2s;
@@ -168,14 +239,14 @@
   }
 
   .image-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .image-wrapper {
     width: 100%;
-    aspect-ratio: 1; /* Square thumbnails */
-    background-color: #f0f0f0;
+    aspect-ratio: 1;
+    background-color: var(--md-surface-variant);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -202,13 +273,14 @@
     background-color: var(--md-surface);
   }
 
-  .filename {
-    font-size: 0.9rem;
+  .prompt-preview {
+    font-size: 0.85rem;
     font-weight: 500;
     color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
   }
 
   .timestamp {
@@ -225,12 +297,13 @@
     padding: 3rem;
     color: var(--md-on-surface-variant);
     opacity: 0.6;
+    gap: 1rem;
   }
 
-  /* Skeleton Loader */
+  /* Skeleton */
   .skeleton .skeleton-image {
     width: 100%;
-    height: 100%;
+    aspect-ratio: 1;
     background-color: var(--md-surface-variant);
     display: flex;
     flex-direction: column;
@@ -267,47 +340,163 @@
     border-radius: 8px;
     margin-bottom: 1rem;
   }
-  /* Fullscreen Overlay */
+
+  /* Overlay */
   .fullscreen-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.9);
+    background-color: rgba(0, 0, 0, 0.85);
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     animation: fadeIn 0.2s ease-out;
+    padding: 2rem;
+    box-sizing: border-box;
   }
 
-  .fullscreen-overlay img {
-    max-width: 90%;
+  .overlay-content {
+    display: flex;
+    background-color: var(--md-surface);
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 95vw;
     max-height: 90vh;
-    object-fit: contain;
-    border-radius: 4px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    cursor: default;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     animation: scaleIn 0.2s ease-out;
   }
 
-  .close-btn {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
+  .overlay-image-container {
+    background-color: #000;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 400px;
+    overflow: hidden;
+  }
+
+  .overlay-image-container img {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    display: block;
+  }
+
+  .overlay-sidebar {
+    width: 320px;
+    padding: 1.5rem;
+    background-color: var(--md-surface);
+    color: var(--md-on-surface);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    border-left: 1px solid var(--md-outline-variant);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sidebar-header h4 {
+    margin: 0;
+    color: var(--md-primary);
+    font-size: 1.1rem;
+  }
+
+  .detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .label {
+    font-weight: 600;
+    color: var(--md-on-surface-variant);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .value {
+    color: var(--md-on-surface);
+    font-size: 0.9rem;
+    word-break: break-word;
+  }
+
+  .prompt-text {
+    background-color: var(--md-surface-variant);
+    padding: 0.75rem;
+    border-radius: 8px;
+    color: var(--md-on-surface);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  .actions {
+    margin-top: auto;
+    padding-top: 1.5rem;
+  }
+
+  .delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--md-error-container);
+    color: var(--md-error);
     border: none;
-    color: white;
+    border-radius: 8px;
     cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 50%;
+    font-weight: 500;
     transition: background-color 0.2s;
   }
 
-  .close-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+  .delete-btn:hover {
+    background-color: #ffdad6;
+  }
+
+  @media (max-width: 850px) {
+    .overlay-content {
+      flex-direction: column;
+      width: 95vw;
+      max-height: 95vh;
+    }
+    .overlay-image-container {
+      width: 100%;
+      min-width: auto;
+      height: 50vh;
+    }
+    .overlay-sidebar {
+      width: 100%;
+      height: 40vh;
+      border-left: none;
+      border-top: 1px solid var(--md-outline-variant);
+    }
   }
 
   @keyframes fadeIn {
@@ -318,10 +507,9 @@
       opacity: 1;
     }
   }
-
   @keyframes scaleIn {
     from {
-      transform: scale(0.95);
+      transform: scale(0.98);
       opacity: 0;
     }
     to {
