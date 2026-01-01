@@ -51,11 +51,34 @@
     </div>
   </div>
   <div class="config-section">
-    <CheckboxWithHelp
-      bind:checked={config.offload_to_cpu}
-      label="Offload to CPU"
-      helpText="Save VRAM by offloading weights"
-    />
+    <h4>Low VRAM / Memory Optimizations</h4>
+    <div class="checkbox-grid">
+      <CheckboxWithHelp
+        bind:checked={config.offload_to_cpu}
+        label="Offload to CPU"
+        helpText="Offload model weights to RAM"
+      />
+      <CheckboxWithHelp
+        bind:checked={config.control_net_cpu}
+        label="ControlNet to CPU"
+        helpText="Keep ControlNet in RAM"
+      />
+      <CheckboxWithHelp
+        bind:checked={config.clip_on_cpu}
+        label="CLIP to CPU"
+        helpText="Keep CLIP in RAM"
+      />
+      <CheckboxWithHelp
+        bind:checked={config.vae_on_cpu}
+        label="VAE to CPU"
+        helpText="Keep VAE in RAM"
+      />
+      <CheckboxWithHelp
+        bind:checked={config.vae_tiling}
+        label="VAE Tiling"
+        helpText="Process VAE in tiles (saves VRAM)"
+      />
+    </div>
   </div>
   <div class="config-section">
     <CheckboxWithHelp
@@ -77,5 +100,16 @@
   }
   .form-group {
     flex: 1;
+  }
+  .checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+  h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: var(--text-secondary);
   }
 </style>

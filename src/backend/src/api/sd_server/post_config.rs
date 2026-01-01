@@ -23,6 +23,12 @@ pub struct SDConfigRequest {
     pub threads: Option<i32>,
     pub offload_to_cpu: Option<bool>,
     pub diffusion_fa: Option<bool>,
+    pub control_net_cpu: Option<bool>,
+    pub clip_on_cpu: Option<bool>,
+    pub vae_on_cpu: Option<bool>,
+    pub vae_tiling: Option<bool>,
+    pub vae_tile_size: Option<u32>,
+    pub vae_relative_tile_size: Option<f32>,
     pub models_path: Option<String>,
     pub rng: Option<String>,
 
@@ -96,11 +102,30 @@ pub async fn post_update_sd_config(
     if let Some(v) = body.threads {
         config_guard.threads = v;
     }
+
     if let Some(v) = body.offload_to_cpu {
         config_guard.offload_to_cpu = v;
     }
     if let Some(v) = body.diffusion_fa {
         config_guard.diffusion_fa = v;
+    }
+    if let Some(v) = body.control_net_cpu {
+        config_guard.control_net_cpu = v;
+    }
+    if let Some(v) = body.clip_on_cpu {
+        config_guard.clip_on_cpu = v;
+    }
+    if let Some(v) = body.vae_on_cpu {
+        config_guard.vae_on_cpu = v;
+    }
+    if let Some(v) = body.vae_tiling {
+        config_guard.vae_tiling = v;
+    }
+    if let Some(v) = body.vae_tile_size {
+        config_guard.vae_tile_size = Some(v);
+    }
+    if let Some(v) = body.vae_relative_tile_size {
+        config_guard.vae_relative_tile_size = Some(v);
     }
     if let Some(v) = &body.models_path {
         config_guard.models_path = v.clone();

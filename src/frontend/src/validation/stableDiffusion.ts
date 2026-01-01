@@ -25,7 +25,13 @@ export const SDConfigSchema = z.object({
   diffusion_fa: z.boolean().default(false),
   verbose: z.boolean().default(true),
   color: z.boolean().default(true),
-  offload_to_cpu: z.boolean().default(false),
+  offload_to_cpu: z.boolean().default(true),
+  control_net_cpu: z.boolean().default(true),
+  clip_on_cpu: z.boolean().default(true),
+  vae_on_cpu: z.boolean().default(true),
+  vae_tiling: z.boolean().default(true),
+  vae_tile_size: z.number().int().optional().nullable(),
+  vae_relative_tile_size: z.number().optional().nullable(),
 
   // Advanced Models
   clip_l: z.string().nullable().optional(),

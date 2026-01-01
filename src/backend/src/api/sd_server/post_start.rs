@@ -184,6 +184,24 @@ pub async fn post_start_sd_server(
     if config.diffusion_fa {
         cmd.arg("--diffusion-fa");
     }
+    if config.control_net_cpu {
+        cmd.arg("--control-net-cpu");
+    }
+    if config.clip_on_cpu {
+        cmd.arg("--clip-on-cpu");
+    }
+    if config.vae_on_cpu {
+        cmd.arg("--vae-on-cpu");
+    }
+    if config.vae_tiling {
+        cmd.arg("--vae-tiling");
+    }
+    if let Some(v) = config.vae_tile_size {
+        cmd.arg("--vae-tile-size").arg(v.to_string());
+    }
+    if let Some(v) = config.vae_relative_tile_size {
+        cmd.arg("--vae-relative-tile-size").arg(v.to_string());
+    }
     // Only set RNG if not standard default
     if config.rng != "std_default" && !config.rng.is_empty() {
         cmd.arg("--rng").arg(&config.rng);

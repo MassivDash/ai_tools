@@ -28,7 +28,9 @@ pub struct SDState {
 
 pub type SDStateHandle = Arc<Mutex<SDState>>;
 
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SDConfig {
     // CLI Options
     pub output_path: String,
@@ -59,6 +61,12 @@ pub struct SDConfig {
     pub threads: i32,
     pub offload_to_cpu: bool,
     pub diffusion_fa: bool,
+    pub control_net_cpu: bool,
+    pub clip_on_cpu: bool,
+    pub vae_on_cpu: bool,
+    pub vae_tiling: bool,
+    pub vae_tile_size: Option<u32>,
+    pub vae_relative_tile_size: Option<f32>,
     pub models_path: String,
     pub rng: String, // cuda, cpu, std_default
 
@@ -108,10 +116,18 @@ impl Default for SDConfig {
             lora_model_dir: None,
             upscale_model: None,
             threads: -1,
-            offload_to_cpu: false,
+            offload_to_cpu: true,
             diffusion_fa: true,
             models_path: "./sd_models".to_string(),
             rng: "std_default".to_string(),
+
+            // Low VRAM defaults
+            control_net_cpu: true,
+            clip_on_cpu: true,
+            vae_on_cpu: true,
+            vae_tiling: true,
+            vae_tile_size: None,          // Optional override
+            vae_relative_tile_size: None, // Optional override
 
             prompt: "A beautiful landscape".to_string(),
             negative_prompt: "".to_string(),

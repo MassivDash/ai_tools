@@ -44,7 +44,14 @@
     lora_model_dir: '',
     guidance: null,
     strength: null,
-    offload_to_cpu: false,
+    // Low VRAM defaults
+    offload_to_cpu: true,
+    control_net_cpu: true,
+    clip_on_cpu: true,
+    vae_on_cpu: true,
+    vae_tiling: true,
+    vae_tile_size: null,
+    vae_relative_tile_size: null,
     rng: 'std_default',
     threads: -1
   }
@@ -54,7 +61,24 @@
   let success = ''
 
   const loadConfig = async () => {
-    // Placeholder for future persistent config
+    loading = true
+    try {
+      const resp = await axiosBackendInstance.get('sd-server/config')
+      if (resp.data) {
+        // Backend key names match frontend, so safe to merge
+        // We use spread to override defaults with loaded values
+        config = { ...config, ...resp.data }
+
+        // Ensure optional fields are handled if backend sends them
+        if (resp.data.vae_tile_size === 0) config.vae_tile_size = null
+        if (resp.data.vae_relative_tile_size === 0)
+          config.vae_relative_tile_size = null
+      }
+    } catch (e) {
+      console.error('Failed to load SD config', e)
+    } finally {
+      loading = false
+    }
   }
 
   const saveConfig = async () => {
