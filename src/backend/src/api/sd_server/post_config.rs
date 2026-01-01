@@ -63,7 +63,7 @@ pub async fn post_update_sd_config(
         config_guard.verbose = v;
     }
     if let Some(v) = &body.mode {
-        config_guard.mode = v.clone();
+        config_guard.mode = Some(v.clone());
     }
 
     if let Some(v) = &body.diffusion_model {
@@ -125,28 +125,28 @@ pub async fn post_update_sd_config(
         config_guard.width = v;
     }
     if let Some(v) = body.steps {
-        config_guard.steps = v;
+        config_guard.steps = Some(v);
     }
     if let Some(v) = body.batch_count {
-        config_guard.batch_count = v;
+        config_guard.batch_count = Some(v);
     }
     if let Some(v) = body.cfg_scale {
         config_guard.cfg_scale = v;
     }
     if let Some(v) = body.guidance {
-        config_guard.guidance = v;
+        config_guard.guidance = Some(v);
     }
     if let Some(v) = body.strength {
-        config_guard.strength = v;
+        config_guard.strength = Some(v);
     }
     if let Some(v) = body.seed {
-        config_guard.seed = v;
+        config_guard.seed = Some(v);
     }
     if let Some(v) = &body.sampling_method {
-        config_guard.sampling_method = v.clone();
+        config_guard.sampling_method = Some(v.clone());
     }
     if let Some(v) = &body.scheduler {
-        config_guard.scheduler = v.clone();
+        config_guard.scheduler = Some(v.clone());
     }
 
     Ok(HttpResponse::Ok().json(SDConfigResponse {

@@ -3,7 +3,9 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use crate::api::sd_server::types::{SDConfigHandle, SDProcessHandle};
+use crate::api::sd_server::types::{LogBuffer, SDConfigHandle, SDProcessHandle, SDStateHandle};
+use crate::api::sd_server::websocket::WebSocketState;
+use std::sync::Arc;
 
 #[derive(Serialize, Debug)]
 pub struct SDServerResponse {
@@ -15,19 +17,25 @@ pub struct SDServerResponse {
 pub async fn post_start_sd_server(
     process: web::Data<SDProcessHandle>,
     config: web::Data<SDConfigHandle>,
+    // Add missing dependencies
+    log_buffer: web::Data<LogBuffer>,
+    sd_state: web::Data<SDStateHandle>,
+    ws_state: web::Data<Arc<WebSocketState>>,
 ) -> ActixResult<HttpResponse> {
     let mut process_guard = process.lock().unwrap();
 
     if let Some(ref mut child) = *process_guard {
-        match child.try_wait() {
-            Ok(Some(_)) => {}
+        // Explicitly annotate type for inference
+        let status: std::io::Result<Option<std::process::ExitStatus>> = child.try_wait();
+        match status {
+            Ok(Some(_)) => {} // Process finished
             Ok(None) => {
                 return Ok(HttpResponse::Ok().json(SDServerResponse {
                     success: false,
                     message: "SD generation is already running".to_string(),
                 }));
             }
-            Err(_) => {}
+            Err(_) => {} // Error checking, assume we can try starting
         }
     }
 
@@ -36,47 +44,93 @@ pub async fn post_start_sd_server(
     let mut cmd = Command::new("sd-cli");
     cmd.current_dir(&config.models_path);
 
+    // Resolve absolute path for output to ensure it goes to the correct directory
+    let output_path_abs = if Path::new(&config.output_path).is_absolute() {
+        config.output_path.clone()
+    } else {
+        std::env::current_dir()
+            .unwrap()
+            .join(&config.output_path)
+            .to_string_lossy()
+            .to_string()
+    };
+
     // CLI Options
-    cmd.arg("--output").arg(&config.output_path);
+    // Generate unique filename
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let unique_filename = format!("output_{}.png", timestamp);
+    let output_file_abs = std::path::Path::new(&output_path_abs).join(&unique_filename);
+
+    // CLI Options
+    cmd.arg("--output")
+        .arg(output_file_abs.to_string_lossy().to_string());
+
     if config.verbose {
         cmd.arg("-v");
     }
     if config.color {
         cmd.arg("--color");
     }
-    cmd.arg("--mode").arg(&config.mode);
+
+    // Only add mode if set and not empty
+    if let Some(v) = &config.mode {
+        if !v.is_empty() {
+            cmd.arg("--mode").arg(v);
+        }
+    }
 
     // Context Options
     if !config.diffusion_model.is_empty() {
         cmd.arg("--diffusion-model").arg(&config.diffusion_model);
     }
     if let Some(v) = &config.model {
-        cmd.arg("--model").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--model").arg(v);
+        }
     }
     if let Some(v) = &config.clip_l {
-        cmd.arg("--clip_l").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--clip_l").arg(v);
+        }
     }
     if let Some(v) = &config.clip_g {
-        cmd.arg("--clip_g").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--clip_g").arg(v);
+        }
     }
     if let Some(v) = &config.t5xxl {
-        cmd.arg("--t5xxl").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--t5xxl").arg(v);
+        }
     }
     if let Some(v) = &config.llm {
-        cmd.arg("--llm").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--llm").arg(v);
+        }
     }
     if let Some(v) = &config.vae {
-        cmd.arg("--vae").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--vae").arg(v);
+        }
     }
     if let Some(v) = &config.control_net {
-        cmd.arg("--control-net").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--control-net").arg(v);
+        }
     }
     if let Some(v) = &config.lora_model_dir {
-        cmd.arg("--lora-model-dir").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--lora-model-dir").arg(v);
+        }
     }
 
     if let Some(v) = &config.preview_path {
-        cmd.arg("--preview-path").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--preview-path").arg(v);
+        }
     }
     if let Some(v) = config.preview_interval {
         cmd.arg("--preview-interval").arg(v.to_string());
@@ -88,82 +142,160 @@ pub async fn post_start_sd_server(
         cmd.arg("--canny");
     }
     if let Some(v) = &config.preview_method {
-        cmd.arg("--preview").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--preview").arg(v);
+        }
     }
 
     if let Some(v) = &config.clip_vision {
-        cmd.arg("--clip_vision").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--clip_vision").arg(v);
+        }
     }
     if let Some(v) = &config.llm_vision {
-        cmd.arg("--llm_vision").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--llm_vision").arg(v);
+        }
     }
     if let Some(v) = &config.taesd {
-        cmd.arg("--taesd").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--taesd").arg(v);
+        }
     }
     if let Some(v) = &config.embd_dir {
-        cmd.arg("--embd-dir").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--embd-dir").arg(v);
+        }
     }
     if let Some(v) = &config.upscale_model {
-        cmd.arg("--upscale-model").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--upscale-model").arg(v);
+        }
     }
 
-    cmd.arg("--threads").arg(config.threads.to_string());
+    // Only set threads if not -1 (auto)
+    if config.threads != -1 {
+        cmd.arg("--threads").arg(config.threads.to_string());
+    }
     if config.offload_to_cpu {
         cmd.arg("--offload-to-cpu");
     }
     if config.diffusion_fa {
         cmd.arg("--diffusion-fa");
     }
-    cmd.arg("--rng").arg(&config.rng);
+    // Only set RNG if not standard default
+    if config.rng != "std_default" && !config.rng.is_empty() {
+        cmd.arg("--rng").arg(&config.rng);
+    }
 
     // Generation Options
-    cmd.arg("-p").arg(&config.prompt);
-    cmd.arg("-n").arg(&config.negative_prompt);
+    if !config.prompt.is_empty() {
+        cmd.arg("-p").arg(&config.prompt);
+    }
+    if !config.negative_prompt.is_empty() {
+        cmd.arg("-n").arg(&config.negative_prompt);
+    }
 
     if let Some(v) = &config.init_img {
-        cmd.arg("--init-img").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--init-img").arg(v);
+        }
     }
     if let Some(v) = &config.mask {
-        cmd.arg("--mask").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--mask").arg(v);
+        }
     }
     if let Some(v) = &config.control_image {
-        cmd.arg("--control-image").arg(v);
+        if !v.is_empty() {
+            cmd.arg("--control-image").arg(v);
+        }
     }
 
     cmd.arg("-H").arg(config.height.to_string());
     cmd.arg("-W").arg(config.width.to_string());
-    cmd.arg("--steps").arg(config.steps.to_string());
-    cmd.arg("--batch-count").arg(config.batch_count.to_string());
+
+    // cfg-scale is f32, required
     cmd.arg("--cfg-scale").arg(config.cfg_scale.to_string());
-    cmd.arg("--guidance").arg(config.guidance.to_string());
-    cmd.arg("--strength").arg(config.strength.to_string());
-    cmd.arg("--seed").arg(config.seed.to_string());
-    cmd.arg("--sampling-method").arg(&config.sampling_method);
-    cmd.arg("--scheduler").arg(&config.scheduler);
+
+    if let Some(v) = config.steps {
+        cmd.arg("--steps").arg(v.to_string());
+    }
+    if let Some(v) = config.batch_count {
+        cmd.arg("--batch-count").arg(v.to_string());
+    }
+
+    if let Some(v) = config.guidance {
+        cmd.arg("--guidance").arg(v.to_string());
+    }
+    if let Some(v) = config.strength {
+        cmd.arg("--strength").arg(v.to_string());
+    }
+    if let Some(v) = config.seed {
+        cmd.arg("--seed").arg(v.to_string());
+    }
+    if let Some(v) = &config.sampling_method {
+        if !v.is_empty() {
+            cmd.arg("--sampling-method").arg(v);
+        }
+    }
+    if let Some(v) = &config.scheduler {
+        if !v.is_empty() {
+            cmd.arg("--scheduler").arg(v);
+        }
+    }
 
     // Make sure output dir exists
-    let out_dir = Path::new(&config.models_path).join(
-        Path::new(&config.output_path)
-            .parent()
-            .unwrap_or(Path::new(".")),
-    );
+    let out_dir = Path::new(&output_path_abs);
+
     if !out_dir.exists() {
-        let _ = std::fs::create_dir_all(&out_dir);
+        let _ = std::fs::create_dir_all(out_dir);
     }
+
+    // Update state to generating
+    {
+        let mut s = sd_state.lock().unwrap();
+        s.is_generating = true;
+        s.current_output_file = None;
+    }
+    // Broadcast start status
+    ws_state.broadcast_status(true, None);
 
     println!("🚀 Starting sd-cli: {:?}", cmd);
 
+    // FIX: Spawn logger
     match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
-        Ok(child) => {
+        Ok(mut child) => {
+            // Spawn log reader
+            use crate::api::sd_server::logs_reader::spawn_log_reader;
+
+            spawn_log_reader(
+                child.stdout.take(),
+                child.stderr.take(),
+                log_buffer.get_ref().clone(),
+                sd_state.get_ref().clone(),
+                (*ws_state.get_ref()).clone(),
+            );
+
             *process_guard = Some(child);
+
             Ok(HttpResponse::Ok().json(SDServerResponse {
                 success: true,
                 message: "SD generation started successfully".to_string(),
             }))
         }
-        Err(e) => Ok(HttpResponse::InternalServerError().json(SDServerResponse {
-            success: false,
-            message: format!("Failed to start sd-cli: {}", e),
-        })),
+        Err(e) => {
+            // Reset state on failure
+            {
+                let mut s = sd_state.lock().unwrap();
+                s.is_generating = false;
+            }
+            ws_state.broadcast_status(false, None);
+
+            Ok(HttpResponse::InternalServerError().json(SDServerResponse {
+                success: false,
+                message: format!("Failed to start sd-cli: {}", e),
+            }))
+        }
     }
 }

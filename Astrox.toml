@@ -9,7 +9,6 @@ llama_port = 8099
 cors_url = "http://localhost"
 chroma_address = "http://localhost:8000"
 # cookie_domain = ".spaceout.pl"  # Uncomment for production to enable subdomain cookie sharing
-sd_models_path = "/home/spaceghost/Git/ImageModels"
 
 [public_keys]
 public_api_url = "http://localhost:8080/api"

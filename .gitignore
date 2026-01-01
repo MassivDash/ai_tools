@@ -1,4 +1,6 @@
 /target
+/src/backend/sd_models/
+/src/backend/public/
 /src/frontend/dist
 /src/backend/target
 /src/backend/data

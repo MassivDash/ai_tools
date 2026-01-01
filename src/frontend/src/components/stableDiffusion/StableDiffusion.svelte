@@ -1,64 +1,107 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import SDConfig from './SDConfig.svelte'
-  import Button from '../ui/Button.svelte'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
   import PageSubHeader from '../ui/PageSubHeader.svelte'
+  import Button from '../ui/Button.svelte'
   import Input from '../ui/Input.svelte'
+  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import SDConfig from './SDConfig.svelte'
+  import Terminal from './Terminal.svelte'
+  import Gallery from './Gallery.svelte'
 
-  let loading = false
+  let prompt = 'A beautiful landscape'
+  let negative_prompt = ''
+  let isGenerating = false
   let error = ''
-  let message = ''
   let showConfig = false
   let showTerminal = false
+  let galleryComponent: Gallery
 
-  let prompt = 'Spiderman swinging through new york, comic 50s style'
-  let generatedImage = ''
+  let ws: WebSocket | null = null
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
-  const startGeneration = async () => {
-    loading = true
-    error = ''
-    message = ''
+  const getWebSocketUrl = (): string => {
+    let baseUrl = import.meta.env.PUBLIC_API_URL || window.location.origin
+    baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
+    const wsBase = baseUrl.replace(/^https?:\/\//, '')
+    return `${wsProtocol}://${wsBase}/api/sd-server/logs/ws`
+  }
+
+  const connectWebSocket = () => {
     try {
-      // First update the prompt in the config (optional, or pass it directly if the endpoint supports overriding)
-      // My endpoint reads from config, but I should probably allow passing prompt in start body or update config first.
-      // For now, let's update config with the prompt before starting.
-      await axiosBackendInstance.post('sd-server/config', { prompt })
+      ws = new WebSocket(getWebSocketUrl())
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.type === 'status') {
+            const wasGenerating = isGenerating
+            isGenerating = msg.is_generating
 
-      const response = await axiosBackendInstance.post<any>('sd-server/start')
-      if (response.data.success) {
-        message = response.data.message
-        // Extract filename from message or similar?
-        // The endpoint returns: "SD generation started. Output: image_TIMESTAMP.png"
-        // In a real app we'd want a better way to get the path.
-        // For now, let's just show the message.
-        if (message.includes('Output: ')) {
-          const filename = message.split('Output: ')[1]
-          // Assuming we serve images statically or something?
-          // We haven't set up a static file server for the images folder.
-          // But we can just show the message for now.
+            // Refresh gallery if generation just finished or we got a new file
+            if ((wasGenerating && !isGenerating) || msg.current_file) {
+              if (galleryComponent) galleryComponent.refresh()
+              if (wasGenerating && !isGenerating) {
+                showTerminal = false
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse SD status', e)
         }
+      }
+      ws.onclose = () => {
+        reconnectTimeout = setTimeout(connectWebSocket, 2000)
+      }
+    } catch (e) {
+      console.error('Failed to connect SD WS', e)
+    }
+  }
+
+  onMount(() => {
+    connectWebSocket()
+  })
+
+  onDestroy(() => {
+    if (ws) ws.close()
+    if (reconnectTimeout) clearTimeout(reconnectTimeout)
+  })
+
+  // Start Generation
+  const generateImage = async () => {
+    error = ''
+    try {
+      // First update config with current prompts
+      await axiosBackendInstance.post('sd-server/config', {
+        prompt,
+        negative_prompt
+      })
+
+      const response = await axiosBackendInstance.post('sd-server/start')
+      if (response.data.success) {
+        showTerminal = true
+        // isGenerating will be updated by WS
       } else {
         error = response.data.message
       }
     } catch (err: any) {
       console.error('Failed to start generation:', err)
       error =
-        err.response?.data?.error || err.message || 'Failed to start generation'
-    } finally {
-      loading = false
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to start generation'
     }
   }
 </script>
 
-<div class="sd-container">
-  <PageSubHeader title="Stable Diffusion" icon="image-filter-hdr">
+<div class="sd-page">
+  <PageSubHeader title="Stable Diffusion" icon="image">
     {#snippet actions()}
       <Button
         variant="info"
         class="button-icon-only"
         onclick={() => (showConfig = !showConfig)}
-        title="Config"
+        title="Configuration"
       >
         <MaterialIcon name="cog" width="32" height="32" />
       </Button>
@@ -73,84 +116,103 @@
     {/snippet}
   </PageSubHeader>
 
-  <div class="content-area">
-    <div class="main-content" class:with-terminal={showTerminal}>
-      <div class="control-panel">
-        <div class="prompt-input">
+  <div
+    class="content-area"
+    class:has-terminal={showTerminal}
+    class:has-config={showConfig}
+  >
+    <!-- Terminal Sidebar -->
+    <div class="terminal-sidebar" class:visible={showTerminal}>
+      <Terminal />
+    </div>
+
+    <!-- Main Content -->
+    <div
+      class="main-content"
+      class:with-terminal={showTerminal}
+      class:with-config={showConfig}
+    >
+      <div class="controls-section">
+        <div class="input-group">
           <Input
             label="Prompt"
             bind:value={prompt}
-            placeholder="Enter your prompt here..."
+            placeholder="Describe your image..."
+            multiline={true}
+            rows={3}
           />
         </div>
-        <div class="generate-btn">
+        <div class="input-group">
+          <Input
+            label="Negative Prompt"
+            bind:value={negative_prompt}
+            placeholder="What to avoid..."
+          />
+        </div>
+
+        {#if error}
+          <div class="error-banner">{error}</div>
+        {/if}
+
+        <div class="action-bar">
           <Button
-            variant="success"
-            onclick={startGeneration}
-            disabled={loading}
-            title={loading ? 'Generating...' : 'Generate Image'}
+            variant="primary"
+            onclick={generateImage}
+            disabled={isGenerating}
+            isLoading={isGenerating}
           >
-            <MaterialIcon name="play" width="24" height="24" />
-            Generate
+            {isGenerating ? 'Generating...' : 'Generate Image'}
+            <MaterialIcon name="creation" width="20" height="20" slot="icon" />
           </Button>
         </div>
       </div>
 
-      {#if error}
-        <div class="error-banner">{error}</div>
-      {/if}
-      {#if message}
-        <div class="success-banner">{message}</div>
-      {/if}
-
-      <div class="preview-area">
-        {#if generatedImage}
-          <img src={generatedImage} alt="Generated Preview" />
-        {:else}
-          <div class="placeholder">
-            <MaterialIcon name="image-outline" width="64" height="64" />
-            <p>Generated image will appear here</p>
-          </div>
-        {/if}
+      <div class="gallery-section">
+        <Gallery bind:this={galleryComponent} {isGenerating} />
       </div>
     </div>
 
-    {#if showTerminal}
-      <div class="terminal-sidebar">
-        <div class="terminal-network">
-          <div class="terminal-header">
-            <h4>Stable Diffusion Logs</h4>
-          </div>
-          <div class="terminal-body">
-            <p class="log-info">Real-time logs not implemented yet.</p>
-            {#if message}
-              <p class="log-success">> {message}</p>
-            {/if}
-            {#if error}
-              <p class="log-error">> Error: {error}</p>
-            {/if}
-          </div>
-        </div>
-      </div>
-    {/if}
+    <!-- Config Sidebar -->
+    <SDConfig isOpen={showConfig} onClose={() => (showConfig = false)} />
   </div>
-
-  <SDConfig isOpen={showConfig} onClose={() => (showConfig = false)} />
 </div>
 
 <style>
-  .sd-container {
+  .sd-page {
     width: 100%;
+    min-height: 80vh;
     display: flex;
     flex-direction: column;
-    min-height: 80vh;
+    background-color: var(--bg-primary);
+    overflow: hidden;
   }
 
   .content-area {
-    display: flex;
     flex: 1;
+    display: flex;
+    flex-direction: row;
     position: relative;
     overflow: hidden;
+    height: calc(100vh - 120px); /* Adjust based on header */
+  }
+
+  /* Sidebar Styles (Config matches LlamaConfig logic, Terminal matches Llama logic) */
+  .terminal-sidebar {
+    width: 40%;
+    min-width: 400px;
+    height: 100%;
+    background-color: #1e1e1e;
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 10;
+    border-right: 1px solid var(--border-color);
+  }
+
+  .terminal-sidebar.visible {
+    transform: translateX(0);
   }
 
   .main-content {
@@ -158,88 +220,60 @@
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    gap: 1rem;
-    transition: margin-right 0.3s ease;
+    overflow-y: auto;
+    transition: margin 0.3s ease-in-out;
+    width: 100%;
   }
 
   .main-content.with-terminal {
-    margin-right: 400px;
+    margin-left: max(40%, 400px);
   }
 
-  .control-panel {
+  .main-content.with-config {
+    margin-right: 400px; /* Assuming config width */
+  }
+
+  .controls-section {
+    background-color: var(--md-surface);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
     display: flex;
+    flex-direction: column;
     gap: 1rem;
-    align-items: flex-end;
   }
 
-  .prompt-input {
-    flex: 1;
+  .input-group {
+    width: 100%;
   }
 
-  .preview-area {
-    flex: 1;
-    background: var(--md-surface-variant);
-    border-radius: 8px;
+  .action-bar {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-  }
-
-  .placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: var(--md-on-surface-variant);
-    opacity: 0.5;
-  }
-
-  .terminal-sidebar {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 400px;
-    background: #1e1e1e;
-    color: #fff;
-    border-left: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .terminal-header {
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid #333;
-    background: #252526;
-  }
-
-  .terminal-body {
-    padding: 1rem;
-    font-family: monospace;
-    font-size: 0.9rem;
-  }
-
-  .log-info {
-    color: #aaa;
-  }
-  .log-success {
-    color: #4caf50;
-  }
-  .log-error {
-    color: #f44336;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
   }
 
   .error-banner {
-    background: rgba(255, 0, 0, 0.1);
-    color: #d32f2f;
-    padding: 1rem;
-    border-radius: 4px;
+    background-color: var(--md-error-container);
+    color: var(--md-error);
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
   }
 
-  .success-banner {
-    background: rgba(0, 255, 0, 0.1);
-    color: #388e3c;
-    padding: 1rem;
-    border-radius: 4px;
+  .gallery-section {
+    flex: 1;
+    min-height: 0; /* Allow scrolling inside if needed */
+  }
+
+  @media (max-width: 768px) {
+    .main-content.with-terminal {
+      margin-left: 0;
+    }
+    .terminal-sidebar {
+      width: 100%;
+      min-width: 100%;
+    }
   }
 </style>

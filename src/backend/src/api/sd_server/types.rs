@@ -1,7 +1,31 @@
+use std::collections::VecDeque;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum LogSource {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Clone, Debug)]
+pub struct LogEntry {
+    pub timestamp: u64,
+    pub line: String,
+    pub source: LogSource,
+}
+
+pub type LogBuffer = Arc<Mutex<VecDeque<LogEntry>>>;
 pub type SDProcessHandle = Arc<Mutex<Option<Child>>>;
+pub type SDConfigHandle = Arc<Mutex<SDConfig>>;
+
+#[derive(Clone, Debug)]
+pub struct SDState {
+    pub is_generating: bool,
+    pub current_output_file: Option<String>,
+}
+
+pub type SDStateHandle = Arc<Mutex<SDState>>;
 
 #[derive(Clone, Debug)]
 pub struct SDConfig {
@@ -13,7 +37,7 @@ pub struct SDConfig {
     pub canny: bool,
     pub verbose: bool,
     pub color: bool,
-    pub mode: String,                   // img_gen, vid_gen, etc.
+    pub mode: Option<String>,           // img_gen, vid_gen, etc.
     pub preview_method: Option<String>, // none, proj, tae, vae
 
     // Context Options
@@ -45,27 +69,27 @@ pub struct SDConfig {
     pub control_image: Option<String>,
     pub height: u32,
     pub width: u32,
-    pub steps: u32,
-    pub batch_count: u32,
+    pub steps: Option<u32>,
+    pub batch_count: Option<u32>,
     pub cfg_scale: f32,
-    pub guidance: f32,
-    pub strength: f32,
-    pub seed: i64,
-    pub sampling_method: String,
-    pub scheduler: String,
+    pub guidance: Option<f32>,
+    pub strength: Option<f32>,
+    pub seed: Option<i64>,
+    pub sampling_method: Option<String>,
+    pub scheduler: Option<String>,
 }
 
 impl Default for SDConfig {
     fn default() -> Self {
         Self {
-            output_path: "./images".to_string(),
+            output_path: "./public".to_string(),
             preview_path: None,
             preview_interval: None,
             output_begin_idx: None,
             canny: false,
             verbose: true,
             color: true,
-            mode: "img_gen".to_string(),
+            mode: None, // Default None
             preview_method: None,
 
             diffusion_model: "z_image_turbo-Q8_0.gguf".to_string(),
@@ -85,7 +109,7 @@ impl Default for SDConfig {
             threads: -1,
             offload_to_cpu: false,
             diffusion_fa: true,
-            models_path: "/home/spaceghost/Git/ImageModels".to_string(),
+            models_path: "./sd_models".to_string(),
             rng: "std_default".to_string(),
 
             prompt: "A beautiful landscape".to_string(),
@@ -95,16 +119,14 @@ impl Default for SDConfig {
             control_image: None,
             height: 1024,
             width: 1024,
-            steps: 20,
-            batch_count: 1,
-            cfg_scale: 7.0,
-            guidance: 3.5,
-            strength: 0.75,
-            seed: 42,
-            sampling_method: "euler_a".to_string(),
-            scheduler: "discrete".to_string(),
+            steps: None,       // Default None
+            batch_count: None, // Default None
+            cfg_scale: 1.0,
+            guidance: None,        // Default None
+            strength: None,        // Default None
+            seed: None,            // Default None
+            sampling_method: None, // Default None
+            scheduler: None,       // Default None
         }
     }
 }
-
-pub type SDConfigHandle = Arc<Mutex<SDConfig>>;

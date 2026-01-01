@@ -27,7 +27,10 @@ use crate::api::llama_server::types::{
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
 use crate::api::model_notes::ModelNotesStorage;
-use crate::api::sd_server::types::{SDConfig, SDConfigHandle, SDProcessHandle};
+use crate::api::sd_server::types::{
+    LogBuffer as SDLogBuffer, SDConfig, SDConfigHandle, SDProcessHandle, SDState as SDServerState,
+    SDStateHandle as SDServerStateHandle,
+};
 use crate::args::collect_args::collect_args;
 use crate::cors::get_cors_options::get_cors_options;
 use crate::services::agent::configure_agent_services;
@@ -37,15 +40,8 @@ use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
 use crate::services::sd_server::configure_sd_server_services;
 
-use serde::Deserialize;
-use std::fs;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
-
-#[derive(Deserialize)]
-struct AstroxConfig {
-    sd_models_path: Option<String>,
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -60,14 +56,6 @@ async fn main() -> std::io::Result<()> {
         .chroma_address
         .unwrap_or_else(|| "http://localhost:8000".to_string());
     println!("🔗 ChromaDB address: {}", chroma_address);
-
-    // Read Astrox.toml
-    let mut astrox_sd_path = None;
-    if let Ok(contents) = fs::read_to_string("../../Astrox.toml") {
-        if let Ok(config) = toml::from_str::<AstroxConfig>(&contents) {
-            astrox_sd_path = config.sd_models_path;
-        }
-    }
 
     // SQLite-based conversation storage (persists user/assistant messages)
     let sqlite_memory: Arc<SqliteConversationMemory> = Arc::new(
@@ -148,13 +136,22 @@ async fn main() -> std::io::Result<()> {
         Arc::new(Mutex::new(std::collections::HashMap::new()));
 
     // Stable Diffusion State
-    let mut sd_config_init = SDConfig::default();
-    if let Some(path) = astrox_sd_path {
-        println!("✅ Using SD models path from Astrox.toml: {}", path);
-        sd_config_init.models_path = path;
-    }
+    let sd_config_init = SDConfig::default(); // defaults to ./sd_models and ./public
     let sd_config: SDConfigHandle = Arc::new(Mutex::new(sd_config_init));
     let sd_process: SDProcessHandle = Arc::new(Mutex::new(None));
+    let sd_logs: SDLogBuffer = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+    let sd_server_state: SDServerStateHandle = Arc::new(Mutex::new(SDServerState {
+        is_generating: false,
+        current_output_file: None,
+    }));
+
+    // Create SD WebSocket State
+    let sd_ws_state = Arc::new(crate::api::sd_server::websocket::WebSocketState::new(
+        web::Data::new(sd_logs.clone()),
+        web::Data::new(sd_process.clone()),
+        web::Data::new(sd_config.clone()),
+        web::Data::new(sd_server_state.clone()),
+    ));
 
     // Create Agent WebSocket state for real-time agent updates
     let agent_ws_state = Arc::new(AgentWebSocketState::new());
@@ -225,6 +222,19 @@ async fn main() -> std::io::Result<()> {
     let active_generations_data = web::Data::new(active_generations.clone());
     let sd_config_data = sd_config.clone();
     let sd_process_data = sd_process.clone();
+    let sd_logs_data = sd_logs.clone();
+    let sd_server_state_data = sd_server_state.clone();
+    let sd_ws_state_data = sd_ws_state.clone();
+
+    // Determine initial images path for static serving
+    let images_path = std::path::Path::new("./public");
+    let images_path_str = images_path.to_string_lossy().to_string();
+    println!("📂 Serving SD images from: {}", images_path_str);
+
+    // Check if it exists, create if not
+    if !images_path.exists() {
+        let _ = std::fs::create_dir_all(images_path);
+    }
 
     let server = HttpServer::new(move || {
         let env = args.env.to_string();
@@ -247,11 +257,18 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(testing_storage.clone()))
             .app_data(web::Data::new(sd_config_data.clone()))
             .app_data(web::Data::new(sd_process_data.clone()))
+            .app_data(web::Data::new(sd_logs_data.clone()))
+            .app_data(web::Data::new(sd_server_state_data.clone()))
+            .app_data(web::Data::new(sd_ws_state_data.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
                 "/api/llama-server/status/ws",
                 web::get().to(status_websocket),
+            )
+            .route(
+                "/api/sd-server/logs/ws",
+                web::get().to(crate::api::sd_server::websocket::sd_logs_ws),
             )
             .route("/api/agent/stream/ws", web::get().to(agent_websocket))
             .configure(configure_converter_services)
@@ -260,6 +277,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_agent_services)
             .configure(configure_model_notes_services)
             .configure(configure_sd_server_services)
+            .service(Files::new("/public", &images_path_str).show_files_listing())
             .service(
                 Files::new("/", "../frontend/dist/")
                     .prefer_utf8(true)
