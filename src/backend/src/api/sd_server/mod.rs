@@ -2,6 +2,8 @@ pub mod delete_image;
 pub mod get_config;
 pub mod get_images;
 pub mod logs_reader;
+pub mod model_sets;
+pub mod model_sets_handlers;
 pub mod post_config;
 pub mod post_start;
 pub mod storage;

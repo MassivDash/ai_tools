@@ -1,19 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
+  import { stableDiffusionApi } from '../../api/stableDiffusion'
   import Button from '../ui/Button.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Accordion from '../ui/Accordion.svelte'
 
   import StandardSettings from './settings/StandardSettings.svelte'
+  import ModelSetManager from './settings/ModelSetManager.svelte'
+
   import AdvancedModels from './settings/AdvancedModels.svelte'
   import AdvancedGeneration from './settings/AdvancedGeneration.svelte'
   import SystemSettings from './settings/SystemSettings.svelte'
 
-  import {
-    SDConfigSchema,
-    type SDConfig
-  } from '../../validation/stableDiffusion'
+  import type { SDConfig } from '../../validation/stableDiffusion'
 
   export let isOpen = false
   export let onClose = () => {}
@@ -63,19 +63,20 @@
   const loadConfig = async () => {
     loading = true
     try {
-      const resp = await axiosBackendInstance.get('sd-server/config')
-      if (resp.data) {
+      const data = await stableDiffusionApi.getSDConfig()
+      if (data) {
         // Backend key names match frontend, so safe to merge
         // We use spread to override defaults with loaded values
-        config = { ...config, ...resp.data }
+        config = { ...config, ...data }
 
         // Ensure optional fields are handled if backend sends them
-        if (resp.data.vae_tile_size === 0) config.vae_tile_size = null
-        if (resp.data.vae_relative_tile_size === 0)
+        if (data.vae_tile_size === 0) config.vae_tile_size = null
+        if (data.vae_relative_tile_size === 0)
           config.vae_relative_tile_size = null
       }
     } catch (e) {
-      console.error('Failed to load SD config', e)
+      // error handled in api or just logged
+      error = 'Failed to load configuration'
     } finally {
       loading = false
     }
@@ -86,49 +87,15 @@
     error = ''
     success = ''
     try {
-      // Validate with Zod
-      const parseResult = SDConfigSchema.safeParse(config)
-
-      if (!parseResult.success) {
-        error = parseResult.error.issues
-          .map((i) => `${i.path.join('.')}: ${i.message}`)
-          .join(', ')
-        loading = false
-        return
-      }
-
-      // Sanitize: convert empty strings to null for optional API fields
-      // We can use the parsed data from Zod if we set up transformers, but safe manual check is fine too
-      const sanitizedConfig = { ...config }
-      for (const key in sanitizedConfig) {
-        const k = key as keyof SDConfig
-        if (
-          typeof sanitizedConfig[k] === 'string' &&
-          (sanitizedConfig[k] as string).trim() === ''
-        ) {
-          // @ts-ignore
-          sanitizedConfig[k] = null
-        }
-      }
-
-      const response = await axiosBackendInstance.post(
-        'sd-server/config',
-        sanitizedConfig
-      )
-
-      if (response.data.success) {
-        success = 'Configuration saved'
-        setTimeout(() => {
-          onClose()
-          success = ''
-        }, 1500)
-      } else {
-        error = response.data.message
-      }
+      await stableDiffusionApi.saveSDConfig(config)
+      success = 'Configuration saved'
+      setTimeout(() => {
+        onClose()
+        success = ''
+      }, 1500)
     } catch (err: any) {
       console.error('Failed to save config:', err)
-      error =
-        err.response?.data?.error || err.message || 'Failed to save config'
+      error = err.message || 'Failed to save config'
     } finally {
       loading = false
     }
@@ -157,6 +124,19 @@
     {#if success}
       <div class="success">{success}</div>
     {/if}
+
+    <Accordion title="Model Sets">
+      <ModelSetManager
+        onSelectSet={(set) => {
+          config.diffusion_model = set.diffusion_model
+          if (set.vae) config.vae = set.vae
+          if (set.llm) config.llm = set.llm
+          // Clear optional fields if not present in set
+          if (!set.vae) config.vae = ''
+          if (!set.llm) config.llm = ''
+        }}
+      />
+    </Accordion>
 
     <StandardSettings bind:config />
     <AdvancedModels bind:config />

@@ -95,6 +95,7 @@
       </slot>
     </div>
     <div class="item-actions">
+      <slot name="actions-start" />
       {#if allowEdit}
         <button class="action-btn" on:click={startEdit} title="Rename">
           <MaterialIcon name="pencil" width="18" height="18" />

@@ -75,12 +75,12 @@ async fn main() -> std::io::Result<()> {
     );
 
     use sqlx::sqlite::SqlitePoolOptions;
-    let testing_pool = SqlitePoolOptions::new()
+    let db_pool = SqlitePoolOptions::new()
         .connect("./data/conversations.db")
         .await
-        .expect("Failed to connect to testing database");
+        .expect("Failed to connect to database");
 
-    let testing_storage = TestingStorage::new(testing_pool)
+    let testing_storage = TestingStorage::new(db_pool.clone())
         .await
         .expect("Failed to initialize testing storage");
 
@@ -145,11 +145,43 @@ async fn main() -> std::io::Result<()> {
         pending_filename: None,
     }));
     use crate::api::sd_server::storage::SDImagesStorage;
-    let sd_images_storage = Arc::new(
-        SDImagesStorage::new("./data/conversations.db")
-            .await
-            .expect("Failed to initialize SD images storage"),
-    );
+    let sd_images_storage = Arc::new(SDImagesStorage::new(db_pool.clone()));
+    let sd_images_storage_init = sd_images_storage.clone();
+    actix_rt::spawn(async move {
+        if let Err(e) = sd_images_storage_init.init().await {
+            eprintln!("Failed to init SD images storage: {}", e);
+        }
+    });
+
+    use crate::api::sd_server::model_sets::SDModelSetsStorage;
+    let sd_model_sets_storage = Arc::new(SDModelSetsStorage::new(db_pool.clone()));
+
+    // Init table and Load Default
+    let storage_clone = sd_model_sets_storage.clone();
+    let config_clone = sd_config.clone();
+
+    actix_rt::spawn(async move {
+        if let Err(e) = storage_clone.init().await {
+            eprintln!("Failed to init SD model sets storage: {}", e);
+            return;
+        }
+
+        match storage_clone.get_default().await {
+            Ok(Some(set)) => {
+                println!("Content: Loaded default model set: {}", set.name);
+                let mut c = config_clone.lock().unwrap();
+                c.diffusion_model = set.diffusion_model;
+                if let Some(v) = set.vae {
+                    c.vae = Some(v);
+                }
+                if let Some(v) = set.llm {
+                    c.llm = Some(v);
+                }
+            }
+            Ok(None) => println!("Content: No default model set found"),
+            Err(e) => eprintln!("Failed to load default model set: {}", e),
+        }
+    });
 
     // Create SD WebSocket State
     let sd_ws_state = Arc::new(crate::api::sd_server::websocket::WebSocketState::new(
@@ -307,6 +339,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(sd_server_state_data.clone()))
             .app_data(web::Data::new(sd_ws_state_data.clone()))
             .app_data(web::Data::new(sd_images_storage.clone()))
+            .app_data(web::Data::new(sd_model_sets_storage.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

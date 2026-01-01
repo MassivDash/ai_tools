@@ -10,6 +10,8 @@
   import Gallery from './Gallery.svelte'
   import { GenerationSchema } from '../../validation/stableDiffusion'
 
+  import { slide } from 'svelte/transition'
+
   let prompt = ''
   let negative_prompt = ''
   let isGenerating = false
@@ -17,6 +19,12 @@
   let showConfig = false
   let showTerminal = false
   let galleryComponent: Gallery
+
+  let currentModel = 'Loading...'
+  let currentWidth: number | null = null
+  let currentHeight: number | null = null
+  let currentOffload = false
+  let showNegative = false
 
   let ws: WebSocket | null = null
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
@@ -47,10 +55,7 @@
             }
           } else if (msg.type === 'error') {
             error = msg.message
-            isGenerating = false // Ensure we stop spinning
-            // Keep terminal open on error so user can see logs?
-            // User complained it 'closed like everything ended', so maybe we keep it open.
-            // But we also show the error banner.
+            isGenerating = false
           }
         } catch (e) {
           console.error('Failed to parse SD status', e)
@@ -64,8 +69,24 @@
     }
   }
 
+  const fetchCurrentConfig = async () => {
+    try {
+      const resp = await axiosBackendInstance.get('sd-server/config')
+      if (resp.data) {
+        if (resp.data.diffusion_model) currentModel = resp.data.diffusion_model
+        if (resp.data.width) currentWidth = resp.data.width
+        if (resp.data.height) currentHeight = resp.data.height
+        if (resp.data.offload_to_cpu !== undefined)
+          currentOffload = resp.data.offload_to_cpu
+      }
+    } catch (e) {
+      console.error('Failed to fetch config for badge', e)
+    }
+  }
+
   onMount(() => {
     connectWebSocket()
+    fetchCurrentConfig()
   })
 
   onDestroy(() => {
@@ -110,6 +131,11 @@
       if (!isGenerating) generateImage()
     }
   }
+
+  const handleConfigClose = () => {
+    showConfig = false
+    fetchCurrentConfig()
+  }
 </script>
 
 <div class="sd-page">
@@ -149,42 +175,83 @@
       class:with-config={showConfig}
     >
       <div class="controls-section">
-        <div class="input-group">
-          <Input
-            label="Prompt"
-            bind:value={prompt}
-            placeholder="Describe your image..."
-            multiline={true}
-            rows={3}
-            onkeydown={handleKeydown}
-          />
-        </div>
-        <div class="input-group">
-          <Input
-            label="Negative Prompt"
-            bind:value={negative_prompt}
-            placeholder="What to avoid..."
-            onkeydown={(e) => {
-              if (e.key === 'Enter') generateImage()
-            }}
-          />
+        <div class="input-header">
+          <div class="badges">
+            <span class="model-badge">
+              <MaterialIcon name="cube-scan" width="16" height="16" />
+              {currentModel}
+            </span>
+            {#if currentWidth && currentHeight}
+              <span class="size-badge">
+                {currentWidth}x{currentHeight}
+              </span>
+            {/if}
+            {#if currentOffload}
+              <span class="cpu-badge" title="Offload to CPU enabled">
+                CPU
+              </span>
+            {/if}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="small"
+            onclick={() => (showNegative = !showNegative)}
+            title="Toggle Negative Prompt"
+          >
+            <MaterialIcon
+              name={showNegative ? 'eye-off' : 'eye'}
+              width="16"
+              height="16"
+            />
+            Negative Prompt
+          </Button>
         </div>
 
-        {#if error}
-          <div class="error-banner">{error}</div>
-        {/if}
-
-        <div class="action-bar">
+        <div class="prompt-container">
+          <div class="main-input">
+            <Input
+              label=""
+              bind:value={prompt}
+              placeholder="Describe your image..."
+              multiline={true}
+              rows={2}
+              onkeydown={handleKeydown}
+            />
+          </div>
           <Button
             variant="primary"
             onclick={generateImage}
             disabled={isGenerating}
-            isLoading={isGenerating}
+            class="generate-btn"
+            title="Generate Image (Enter)"
           >
-            {isGenerating ? 'Generating...' : 'Generate Image'}
-            <MaterialIcon name="creation" width="20" height="20" slot="icon" />
+            {#if isGenerating}
+              <div class="spinning">
+                <MaterialIcon name="loading" width="24" height="24" />
+              </div>
+            {:else}
+              <MaterialIcon name="creation" width="24" height="24" />
+            {/if}
           </Button>
         </div>
+
+        {#if showNegative}
+          <div class="negative-input" transition:slide>
+            <Input
+              label="Negative Prompt"
+              bind:value={negative_prompt}
+              placeholder="What to avoid..."
+              onkeydown={(e) => {
+                if (e.key === 'Enter') generateImage()
+              }}
+            />
+          </div>
+        {/if}
+
+        {#if error}
+          <div class="error-banner">{error}</div>
+        {/if}
       </div>
 
       <div class="gallery-section">
@@ -192,11 +259,24 @@
       </div>
     </div>
 
-    <SDConfig isOpen={showConfig} onClose={() => (showConfig = false)} />
+    <SDConfig isOpen={showConfig} onClose={handleConfigClose} />
   </div>
 </div>
 
 <style>
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .spinning {
+    animation: spin 1s linear infinite;
+    display: flex;
+  }
+
   .sd-page {
     width: 100%;
     min-height: 80vh;
@@ -253,23 +333,84 @@
 
   .controls-section {
     background-color: var(--md-surface);
-    padding: 1.5rem;
+    padding: 1rem;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     margin-bottom: 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
-  .input-group {
-    width: 100%;
-  }
-
-  .action-bar {
+  .input-header {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0.5rem;
+  }
+
+  .badges {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .model-badge {
+    font-size: 0.75rem;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  .size-badge {
+    font-size: 0.7rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    font-family: monospace;
+    opacity: 0.8;
+  }
+
+  .cpu-badge {
+    font-size: 0.7rem;
+    background: var(--info-color-alpha-10, rgba(0, 150, 255, 0.1));
+    color: var(--info-color, #0096ff);
+    border: 1px solid var(--info-color, #0096ff);
+    padding: 0.1rem 0.4rem;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+
+  .prompt-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .main-input {
+    flex: 1;
+  }
+
+  /* Targeting the generate button specifically for layout */
+  :global(.generate-btn) {
+    height: 48px;
+    min-width: 48px; /* Smaller width */
+    padding: 0 0.75rem; /* Reduce padding */
+    border-radius: 8px;
+  }
+
+  .negative-input {
     margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-secondary); /* Slight contrast */
+    border-radius: 8px;
   }
 
   .error-banner {
@@ -278,6 +419,7 @@
     padding: 0.75rem;
     border-radius: 8px;
     font-size: 0.9rem;
+    margin-top: 0.5rem;
   }
 
   .gallery-section {

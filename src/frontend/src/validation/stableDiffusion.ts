@@ -52,3 +52,14 @@ export const GenerationSchema = z.object({
 
 export type SDConfig = z.infer<typeof SDConfigSchema>
 export type GenerationRequest = z.infer<typeof GenerationSchema>
+
+export const SDModelSetSchema = z.object({
+  id: z.number(),
+  name: z.string().min(1),
+  diffusion_model: z.string().min(1),
+  vae: z.string().optional().nullable(),
+  llm: z.string().optional().nullable(),
+  is_default: z.boolean()
+})
+
+export type SDModelSet = z.infer<typeof SDModelSetSchema>

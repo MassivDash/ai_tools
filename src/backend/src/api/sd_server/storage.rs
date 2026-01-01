@@ -20,11 +20,11 @@ pub struct SDImagesStorage {
 }
 
 impl SDImagesStorage {
-    pub async fn new(db_url: &str) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .connect(db_url)
-            .await?;
+    pub fn new(pool: Pool<Sqlite>) -> Self {
+        Self { pool }
+    }
 
+    pub async fn init(&self) -> Result<(), sqlx::Error> {
         // Initialize table
         sqlx::query(
             r#"
@@ -42,10 +42,9 @@ impl SDImagesStorage {
             )
             "#,
         )
-        .execute(&pool)
+        .execute(&self.pool)
         .await?;
-
-        Ok(Self { pool })
+        Ok(())
     }
 
     pub async fn add_image(&self, image: SDImageMetadata) -> Result<(), sqlx::Error> {
