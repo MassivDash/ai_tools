@@ -23,6 +23,7 @@ pub type SDConfigHandle = Arc<Mutex<SDConfig>>;
 pub struct SDState {
     pub is_generating: bool,
     pub current_output_file: Option<String>,
+    pub pending_filename: Option<String>,
 }
 
 pub type SDStateHandle = Arc<Mutex<SDState>>;

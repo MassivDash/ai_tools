@@ -258,6 +258,7 @@ pub async fn post_start_sd_server(
         let mut s = sd_state.lock().unwrap();
         s.is_generating = true;
         s.current_output_file = None;
+        s.pending_filename = Some(unique_filename.clone());
     }
     // Broadcast start status
     ws_state.broadcast_status(true, None);
@@ -317,6 +318,7 @@ pub async fn post_start_sd_server(
                 log_buffer.get_ref().clone(),
                 sd_state.get_ref().clone(),
                 (*ws_state.get_ref()).clone(),
+                (*sd_images_storage.get_ref()).clone(),
             );
 
             *process_guard = Some(child);

@@ -45,6 +45,12 @@
                 showTerminal = false
               }
             }
+          } else if (msg.type === 'error') {
+            error = msg.message
+            isGenerating = false // Ensure we stop spinning
+            // Keep terminal open on error so user can see logs?
+            // User complained it 'closed like everything ended', so maybe we keep it open.
+            // But we also show the error banner.
           }
         } catch (e) {
           console.error('Failed to parse SD status', e)

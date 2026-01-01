@@ -142,6 +142,7 @@ async fn main() -> std::io::Result<()> {
     let sd_server_state: SDServerStateHandle = Arc::new(Mutex::new(SDServerState {
         is_generating: false,
         current_output_file: None,
+        pending_filename: None,
     }));
     use crate::api::sd_server::storage::SDImagesStorage;
     let sd_images_storage = Arc::new(

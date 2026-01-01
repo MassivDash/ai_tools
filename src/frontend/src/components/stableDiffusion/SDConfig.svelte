@@ -10,7 +10,10 @@
   import AdvancedGeneration from './settings/AdvancedGeneration.svelte'
   import SystemSettings from './settings/SystemSettings.svelte'
 
-  import { SDConfigSchema, type SDConfig } from '../../validation/stableDiffusion'
+  import {
+    SDConfigSchema,
+    type SDConfig
+  } from '../../validation/stableDiffusion'
 
   export let isOpen = false
   export let onClose = () => {}

@@ -28,6 +28,8 @@ pub enum WebSocketMessage {
         is_generating: bool,
         current_file: Option<String>,
     },
+    #[serde(rename = "error")]
+    Error { message: String },
 }
 
 #[derive(Clone)]
@@ -84,6 +86,14 @@ impl WebSocketState {
         .unwrap();
         for tx in clients.values() {
             let _ = tx.send(message.clone());
+        }
+    }
+
+    pub fn broadcast_error(&self, message: String) {
+        let clients = self.clients.lock().unwrap();
+        let payload = serde_json::to_string(&WebSocketMessage::Error { message }).unwrap();
+        for tx in clients.values() {
+            let _ = tx.send(payload.clone());
         }
     }
 }
