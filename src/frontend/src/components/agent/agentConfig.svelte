@@ -11,6 +11,7 @@
   import ChromaDBConfigSection from './config/ChromaDBConfigSection.svelte'
   import ToolsConfigSection from './config/ToolsConfigSection.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import CheckboxWithHelp from '../ui/CheckboxWithHelp.svelte'
 
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -323,5 +324,30 @@
       min-width: 100%;
       max-width: 100%;
     }
+  }
+
+  .section-container {
+    margin-bottom: 1.5rem;
+    background-color: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-secondary, #f9f9f9);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .section-header h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #100f0f);
+  }
+
+  .section-content {
+    padding: 1rem;
   }
 </style>

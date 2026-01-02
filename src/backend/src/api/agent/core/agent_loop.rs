@@ -1,3 +1,4 @@
+use crate::api::agent::core::logging::ConversationLogger;
 use crate::api::agent::core::types::{
     ChatCompletionRequest, ChatCompletionResponse, ChatMessage, MessageContent, MessageRole,
     ToolCallResult,
@@ -21,6 +22,7 @@ pub struct AgentLoopConfig {
     pub max_iterations: usize,
     pub max_tokens: u32,
     pub temperature: f32,
+    pub debug_logging: bool,
 }
 
 impl Default for AgentLoopConfig {
@@ -29,6 +31,7 @@ impl Default for AgentLoopConfig {
             max_iterations: 10, // Maximum tool-call iterations
             max_tokens: 2000,
             temperature: 0.7,
+            debug_logging: false,
         }
     }
 }
@@ -48,6 +51,13 @@ pub async fn execute_agent_loop(
 ) -> Result<AgentLoopResult> {
     let mut tool_results = Vec::new();
     let mut iterations = 0;
+    let logger = ConversationLogger::new(config.debug_logging, &conversation_id);
+
+    logger.log("START", "Agent loop started");
+    logger.log("MESSAGES", "Initial message history:");
+    for msg in &messages {
+        logger.log_message(msg);
+    }
 
     loop {
         iterations += 1;
@@ -149,10 +159,16 @@ pub async fn execute_agent_loop(
         };
 
         println!("📤 Sending request to LLM (iteration {})...", iterations);
+        logger.log(
+            "LOOP ITERATION",
+            &format!("Sending request to LLM (iteration {})...", iterations),
+        );
         let response = client.post(llama_url).json(&request).send().await?;
 
         let response_status = response.status();
         let response_text = response.text().await?;
+
+        logger.log("LLM RESPONSE RAW", &response_text);
 
         if !response_status.is_success() {
             return Err(anyhow::anyhow!(
@@ -194,7 +210,8 @@ pub async fn execute_agent_loop(
             {
                 println!("⚠️ Failed to store assistant tool call message: {}", e);
             }
-            messages.push(assistant_message);
+            messages.push(assistant_message.clone());
+            logger.log_message(&assistant_message);
 
             // Execute all tool calls in parallel
             let mut futures = Vec::new();
@@ -227,8 +244,9 @@ pub async fn execute_agent_loop(
                                 "   ✅ Tool '{}' executed successfully",
                                 tool_call.function.name
                             );
-                            iteration_tool_results.push((tool_call, result.clone()));
-                            tool_results.push(result);
+                            iteration_tool_results.push((tool_call.clone(), result.clone()));
+                            tool_results.push(result.clone());
+                            logger.log_tool_result(&result);
                         }
                         Err(e) => {
                             println!("   Tool execution error: {}", e);
@@ -265,7 +283,8 @@ pub async fn execute_agent_loop(
                     println!("⚠️ Failed to store tool result message: {}", e);
                 }
 
-                messages.push(tool_message);
+                messages.push(tool_message.clone());
+                logger.log_message(&tool_message);
             }
 
             // Continue loop - LLM will process tool results and decide next action

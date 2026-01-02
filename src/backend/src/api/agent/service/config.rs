@@ -61,6 +61,11 @@ pub async fn post_agent_config(
     config_guard.enabled_tools = enabled_tools;
     config_guard.chromadb = req.chromadb.clone();
 
+    // Update debug logging if provided
+    if let Some(debug_logging) = req.debug_logging {
+        config_guard.debug_logging = debug_logging;
+    }
+
     println!("✅ Agent configuration updated: {:?}", config_guard);
 
     Ok(HttpResponse::Ok().json(AgentConfigResponse {
@@ -111,6 +116,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             collection: "metadata_check".to_string(),
             embedding_model: "metadata_check".to_string(),
         }),
+        debug_logging: false,
     };
 
     // Context with dummy value for ChromaDB address

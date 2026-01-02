@@ -11,6 +11,7 @@
     buildLlamaConfigPayload
   } from '@validation/llamaConfig.ts'
   import type { ModelNote } from '@types'
+  import type { AgentConfig } from '../../agent/types'
   import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
   import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
   import ModelSelector from './ModelSelector.svelte'
@@ -67,6 +68,7 @@
   let loadingModels = false
   let savingConfig = false
   let error = ''
+  let debugLogging = false // Agent debug logging state
 
   const loadConfig = async () => {
     try {
@@ -87,8 +89,18 @@
       newNoMmap = config.no_mmap ?? false
       newGpuLayers = config.gpu_layers ?? ''
       newModel = config.model ?? ''
+      newModel = config.model ?? ''
     } catch (err: any) {
       console.error('Failed to load config:', err)
+    }
+
+    // Load agent config for debug logging
+    try {
+      const response =
+        await axiosBackendInstance.get<AgentConfig>('agent/config')
+      debugLogging = !!response.data.debug_logging
+    } catch (err: any) {
+      console.error('Failed to load agent config:', err)
     }
   }
 
@@ -198,6 +210,19 @@
         validationResult.data
       )
       if (response.data.success) {
+        // Also save agent config for debug logging
+        try {
+          await axiosBackendInstance.post('agent/config', {
+            debug_logging: debugLogging
+          })
+        } catch (agentErr) {
+          console.error(
+            'Failed to save agent config (debug logging):',
+            agentErr
+          )
+          // We don't block the main save on this failure, but maybe show a warning?
+        }
+
         await loadConfig()
         if (onSave) onSave()
         onClose()
@@ -274,6 +299,15 @@
         type="number"
         bind:value={newCtxSize}
         min="1"
+      />
+    </div>
+
+    <!-- Agent Debug Logging (from Agent Config) -->
+    <div class="config-section">
+      <CheckboxWithHelp
+        bind:checked={debugLogging}
+        label="Debug Conversation Logging"
+        helpText="Writes detailed logs of the agent conversation (system prompts, thinking, tool calls, results) to a single file in public/logs per conversation."
       />
     </div>
 

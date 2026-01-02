@@ -206,7 +206,10 @@ pub async fn agent_chat(
     let last_message_id_before_loop = sqlite_memory.get_last_message_id().await.unwrap_or(0);
 
     // Execute agent loop - allows iterative tool use
-    let loop_config = AgentLoopConfig::default();
+    let loop_config = AgentLoopConfig {
+        debug_logging: config.debug_logging,
+        ..AgentLoopConfig::default()
+    };
     let mut loop_result = execute_agent_loop(
         &client,
         &llama_url,
@@ -266,6 +269,7 @@ pub async fn agent_chat(
         // Try again with clean context and reduced max iterations
         let recovery_config = AgentLoopConfig {
             max_iterations: 5, // Reduced for recovery attempt
+            debug_logging: config.debug_logging,
             ..Default::default()
         };
 
@@ -495,7 +499,10 @@ pub async fn agent_chat_stream(
     let sqlite_memory_clone = sqlite_memory.get_ref().clone();
     let conversation_id_clone = conversation_id.clone();
     let agent_ws_state_clone = agent_ws_state.get_ref().clone();
-    let loop_config = AgentLoopConfig::default();
+    let loop_config = AgentLoopConfig {
+        debug_logging: config.debug_logging,
+        ..AgentLoopConfig::default()
+    };
     let active_generations_clone = active_generations.get_ref().clone();
 
     // Spawn the agent loop in a background task

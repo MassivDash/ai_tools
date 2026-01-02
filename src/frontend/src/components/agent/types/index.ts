@@ -65,6 +65,7 @@ export interface AgentConfig {
     collection: string
     embedding_model: string
   }
+  debug_logging?: boolean
 }
 
 export interface AgentConfigResponse {

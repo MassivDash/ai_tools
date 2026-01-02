@@ -23,6 +23,9 @@ pub struct AgentConfig {
     pub enabled_tools: Vec<ToolType>,
     /// ChromaDB configuration (only used if ChromaDB tool is enabled)
     pub chromadb: Option<ChromaDBToolConfig>,
+    /// Whether to enable debug logging for agent conversations
+    #[serde(default)]
+    pub debug_logging: bool,
 }
 
 /// ChromaDB tool configuration
@@ -233,6 +236,8 @@ pub struct AgentConfigRequest {
     pub enabled_tools: Vec<ToolType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chromadb: Option<ChromaDBToolConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub debug_logging: Option<bool>,
 }
 
 /// Agent config response

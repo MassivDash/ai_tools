@@ -1,3 +1,4 @@
+use crate::api::agent::core::logging::ConversationLogger;
 use crate::api::agent::core::types::{
     AgentStreamEvent, ChatCompletionRequest, ChatMessage, MessageContent, MessageRole,
     ToolCallResult,
@@ -32,6 +33,13 @@ pub async fn execute_agent_loop_streaming(
     let mut tool_results = Vec::new();
     let mut iterations = 0;
     let mut total_usage: Option<crate::api::agent::core::types::Usage> = None;
+    let logger = ConversationLogger::new(config.debug_logging, &conversation_id);
+
+    logger.log("START", "Streaming Agent loop started");
+    logger.log("MESSAGES", "Initial message history:");
+    for msg in &messages {
+        logger.log_message(msg);
+    }
 
     loop {
         iterations += 1;
@@ -160,6 +168,11 @@ pub async fn execute_agent_loop_streaming(
         };
 
         // Send request with cancellation check
+        logger.log(
+            "LOOP ITERATION",
+            &format!("Sending request to LLM (iteration {})...", iterations),
+        );
+        logger.log_raw("\n[STREAMING RESPONSE START]\n");
         let mut response = tokio::select! {
             res = client.post(llama_url).json(&request).send() => {
                 match res {
@@ -190,6 +203,7 @@ pub async fn execute_agent_loop_streaming(
 
         // Variables to accumulate streamed response
         let mut accumulated_content = String::new();
+        let mut accumulated_reasoning_content = String::new();
         let mut accumulated_tool_calls: Vec<crate::api::agent::core::types::ToolCall> = Vec::new();
         let mut final_usage: Option<crate::api::agent::core::types::Usage> = None;
         let mut loop_cancelled = false;
@@ -229,6 +243,29 @@ pub async fn execute_agent_loop_streaming(
                                                                 // Client disconnected, treat as cancellation
                                                                 loop_cancelled = true;
                                                             }
+                                                            logger.log_raw(content);
+                                                        }
+                                                    }
+
+                                                    // 1.5 Handle Reasoning Streaming
+                                                    if let Some(reasoning) = delta.get("reasoning_content").and_then(|c| c.as_str()) {
+                                                        if !reasoning.is_empty() {
+                                                            accumulated_reasoning_content.push_str(reasoning);
+                                                            // Optional: log reasoning stream? The user specifically asked for "responses from LLM as also streamed"
+                                                            // But reasoning is part of response. Let's log formatted reasoning if we want, or just append raw text?
+                                                            // The user might want to see reasoning appear. Let's log it with a prefix or just raw.
+                                                            // Given it's "raw" streaming, maybe just streaming it is fine.
+                                                            // To distinguish, maybe we don't log it raw mixed with content.
+                                                            // BUT, for now, let's assume "response" means the main content.
+                                                            // Wait, if I mix them in the same file without labels, it might be confusing.
+                                                            // However, usually they don't interleave perfectly line by line.
+                                                            // Let's log it but maybe formatted or just raw?
+                                                            // Let's stick to content for now to match "text chunks", or check if I should log everything.
+                                                            // "make sure the responses from LLM as aslo streamed to the file"
+                                                            // I'll log reasoning too, but I'll prefix it if possible, or just log.
+                                                            // Getting clean separation in a raw stream is hard.
+                                                            // I'll leave reasoning out of the RAW stream for now to keep the text clean,
+                                                            // as I already log the full reasoning block at the end in the message log.
                                                         }
                                                     }
 
@@ -279,7 +316,10 @@ pub async fn execute_agent_loop_streaming(
                                 break;
                             }
                         }
-                        Ok(None) => break, // Check streaming finished
+                        Ok(None) => {
+                             logger.log_raw("\n[STREAMING RESPONSE END]\n");
+                             break;
+                        }, // Check streaming finished
                         Err(e) => {
                              let _ = tx.send(Ok(AgentStreamEvent::Error {
                                 message: format!("Stream error: {}", e),
@@ -307,7 +347,11 @@ pub async fn execute_agent_loop_streaming(
                     name: None,
                     tool_calls: None,
                     tool_call_id: None,
-                    reasoning_content: None,
+                    reasoning_content: if !accumulated_reasoning_content.is_empty() {
+                        Some(accumulated_reasoning_content.clone())
+                    } else {
+                        None
+                    },
                 };
                 if let Err(e) = sqlite_memory
                     .add_message(&conversation_id, partial_assistant_message)
@@ -400,6 +444,7 @@ pub async fn execute_agent_loop_streaming(
                 match tool_registry.execute_tool_call(tool_call).await {
                     Ok(result) => {
                         let duration = tool_exec_start.elapsed();
+                        logger.log_tool_result(&result);
                         // Send tool result first
                         let _ = tx
                             .send(Ok(AgentStreamEvent::ToolResult {
@@ -450,6 +495,7 @@ pub async fn execute_agent_loop_streaming(
                             tool_name: tool_call.function.name.clone(),
                             result: format!("Error: {}", e),
                         };
+                        logger.log_tool_result(&error_result);
                         tool_results.push(error_result);
                     }
                 }
@@ -474,9 +520,14 @@ pub async fn execute_agent_loop_streaming(
                 name: None,
                 tool_calls: Some(accumulated_tool_calls),
                 tool_call_id: None,
-                reasoning_content: None,
+                reasoning_content: if !accumulated_reasoning_content.is_empty() {
+                    Some(accumulated_reasoning_content.clone())
+                } else {
+                    None
+                },
             };
-            messages.push(assistant_message);
+            messages.push(assistant_message.clone());
+            logger.log_message(&assistant_message);
 
             // Add tool results as tool messages
             let tool_calls_to_msg_process = messages
@@ -504,7 +555,8 @@ pub async fn execute_agent_loop_streaming(
                     tool_call_id: Some(tool_call.id.clone()),
                     reasoning_content: None,
                 };
-                messages.push(tool_message);
+                messages.push(tool_message.clone());
+                logger.log_message(&tool_message);
             }
 
             continue;
@@ -539,7 +591,11 @@ pub async fn execute_agent_loop_streaming(
                 name: None,
                 tool_calls: None,
                 tool_call_id: None,
-                reasoning_content: None,
+                reasoning_content: if !accumulated_reasoning_content.is_empty() {
+                    Some(accumulated_reasoning_content.clone())
+                } else {
+                    None
+                },
             };
             if let Err(e) = sqlite_memory
                 .add_message(&conversation_id, final_assistant_message)
