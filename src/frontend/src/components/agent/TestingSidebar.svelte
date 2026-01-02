@@ -223,6 +223,7 @@
     content: string
   }) => {
     if (running) {
+      console.log('TestingSidebar metrics:', metrics)
       if (metrics.usage) {
         totalTokens += metrics.usage.total_tokens || 0
       }

@@ -170,6 +170,13 @@ pub struct ChatCompletionRequest {
     pub tool_choice: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream_options: Option<StreamOptions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamOptions {
+    pub include_usage: bool,
 }
 
 /// Chat completion response from llama.cpp
@@ -362,5 +369,26 @@ mod tests {
             }
             _ => panic!("Expected MessageContent::Text"),
         }
+    }
+
+    #[test]
+    fn test_serialize_chat_completion_request_with_usage() {
+        let request = ChatCompletionRequest {
+            messages: vec![],
+            model: "test-model".to_string(),
+            temperature: None,
+            max_tokens: None,
+            tools: None,
+            tool_choice: None,
+            stream: Some(true),
+            stream_options: Some(StreamOptions {
+                include_usage: true,
+            }),
+        };
+
+        let json = serde_json::to_value(request).expect("Failed to serialize request");
+
+        assert_eq!(json["stream"], true);
+        assert_eq!(json["stream_options"]["include_usage"], true);
     }
 }

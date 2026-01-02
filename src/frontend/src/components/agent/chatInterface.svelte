@@ -482,6 +482,7 @@
           }
         }
         if (event.usage) {
+          console.log('TokenUsage update:', event.usage)
           tokenUsage = event.usage
         }
 

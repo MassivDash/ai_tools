@@ -156,6 +156,7 @@ pub async fn execute_agent_loop(
             },
             tool_choice,
             stream: Some(false),
+            stream_options: None,
         };
 
         println!("📤 Sending request to LLM (iteration {})...", iterations);

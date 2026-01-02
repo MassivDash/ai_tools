@@ -165,6 +165,9 @@ pub async fn execute_agent_loop_streaming(
             },
             tool_choice,
             stream: Some(true),
+            stream_options: Some(crate::api::agent::core::types::StreamOptions {
+                include_usage: true,
+            }),
         };
 
         // Send request with cancellation check
