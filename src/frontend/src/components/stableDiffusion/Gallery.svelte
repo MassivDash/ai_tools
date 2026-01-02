@@ -30,7 +30,7 @@
     try {
       const url = new URL(apiUrl)
       return `${url.origin}${path}`
-    } catch (e) {
+    } catch {
       return path
     }
   }

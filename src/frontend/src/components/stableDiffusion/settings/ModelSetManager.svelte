@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte'
+  import { onMount } from 'svelte'
   import { stableDiffusionApi } from '../../../api/stableDiffusion'
   import Button from '../../ui/Button.svelte'
   import Input from '../../ui/Input.svelte'
   import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
-  import IconButton from '../../ui/IconButton.svelte'
   import MaterialIcon from '../../ui/MaterialIcon.svelte'
   import EditableListItem from '../../ui/EditableListItem.svelte'
   import { type SDModelSet } from '../../../validation/stableDiffusion'
@@ -29,7 +28,7 @@
     loading = true
     try {
       modelSets = await stableDiffusionApi.getModelSets()
-    } catch (e) {
+    } catch {
       error = 'Failed to load model sets'
     } finally {
       loading = false
@@ -41,7 +40,7 @@
     try {
       await stableDiffusionApi.deleteModelSet(id)
       await fetchSets()
-    } catch (e) {
+    } catch {
       error = 'Failed to delete set'
     }
   }
@@ -223,9 +222,6 @@
 </div>
 
 <style>
-  .model-sets-manager {
-    /* Clean look */
-  }
   .header {
     display: flex;
     justify-content: space-between;

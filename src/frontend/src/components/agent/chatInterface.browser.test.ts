@@ -43,7 +43,7 @@ const mocks = vi.hoisted(() => {
 })
 
 // We need to capture the event handler passed to useAgentWebSocket
-let wsEventHandler: (event: any) => void = () => {}
+let wsEventHandler: (_event: any) => void = () => {}
 
 vi.mock('../../hooks/useAgentWebSocket', () => ({
   useAgentWebSocket: vi.fn((handler) => {

@@ -71,7 +71,7 @@
         if (data.vae_relative_tile_size === 0)
           config.vae_relative_tile_size = null
       }
-    } catch (e) {
+    } catch {
       // error handled in api or just logged
       error = 'Failed to load configuration'
     } finally {

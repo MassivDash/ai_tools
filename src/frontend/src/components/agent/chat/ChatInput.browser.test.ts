@@ -9,18 +9,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte'
 
 // ...
 
-// Setup mocks
-class MockFileReader {
-  onload: any
-  readAsDataURL(_blob: Blob) {
-    // Trigger onload
-    setTimeout(() => {
-      if (this.onload) {
-        this.onload({ target: { result: 'data:image/jpeg;base64,mockdata' } })
-      }
-    }, 20)
-  }
-}
+
 import { expect, test, vi, beforeEach } from 'vitest'
 import ChatInput from './ChatInput.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
