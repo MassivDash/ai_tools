@@ -34,12 +34,12 @@ test('does not render when token usage is zero or null', async () => {
 test('renders when token usage is greater than zero', async () => {
   const { getByText } = render(TokenUsageDisplay as Component, {
     props: {
-        tokenUsage: {
-            prompt_tokens: 10,
-            completion_tokens: 20,
-            total_tokens: 30
-        },
-        ctxSize: 4096
+      tokenUsage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30
+      },
+      ctxSize: 4096
     }
   })
 
@@ -48,17 +48,17 @@ test('renders when token usage is greater than zero', async () => {
 })
 
 test('renders correctly when ctxSize is 0', async () => {
-    const { getByText } = render(TokenUsageDisplay as Component, {
-        props: {
-            tokenUsage: {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30
-            },
-            ctxSize: 0
-        }
-    })
+  const { getByText } = render(TokenUsageDisplay as Component, {
+    props: {
+      tokenUsage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30
+      },
+      ctxSize: 0
+    }
+  })
 
-    // Should show "30 tokens"
-    expect(getByText('30 tokens')).toBeTruthy()
+  // Should show "30 tokens"
+  expect(getByText('30 tokens')).toBeTruthy()
 })

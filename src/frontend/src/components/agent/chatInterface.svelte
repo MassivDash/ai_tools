@@ -323,7 +323,6 @@
     // Explicitly signal backend to stop, if we have a conversation ID
     if (conversationId) {
       try {
-        console.log('Sending cancellation request...')
         await axiosBackendInstance.post(`agent/chat/${conversationId}/cancel`)
 
         // Optimistically update status to show we are stopping
@@ -482,7 +481,6 @@
           }
         }
         if (event.usage) {
-          console.log('TokenUsage update:', event.usage)
           tokenUsage = event.usage
         }
 

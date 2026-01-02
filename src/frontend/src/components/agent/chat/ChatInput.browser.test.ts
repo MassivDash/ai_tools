@@ -143,20 +143,6 @@ test.skip('mocks image processing', async () => {
 
   // Setup mocks
   const originalFileReader = globalThis.FileReader
-  class MockFileReader {
-    onload: any
-    readAsDataURL(blob: Blob) {
-      // Trigger onload
-      setTimeout(() => {
-        if (this.onload) {
-          this.onload({ target: { result: 'data:image/jpeg;base64,mockdata' } })
-        }
-      }, 20)
-    }
-  }
-  globalThis.FileReader = MockFileReader as any
-  window.FileReader = MockFileReader as any
-
   // Mock Image
   const originalImage = window.Image
   class MockImage {
@@ -246,13 +232,13 @@ test('renders token usage when provided', async () => {
 
   const { queryByText } = render(ChatInput as Component, {
     props: {
-        inputMessage: '',
-        loading: false,
-        onSend: vi.fn(),
-        onInputChange: vi.fn(),
-        onAttachmentsChange,
-        tokenUsage,
-        ctxSize: 200
+      inputMessage: '',
+      loading: false,
+      onSend: vi.fn(),
+      onInputChange: vi.fn(),
+      onAttachmentsChange,
+      tokenUsage,
+      ctxSize: 200
     }
   })
 
@@ -261,40 +247,43 @@ test('renders token usage when provided', async () => {
 })
 
 test('does not render token usage when zero or null', async () => {
-    const onAttachmentsChange = vi.fn()
+  const onAttachmentsChange = vi.fn()
 
-    // Case 1: Null
-    const { queryByText: queryByTextNull, unmount } = render(ChatInput as Component, {
+  // Case 1: Null
+  const { queryByText: queryByTextNull, unmount } = render(
+    ChatInput as Component,
+    {
       props: {
-          inputMessage: '',
-          loading: false,
-          onSend: vi.fn(),
-          onInputChange: vi.fn(),
-          onAttachmentsChange,
-          tokenUsage: null,
-          ctxSize: 200
+        inputMessage: '',
+        loading: false,
+        onSend: vi.fn(),
+        onInputChange: vi.fn(),
+        onAttachmentsChange,
+        tokenUsage: null,
+        ctxSize: 200
       }
-    })
+    }
+  )
 
-    expect(queryByTextNull(/tokens/)).toBeNull()
-    unmount()
+  expect(queryByTextNull(/tokens/)).toBeNull()
+  unmount()
 
-    // Case 2: Zero
-    const { queryByText: queryByTextZero } = render(ChatInput as Component, {
-        props: {
-            inputMessage: '',
-            loading: false,
-            onSend: vi.fn(),
-            onInputChange: vi.fn(),
-            onAttachmentsChange,
-            tokenUsage: {
-                prompt_tokens: 0,
-                completion_tokens: 0,
-                total_tokens: 0
-            },
-            ctxSize: 200
-        }
-      })
-
-      expect(queryByTextZero(/tokens/)).toBeNull()
+  // Case 2: Zero
+  const { queryByText: queryByTextZero } = render(ChatInput as Component, {
+    props: {
+      inputMessage: '',
+      loading: false,
+      onSend: vi.fn(),
+      onInputChange: vi.fn(),
+      onAttachmentsChange,
+      tokenUsage: {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0
+      },
+      ctxSize: 200
+    }
   })
+
+  expect(queryByTextZero(/tokens/)).toBeNull()
+})
