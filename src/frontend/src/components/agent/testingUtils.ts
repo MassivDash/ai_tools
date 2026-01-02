@@ -24,8 +24,10 @@ export const parseQuestionsFromFile = (file: File): Promise<string[]> => {
         for (const row of parsedData) {
           // Look for 'questions', 'measure', 'text', 'content' (case insensitive)
           const keys = Object.keys(row)
-          const targetKey = keys.find(k => 
-            ['questions', 'question', 'text', 'content'].includes(k.toLowerCase())
+          const targetKey = keys.find((k) =>
+            ['questions', 'question', 'text', 'content'].includes(
+              k.toLowerCase()
+            )
           )
 
           if (targetKey) {
@@ -33,15 +35,19 @@ export const parseQuestionsFromFile = (file: File): Promise<string[]> => {
             if (typeof val === 'string' && val.trim()) {
               questions.push(val.trim())
             } else if (typeof val === 'number') {
-               questions.push(val.toString())
+              questions.push(val.toString())
             }
           }
         }
 
         if (questions.length === 0) {
-            // If no header matched, maybe it's a headless CSV/Sheet?
-            reject(new Error('No valid questions found. Ensure column header is "questions", "question", or "text".'))
-            return
+          // If no header matched, maybe it's a headless CSV/Sheet?
+          reject(
+            new Error(
+              'No valid questions found. Ensure column header is "questions", "question", or "text".'
+            )
+          )
+          return
         }
 
         resolve(questions)

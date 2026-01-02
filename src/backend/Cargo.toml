@@ -15,7 +15,7 @@ actix-utils = "3.0.1"
 futures-util = "0.3.31"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
 env_logger = "0.11.5"
 anyhow = "1.0"
 dotenv = "0.15.0"
@@ -41,3 +41,5 @@ parquet = "52.0"
 arrow = "52.0"
 chrono = "=0.4.39"
 toml = "0.8"
+actix = "0.13.5"
+actix-web-actors = "4.3.1"

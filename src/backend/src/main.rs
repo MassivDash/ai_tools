@@ -36,6 +36,7 @@ use crate::cors::get_cors_options::get_cors_options;
 use crate::services::agent::configure_agent_services;
 use crate::services::chromadb::configure_chromadb_services;
 use crate::services::converters::configure_converter_services;
+use crate::services::games::configure_games_services;
 use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
 use crate::services::sd_server::configure_sd_server_services;
@@ -355,6 +356,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)
             .configure(configure_agent_services)
+            .configure(configure_games_services)
             .configure(configure_model_notes_services)
             .configure(configure_sd_server_services)
             .service(Files::new("/public", &images_path_str).show_files_listing())

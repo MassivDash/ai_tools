@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod chromadb;
 pub mod default_configs;
+pub mod games;
 pub mod html_to_markdown;
 pub mod json_to_toon;
 pub mod llama_server;
