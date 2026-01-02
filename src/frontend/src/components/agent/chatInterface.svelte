@@ -189,6 +189,10 @@
     window.removeEventListener('mouseup', handleMouseUp)
   }
 
+  export const setInputMessage = (message: string) => {
+    inputMessage = message
+  }
+
   export const sendMessage = async (overrideMessage?: string) => {
     const msgToSend = overrideMessage || inputMessage
     if ((!msgToSend.trim() && currentAttachments.length === 0) || loading)

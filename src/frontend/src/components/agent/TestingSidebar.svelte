@@ -8,11 +8,14 @@
   import EditableListItem from '../ui/EditableListItem.svelte'
   import Input from '../ui/Input.svelte'
   import type { TestSuite, TestQuestion } from './types'
+  import { utils, writeFile } from 'xlsx'
+  import { parseQuestionsFromFile } from './testingUtils'
 
   export let isOpen = false
 
   const dispatch = createEventDispatcher<{
     runQuestion: { content: string }
+    copyQuestion: { content: string }
     close: void
   }>()
 
@@ -241,6 +244,54 @@
     dispatch('runQuestion', { content: questions[0].content })
   }
 
+  /* --- Import/Export --- */
+  let fileInput: HTMLInputElement
+
+  const handleImportClick = () => {
+    fileInput.click()
+  }
+
+  const handleFileChange = async (e: Event) => {
+    const target = e.target as HTMLInputElement
+    if (!target.files || target.files.length === 0 || !selectedSuite) return
+
+    const file = target.files[0]
+
+    try {
+      const newQuestions = await parseQuestionsFromFile(file)
+      // Batch add logic
+      for (const content of newQuestions) {
+        await axiosBackendInstance.post(
+          `agent/testing/suites/${selectedSuite.id}/questions`,
+          { content }
+        )
+      }
+      await loadQuestions(selectedSuite)
+      error = ''
+    } catch (err: any) {
+      console.error('Import failed', err)
+      error = err.message || 'Failed to import file'
+    } finally {
+      target.value = '' // Reset input
+    }
+  }
+
+  const handleExport = () => {
+    if (questions.length === 0) return
+
+    const data = questions.map((q) => ({ questions: q.content }))
+    const worksheet = utils.json_to_sheet(data)
+    const workbook = utils.book_new()
+    utils.book_append_sheet(workbook, worksheet, 'Questions')
+
+    // Generate filename
+    const filename = selectedSuite?.name
+      ? `${selectedSuite.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_questions.xlsx`
+      : 'testing_questions.xlsx'
+
+    writeFile(workbook, filename)
+  }
+
   const stopRunner = () => {
     running = false
     endTime = Date.now()
@@ -367,6 +418,33 @@
             </div>
           </div>
         {/if}
+
+        {#if !running}
+          <div class="io-controls">
+            <input
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              style="display: none;"
+              bind:this={fileInput}
+              onchange={handleFileChange}
+            />
+            <Button
+              variant="secondary"
+              onclick={handleImportClick}
+              title="Import from Excel"
+            >
+              <MaterialIcon name="upload" width="18" height="18" /> Import
+            </Button>
+            <Button
+              variant="secondary"
+              onclick={handleExport}
+              disabled={questions.length === 0}
+              title="Export to Excel"
+            >
+              <MaterialIcon name="download" width="18" height="18" /> Export
+            </Button>
+          </div>
+        {/if}
       </div>
 
       {#if showForm}
@@ -397,6 +475,7 @@
             active={i === currentQuestionIndex && running}
             on:save={(e) => updateQuestionContent(q.id, e.detail)}
             on:delete={() => deleteQuestion(q.id)}
+            on:click={() => dispatch('copyQuestion', { content: q.content })}
           >
             <div style="display: flex; gap: 8px;">
               <span class="index">{i + 1}.</span>
@@ -533,5 +612,12 @@
     gap: 8px;
     font-size: 0.8rem;
     color: var(--text-secondary);
+  }
+
+  .io-controls {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: center;
   }
 </style>

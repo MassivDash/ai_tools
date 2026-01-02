@@ -11,8 +11,6 @@
   import ChromaDBConfigSection from './config/ChromaDBConfigSection.svelte'
   import ToolsConfigSection from './config/ToolsConfigSection.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
-  import CheckboxWithHelp from '../ui/CheckboxWithHelp.svelte'
-
   export let isOpen: boolean = false
   export let onClose: () => void
   export let onSave: () => void

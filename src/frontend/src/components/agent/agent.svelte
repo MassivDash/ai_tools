@@ -207,6 +207,13 @@
     }
   }
 
+  const handleCopyQuestion = (event: CustomEvent<{ content: string }>) => {
+    const content = event.detail.content
+    if (chatInterface) {
+      chatInterface.setInputMessage(content)
+    }
+  }
+
   let shouldRefreshHistory = false
 
   onMount(() => {
@@ -268,6 +275,7 @@
       isOpen={showTesting}
       on:close={() => (showTesting = false)}
       on:runQuestion={handleRunQuestion}
+      on:copyQuestion={handleCopyQuestion}
     />
 
     <div class="terminal-sidebar" class:visible={showTerminal}>
