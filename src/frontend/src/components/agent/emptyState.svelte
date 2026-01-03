@@ -28,10 +28,4 @@
     color: var(--text-tertiary, #999);
     transition: color 0.3s ease;
   }
-
-  .empty-state .hint-small {
-    font-size: 0.8rem;
-    color: var(--text-tertiary, #aaa);
-    transition: color 0.3s ease;
-  }
 </style>

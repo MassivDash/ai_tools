@@ -17,14 +17,13 @@
 
   // Form State
   let showForm = false
-  let editingSuiteId: string | null = null
 
   let suiteName = ''
   let suiteDescription = ''
 
   export const openNewSuiteForm = () => {
     showForm = true
-    editingSuiteId = null
+
     suiteName = ''
     suiteDescription = ''
   }

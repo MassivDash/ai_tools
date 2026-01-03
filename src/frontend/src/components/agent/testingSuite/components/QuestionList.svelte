@@ -17,11 +17,9 @@
 
   let showForm = false
   let questionContent = ''
-  let editingQuestionId: number | null = null
 
   export const openAddQuestionForm = () => {
     showForm = true
-    editingQuestionId = null
     questionContent = ''
   }
 
@@ -36,7 +34,6 @@
   const handleCancel = () => {
     showForm = false
     questionContent = ''
-    editingQuestionId = null
   }
 </script>
 

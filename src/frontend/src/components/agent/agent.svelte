@@ -12,9 +12,9 @@
     LlamaServerResponse,
     AgentConfig as AgentConfigType
   } from '@types'
-  import AgentHeader from './interface/AgentHeader.svelte'
+  import AgentHeader from './interface/agentHeader.svelte'
   import ServerControls from './config/ServerControls.svelte'
-  import EmptyState from './EmptyState.svelte'
+  import EmptyState from './emptyState.svelte'
   import HistorySidebar from './history/HistorySidebar.svelte'
 
   import TestingSidebar from './testingSuite/TestingSidebar.svelte'
