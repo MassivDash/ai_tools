@@ -31,13 +31,13 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
     // Create a new ID for this utterance to track it
     const utteranceId = Date.now().toString()
     currentUtteranceId = utteranceId
-    
+
     // Set speaking immediately to prevent race conditions
     isSpeaking = true
     error = null
 
     const utterance = new SpeechSynthesisUtterance(text)
-    
+
     utterance.rate = rate
     utterance.pitch = pitch
     utterance.volume = volume
