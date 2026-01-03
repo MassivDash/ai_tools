@@ -21,6 +21,7 @@
 
   let alwaysOn = $state(false)
   let silenceTimer: any = $state(null)
+  let restartTimer: any = $state(null)
 
   const stopSilenceTimer = () => {
     if (silenceTimer) {
@@ -53,7 +54,7 @@
       if (alwaysOn) {
         // If TTS is disabled (implicit here as we don't control it directly in this logic block),
         // we just restart with delay. Note: The parent component handles preventing restart if TTS starts speaking via the effect below
-        setTimeout(() => {
+        restartTimer = setTimeout(() => {
           if (!ttsSpeaking) {
             speech.start()
           }
@@ -82,11 +83,16 @@
         speech.stop()
       }
       stopSilenceTimer()
+      // Also clear any pending restart timer
+      if (restartTimer) {
+        clearTimeout(restartTimer)
+        restartTimer = null
+      }
     } else {
       // Restart listening when speaking ends IF alwaysOn is active
       // Only restart if we are not currently listening and alwaysOn is true
       if (alwaysOn && !speech.isListening && !loading) {
-        setTimeout(() => {
+        restartTimer = setTimeout(() => {
           speech.start()
         }, 200)
       }

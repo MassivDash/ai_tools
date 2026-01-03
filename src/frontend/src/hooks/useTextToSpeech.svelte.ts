@@ -10,6 +10,7 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
   let isSpeaking = $state(false)
   let issupported = $state(false)
   let error = $state<string | null>(null)
+  let currentUtteranceId: string | null = null
 
   // Initialize state based on browser support
   if (typeof window !== 'undefined') {
@@ -27,25 +28,42 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
     // Cancel any current speaking
     cancel()
 
+    // Create a new ID for this utterance to track it
+    const utteranceId = Date.now().toString()
+    currentUtteranceId = utteranceId
+    
+    // Set speaking immediately to prevent race conditions
+    isSpeaking = true
+    error = null
+
     const utterance = new SpeechSynthesisUtterance(text)
+    
     utterance.rate = rate
     utterance.pitch = pitch
     utterance.volume = volume
     utterance.lang = langOverride || lang
 
     utterance.onstart = () => {
-      isSpeaking = true
-      error = null
+      // Only update if this is still the current utterance
+      if (currentUtteranceId === utteranceId) {
+        isSpeaking = true
+        error = null
+      }
     }
 
     utterance.onend = () => {
-      isSpeaking = false
+      // Only set to false if this was the last requested utterance
+      if (currentUtteranceId === utteranceId) {
+        isSpeaking = false
+      }
     }
 
     utterance.onerror = (e) => {
       console.error('TTS Error', e)
-      isSpeaking = false
-      error = 'Error speaking text'
+      if (currentUtteranceId === utteranceId) {
+        isSpeaking = false
+        error = 'Error speaking text'
+      }
     }
 
     window.speechSynthesis.speak(utterance)
@@ -55,6 +73,7 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
     if (issupported && window.speechSynthesis) {
       window.speechSynthesis.cancel()
       isSpeaking = false
+      currentUtteranceId = null
     }
   }
 
