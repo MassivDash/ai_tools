@@ -43,6 +43,7 @@
 
   const tts = useTextToSpeech()
   let ttsEnabled = $state(false)
+  let language = $state('en-US')
 
   // Subscribe to active tools store - use $derived for reactivity
   let activeToolsSet: Set<string> = $state(new Set())
@@ -556,7 +557,7 @@
             if (ttsEnabled && tts.isSupported && currentStreamingMessage) {
               const speechText = cleanTextForSpeech(currentStreamingMessage)
               if (speechText) {
-                tts.speak(speechText)
+                tts.speak(speechText, language)
               }
             }
           }
@@ -690,6 +691,7 @@
     onStopTTS={tts.cancel}
     {tokenUsage}
     {ctxSize}
+    bind:language
   />
 
   <div

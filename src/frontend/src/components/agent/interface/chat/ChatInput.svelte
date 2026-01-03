@@ -26,6 +26,7 @@
       total_tokens: number
     } | null
     ctxSize?: number
+    language?: string
   }
 
   let {
@@ -43,7 +44,8 @@
     onClearQuote,
     onStop = () => {},
     tokenUsage = null,
-    ctxSize = 0
+    ctxSize = 0,
+    language = $bindable('en-US')
   }: Props = $props()
 
   let textareaElement: HTMLTextAreaElement = $state()
@@ -80,7 +82,8 @@
     }
   }
 
-  import VoiceInput from './VoiceInput.svelte'
+  import VoiceInput from './audio/VoiceInput.svelte'
+  import MessageReader from './audio/MessageReader.svelte'
 
   const autoResize = () => {
     if (textareaElement) {
@@ -485,28 +488,45 @@
   />
 </div>
 <div class="voice-input-container">
-  <VoiceInput
-    {loading}
-    {ttsEnabled}
-    {onToggleTTS}
-    {ttsSpeaking}
-    {onStopTTS}
-    onTranscript={(text) => {
-      onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
-    }}
-    onCommand={(command) => {
-      if (command === 'send') {
-        setTimeout(() => {
-          const cleanedInput = cleanInputMessage(inputMessage)
-          if (cleanedInput !== inputMessage) {
-            onInputChange(cleanedInput)
-          }
-          onSend()
-          clearAttachments()
-        }, 100)
-      }
-    }}
-  />
+  <div class="voice-controls-group">
+    <VoiceInput
+      {loading}
+      {ttsSpeaking}
+      onTranscript={(text) => {
+        onInputChange(inputMessage + (inputMessage ? ' ' : '') + text)
+      }}
+      onCommand={(command) => {
+        if (command === 'send') {
+          setTimeout(() => {
+            const cleanedInput = cleanInputMessage(inputMessage)
+            if (cleanedInput !== inputMessage) {
+              onInputChange(cleanedInput)
+            }
+            onSend()
+            clearAttachments()
+          }, 100)
+        }
+      }}
+      lang={language}
+    />
+    {#if onToggleTTS}
+      <MessageReader
+        enabled={ttsEnabled}
+        speaking={ttsSpeaking}
+        onToggle={onToggleTTS}
+        onStop={onStopTTS}
+        lang={language}
+      />
+    {/if}
+  </div>
+
+  <div class="language-select">
+    <span class="lang-label">Lng:</span>
+    <select bind:value={language}>
+      <option value="en-US">EN</option>
+      <option value="pl-PL">PL</option>
+    </select>
+  </div>
 </div>
 
 <style>
@@ -639,9 +659,59 @@
   }
 
   .voice-input-container {
-    padding: 0.5rem 0 0 0;
+    padding: 0.5rem 0.5rem 0.5rem 0.5rem; /* Added padding right/left and bottom */
     border-top: 1px solid var(--border-color, #e0e0e0);
     margin-top: 0.5rem;
+    margin-bottom: 0.5rem; /* Increased button holder bottom margin */
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Move dropdown to right */
+    gap: 0.5rem;
+  }
+
+  .voice-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .language-select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lang-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    white-space: nowrap;
+  }
+
+  .language-select select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    border: 1px solid transparent; /* Prepare for border on hover if needed */
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+
+  .language-select select:hover {
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--accent-color, #2196f3);
+  }
+
+  .language-select select:focus {
+    outline: none;
+    background-color: var(--bg-secondary, #f5f5f5);
+    color: var(--accent-color, #2196f3);
   }
 
   .utility-bar {

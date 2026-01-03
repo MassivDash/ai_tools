@@ -7,20 +7,16 @@
     loading?: boolean
     onTranscript: (_text: string) => void
     onCommand: (_command: string) => void
-    ttsEnabled?: boolean
-    onToggleTTS?: () => void
     ttsSpeaking?: boolean
-    onStopTTS?: () => void
+    lang?: string
   }
 
   let {
     loading = false,
     onTranscript,
     onCommand,
-    ttsEnabled = false,
-    onToggleTTS,
     ttsSpeaking = false,
-    onStopTTS
+    lang = 'en-US'
   }: Props = $props()
 
   let alwaysOn = $state(false)
@@ -55,13 +51,13 @@
       stopSilenceTimer()
 
       if (alwaysOn) {
-        // If TTS is enabled, we wait for speaking to finish (handled by effect)
-        // If TTS is disabled, we just restart with delay
-        if (!ttsEnabled) {
-          setTimeout(() => {
+        // If TTS is disabled (implicit here as we don't control it directly in this logic block),
+        // we just restart with delay. Note: The parent component handles preventing restart if TTS starts speaking via the effect below
+        setTimeout(() => {
+          if (!ttsSpeaking) {
             speech.start()
-          }, 200)
-        }
+          }
+        }, 200)
       }
     },
     onError: (err) => {
@@ -74,7 +70,8 @@
       } else if (type === 'end' || type === 'error') {
         stopSilenceTimer()
       }
-    }
+    },
+    lang: () => lang
   })
 
   // Watch for TTS speaking state changes
@@ -167,44 +164,6 @@
           {alwaysOn ? 'Conversation mode on' : 'Conversation mode off'}
         </span>
       </Button>
-
-      {#if onToggleTTS}
-        <Button
-          variant="ghost"
-          class="voice-input-button {ttsEnabled || ttsSpeaking
-            ? 'speaking'
-            : ''}"
-          onclick={() => {
-            if (ttsSpeaking && onStopTTS) {
-              onStopTTS()
-            } else if (onToggleTTS) {
-              onToggleTTS()
-            }
-          }}
-          title={ttsSpeaking
-            ? 'Stop Speaking'
-            : ttsEnabled
-              ? 'Read Messages: On'
-              : 'Read Messages: Off'}
-        >
-          <MaterialIcon
-            name={ttsSpeaking
-              ? 'stop'
-              : ttsEnabled
-                ? 'volume-high'
-                : 'volume-off'}
-            width="16"
-            height="16"
-          />
-          <span class="label">
-            {ttsSpeaking
-              ? 'Speaking'
-              : ttsEnabled
-                ? 'Read Messages: On'
-                : 'Read Messages: Off'}
-          </span>
-        </Button>
-      {/if}
     </div>
     {#if speech.error}
       <div class="error-tooltip">{speech.error}</div>
@@ -216,60 +175,12 @@
   .voice-controls {
     display: flex;
     align-items: center;
-    width: 100%;
     gap: 0.5rem;
-    margin-bottom: 2rem;
-    margin-left: 1rem;
   }
-
-  :global(.voice-input-button) {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.9rem;
-    justify-content: flex-start;
-    min-width: 10rem;
-  }
-
-  :global(.voice-input-button:active) {
-    color: var(--accent-color, #2196f3);
-    background-color: rgba(33, 150, 243, 0.1);
-  }
-
-  :global(.voice-input-button.speaking) {
-    color: var(--accent-color, #2196f3);
-    background-color: rgba(33, 150, 243, 0.1);
-  }
-
-  :global(.voice-input-button:hover:not(:disabled)) {
-    background-color: var(--bg-secondary, #f5f5f5);
-    color: var(--accent-color, #2196f3);
-  }
-
-  :global(.voice-input-button:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  :global(.voice-input-button.listening) {
-    color: #f44336;
-    background-color: rgba(244, 67, 54, 0.1);
-    animation: pulse 2s infinite;
-  }
-
-  :global(.voice-input-button.error) {
-    color: #ff9800;
-  }
-
+  /* ... skipping ... */
   .voice-input {
     position: relative;
     display: block;
-    width: 100%;
   }
 
   .label {
