@@ -1,5 +1,5 @@
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-import type { ToolInfo } from '../types'
+import type { ToolInfo } from '@types'
 
 // Cache for tool information
 let toolsCache: ToolInfo[] | null = null

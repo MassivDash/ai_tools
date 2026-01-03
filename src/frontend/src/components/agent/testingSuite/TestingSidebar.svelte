@@ -1,15 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
-  import Button from '../ui/Button.svelte'
-  import IconButton from '../ui/IconButton.svelte'
-  import SidebarHeader from '../ui/SidebarHeader.svelte'
-  import EditableListItem from '../ui/EditableListItem.svelte'
-  import Input from '../ui/Input.svelte'
-  import type { TestSuite, TestQuestion } from './types'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
+  import Button from '@ui/Button.svelte'
+  import IconButton from '@ui/IconButton.svelte'
+  import SidebarHeader from '@ui/SidebarHeader.svelte'
+  import EditableListItem from '@ui/EditableListItem.svelte'
+  import Input from '@ui/Input.svelte'
+  import type { TestSuite, TestQuestion } from '@types'
   import { utils, writeFile } from 'xlsx'
-  import { parseQuestionsFromFile } from './testingUtils'
+  import { parseQuestionsFromFile } from '../utils/testingUtils'
 
   export let isOpen = false
 

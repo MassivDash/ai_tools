@@ -6,11 +6,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import TestingSidebar from './TestingSidebar.svelte'
-import { axiosBackendInstance } from '@axios/axiosBackendInstance'
+import { axiosBackendInstance } from '../../../axiosInstance/axiosBackendInstance'
 import type { Component } from 'svelte'
 
 // Mock axiosBackendInstance
-vi.mock('@axios/axiosBackendInstance', () => ({
+vi.mock('../../../axiosInstance/axiosBackendInstance', () => ({
   axiosBackendInstance: {
     get: vi.fn(),
     post: vi.fn(),

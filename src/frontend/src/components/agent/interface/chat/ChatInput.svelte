@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Button from '../../ui/Button.svelte'
-  import IconButton from '../../ui/IconButton.svelte'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import Button from '@ui/Button.svelte'
+  import IconButton from '@ui/IconButton.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ModelCapabilities, FileAttachment } from '../types'
+  import type { ModelCapabilities, FileAttachment } from '@types'
   import TokenUsageDisplay from './TokenUsageDisplay.svelte'
 
   interface Props {

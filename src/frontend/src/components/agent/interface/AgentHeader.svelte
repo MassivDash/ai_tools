@@ -1,7 +1,7 @@
 <script lang="ts">
-  import PageSubHeader from '../ui/PageSubHeader.svelte'
-  import Button from '../ui/Button.svelte'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import PageSubHeader from '@ui/PageSubHeader.svelte'
+  import Button from '@ui/Button.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   export const showConfig: boolean = false
   export const showLlamaConfig: boolean = false

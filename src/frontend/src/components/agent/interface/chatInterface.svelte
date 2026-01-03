@@ -1,18 +1,18 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
-  import { useTextToSpeech } from '../../hooks/useTextToSpeech.svelte'
-  import { activeTools as activeToolsStore } from '../../stores/activeTools'
-  import { chatLayout } from '../../stores/chatLayout'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import { useAgentWebSocket } from '@hooks/useAgentWebSocket'
+  import { useTextToSpeech } from '@hooks/useTextToSpeech.svelte'
+  import { activeTools as activeToolsStore } from '@stores/activeTools'
+  import { chatLayout } from '@stores/chatLayout'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
   import type {
     ChatMessage,
     AgentStreamEvent,
     ModelCapabilities,
     FileAttachment
-  } from './types'
-  import { generateMessageId, cleanTextForSpeech } from './utils/formatting'
+  } from '@types'
+  import { generateMessageId, cleanTextForSpeech } from '../utils/formatting'
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'

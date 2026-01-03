@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { ChatMessage } from '../types'
+  import type { ChatMessage } from '../../types'
   import MessageItem from './MessageItem.svelte'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   interface Props {
     messages?: ChatMessage[]

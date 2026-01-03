@@ -86,11 +86,11 @@ export interface ModelInfo {
   modified?: string
 }
 
-export interface ChromaDBResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-}
+// export interface ChromaDBResponse<T> {
+//   success: boolean
+//   data?: T
+//   error?: string
+// }
 
 export type ToolCategory =
   | 'web'

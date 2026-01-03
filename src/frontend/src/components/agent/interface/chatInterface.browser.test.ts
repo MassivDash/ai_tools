@@ -6,12 +6,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import ChatInterface from './chatInterface.svelte'
-import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
+import { axiosBackendInstance } from '../../../axiosInstance/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
-import { clearToolsCache } from './utils/toolIcons'
+import { clearToolsCache } from '../utils/toolIcons'
 
 // Mock axiosBackendInstance
-vi.mock('@axios/axiosBackendInstance.ts', () => ({
+vi.mock('../../../axiosInstance/axiosBackendInstance.ts', () => ({
   axiosBackendInstance: {
     get: vi.fn(),
     post: vi.fn(),
@@ -45,7 +45,7 @@ const mocks = vi.hoisted(() => {
 // We need to capture the event handler passed to useAgentWebSocket
 let wsEventHandler: (_event: any) => void = () => {}
 
-vi.mock('../../hooks/useAgentWebSocket', () => ({
+vi.mock('@hooks/useAgentWebSocket', () => ({
   useAgentWebSocket: vi.fn((handler) => {
     wsEventHandler = handler
     return mocks.mockAgentWs
@@ -53,7 +53,7 @@ vi.mock('../../hooks/useAgentWebSocket', () => ({
 }))
 
 // Mock activeTools store
-vi.mock('../../stores/activeTools', () => ({
+vi.mock('@stores/activeTools', () => ({
   activeTools: {
     subscribe: vi.fn((run) => {
       run(new Set(['calculator']))
@@ -63,7 +63,7 @@ vi.mock('../../stores/activeTools', () => ({
 }))
 
 // Mock window.fetch for streaming response
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -126,7 +126,7 @@ test('loads history when conversationId is provided', async () => {
 })
 
 test('sends a message and handles optimistic update', async () => {
-  ;(global.fetch as any).mockResolvedValue({
+  ;(globalThis.fetch as any).mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({})
   })
@@ -145,7 +145,7 @@ test('sends a message and handles optimistic update', async () => {
   expect(btn).toBeTruthy()
   if (btn) await fireEvent.click(btn)
 
-  expect(global.fetch).toHaveBeenCalled()
+  expect(globalThis.fetch).toHaveBeenCalled()
 
   // Optimistic update should show message
   await waitFor(() => {
@@ -200,7 +200,7 @@ test('displays tool calls and results', async () => {
 })
 
 test('handles multimodal image upload and structure', async () => {
-  ;(global.fetch as any).mockResolvedValue({ ok: true })
+  ;(globalThis.fetch as any).mockResolvedValue({ ok: true })
 
   render(ChatInterface as Component)
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   interface Props {
     tokenUsage?: {

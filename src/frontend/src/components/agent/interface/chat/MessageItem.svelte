@@ -1,11 +1,11 @@
 <script lang="ts">
-  import Chart from '../../ui/Chart.svelte'
-  import Button from '../../ui/Button.svelte'
-  import IconButton from '../../ui/IconButton.svelte'
-  import type { ChatMessage } from '../types'
-  import { renderMarkdown } from '../utils/markdown'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
-  import { getToolIconFromMetadata, getToolIcon } from '../utils/toolIcons'
+  import Chart from '@ui/Chart.svelte'
+  import Button from '@ui/Button.svelte'
+  import IconButton from '@ui/IconButton.svelte'
+  import type { ChatMessage } from '../../types'
+  import { renderMarkdown } from '../../utils/markdown'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
+  import { getToolIconFromMetadata, getToolIcon } from '../../utils/toolIcons'
   import { icons } from '@iconify-json/mdi'
 
   interface Props {

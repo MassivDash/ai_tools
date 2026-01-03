@@ -4,7 +4,6 @@
     Click "Start Server" to launch the llama.cpp server and start chatting with
     the AI agent
   </p>
-  <p class="hint-small">Server will be available at localhost:8080</p>
 </div>
 
 <style>

@@ -2,9 +2,9 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance'
 
-  import EditableListItem from '../ui/EditableListItem.svelte'
-  import SidebarHeader from '../ui/SidebarHeader.svelte'
-  import type { Conversation } from './types'
+  import EditableListItem from '@ui/EditableListItem.svelte'
+  import SidebarHeader from '@ui/SidebarHeader.svelte'
+  import type { Conversation } from '@types'
 
   export let currentConversationId: string | undefined
   export let isOpen = false

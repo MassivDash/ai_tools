@@ -1,10 +1,7 @@
 import { z } from 'zod'
 
 // URL validation schema
-const urlSchema = z
-  .string()
-  .min(1, 'URL is required')
-  .url({ message: 'Please enter a valid URL' })
+const urlSchema = z.url({ message: 'Please enter a valid URL' })
 
 // Preprocessing preset enum
 export const PreprocessingPresetSchema = z.enum([

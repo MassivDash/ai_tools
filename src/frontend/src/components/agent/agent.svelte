@@ -2,22 +2,22 @@
   import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Terminal from '../llamaServer/terminal.svelte'
-  import AgentConfig from './agentConfig.svelte'
+  import AgentConfig from './config/agentConfig.svelte'
   import LlamaConfig from '../llamaServer/config/LlamaConfig.svelte'
-  import ChatInterface from './chatInterface.svelte'
-  import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import { enabledTools as enabledToolsStore } from '../../stores/activeTools'
+  import ChatInterface from './interface/chatInterface.svelte'
+  import { useStatusWebSocket } from '@hooks/useStatusWebSocket'
+  import { enabledTools as enabledToolsStore } from '@stores/activeTools'
   import type {
     LlamaServerStatus,
     LlamaServerResponse,
     AgentConfig as AgentConfigType
-  } from './types'
-  import AgentHeader from './AgentHeader.svelte'
-  import ServerControls from './ServerControls.svelte'
+  } from '@types'
+  import AgentHeader from './interface/AgentHeader.svelte'
+  import ServerControls from './config/ServerControls.svelte'
   import EmptyState from './EmptyState.svelte'
-  import HistorySidebar from './HistorySidebar.svelte'
+  import HistorySidebar from './history/HistorySidebar.svelte'
 
-  import TestingSidebar from './TestingSidebar.svelte'
+  import TestingSidebar from './testingSuite/TestingSidebar.svelte'
 
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
   let loading = false

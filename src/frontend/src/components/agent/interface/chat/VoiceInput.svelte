@@ -1,7 +1,7 @@
 <script lang="ts">
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
-  import Button from '../../ui/Button.svelte'
-  import { useSpeechRecognition } from '../../../hooks/useSpeechRecognition.svelte.ts'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
+  import Button from '@ui/Button.svelte'
+  import { useSpeechRecognition } from '@hooks/useSpeechRecognition.svelte.ts'
 
   interface Props {
     loading?: boolean
