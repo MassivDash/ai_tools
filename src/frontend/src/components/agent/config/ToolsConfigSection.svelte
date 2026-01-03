@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ToolInfo } from '../types'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
-  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
+  import type { ToolInfo } from '@types'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
+  import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   export let enabledTools: string[] = []
   export let onToggle: (_tool: string) => void
 

@@ -4,7 +4,6 @@
     Click "Start Server" to launch the llama.cpp server and start chatting with
     the AI agent
   </p>
-  <p class="hint-small">Server will be available at localhost:8080</p>
 </div>
 
 <style>
@@ -27,12 +26,6 @@
   .empty-state .hint {
     font-size: 0.9rem;
     color: var(--text-tertiary, #999);
-    transition: color 0.3s ease;
-  }
-
-  .empty-state .hint-small {
-    font-size: 0.8rem;
-    color: var(--text-tertiary, #aaa);
     transition: color 0.3s ease;
   }
 </style>

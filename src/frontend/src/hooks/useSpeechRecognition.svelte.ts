@@ -4,13 +4,15 @@ export interface SpeechRecognitionOptions {
   onCommand?: (_command: 'execute' | 'send') => void
   onError?: (_error: string) => void
   onEvent?: (_eventType: 'start' | 'end' | 'result' | 'error') => void
+  lang?: string | (() => string)
 }
 
 export function useSpeechRecognition({
   onTranscript,
   onCommand,
   onError,
-  onEvent
+  onEvent,
+  lang = 'en-US'
 }: SpeechRecognitionOptions) {
   let isListening = $state(false)
   let recognition: any = $state(null)
@@ -46,7 +48,7 @@ export function useSpeechRecognition({
       recognition = new SpeechRecognition()
       recognition.continuous = true
       recognition.interimResults = true
-      recognition.lang = 'en-US'
+      recognition.lang = typeof lang === 'function' ? lang() : lang
 
       recognition.onstart = () => {
         isListening = true
@@ -122,6 +124,19 @@ export function useSpeechRecognition({
       isListening = false
     }
   }
+
+  $effect(() => {
+    const currentLang = typeof lang === 'function' ? lang() : lang
+    if (recognition && recognition.lang !== currentLang) {
+      const wasListening = isListening
+      if (wasListening) recognition.stop()
+      recognition.lang = currentLang
+      if (wasListening) {
+        // slight delay to allow stop to process
+        setTimeout(() => recognition.start(), 100)
+      }
+    }
+  })
 
   return {
     get isListening() {

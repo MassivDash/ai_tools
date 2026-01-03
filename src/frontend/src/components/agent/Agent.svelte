@@ -2,22 +2,22 @@
   import { onMount, onDestroy } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import Terminal from '../llamaServer/terminal.svelte'
-  import AgentConfig from './agentConfig.svelte'
+  import AgentConfig from './config/AgentConfig.svelte'
   import LlamaConfig from '../llamaServer/config/LlamaConfig.svelte'
-  import ChatInterface from './chatInterface.svelte'
-  import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import { enabledTools as enabledToolsStore } from '../../stores/activeTools'
+  import ChatInterface from './interface/ChatInterface.svelte'
+  import { useStatusWebSocket } from '@hooks/useStatusWebSocket'
+  import { enabledTools as enabledToolsStore } from '@stores/activeTools'
   import type {
     LlamaServerStatus,
     LlamaServerResponse,
     AgentConfig as AgentConfigType
-  } from './types'
-  import AgentHeader from './AgentHeader.svelte'
-  import ServerControls from './ServerControls.svelte'
+  } from '@types'
+  import AgentHeader from './interface/AgentHeader.svelte'
+  import ServerControls from './config/ServerControls.svelte'
   import EmptyState from './EmptyState.svelte'
-  import HistorySidebar from './HistorySidebar.svelte'
+  import HistorySidebar from './history/HistorySidebar.svelte'
 
-  import TestingSidebar from './TestingSidebar.svelte'
+  import TestingSidebar from './testingSuite/TestingSidebar.svelte'
 
   let serverStatus: LlamaServerStatus = { active: false, port: 8080 }
   let loading = false
@@ -183,8 +183,8 @@
     }
   }
 
-  const handleSelectConversation = (event: CustomEvent<string>) => {
-    currentConversationId = event.detail
+  const handleSelectConversation = (id: string) => {
+    currentConversationId = id
     // Logic to reload chat for this ID will be in ChatInterface (via prop)
   }
 
@@ -265,9 +265,9 @@
       isOpen={showHistory}
       {currentConversationId}
       shouldRefresh={shouldRefreshHistory}
-      on:select={handleSelectConversation}
-      on:new={handleNewConversation}
-      on:close={() => (showHistory = false)}
+      onSelect={handleSelectConversation}
+      onNew={handleNewConversation}
+      onClose={() => (showHistory = false)}
     />
 
     <TestingSidebar
@@ -306,11 +306,6 @@
       {:else}
         <EmptyState />
       {/if}
-      <!-- Add extra space at bottom as requested -->
-      <div
-        class="bottom-spacer"
-        style="height: 500px; width: 100%; flex-shrink: 0;"
-      ></div>
     </div>
     <AgentConfig
       isOpen={showConfig}
@@ -404,6 +399,7 @@
     padding: 0;
     /* Ensure it fills parent */
     flex: 1;
+    margin-bottom: 300px;
   }
 
   .main-content.with-terminal {

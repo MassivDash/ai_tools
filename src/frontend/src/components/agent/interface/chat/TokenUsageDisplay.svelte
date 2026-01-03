@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   interface Props {
     tokenUsage?: {
@@ -18,16 +18,18 @@
   )
 </script>
 
-<div class="token-display">
-  <MaterialIcon name="memory" width="16" height="16" />
-  <span class="usage-text">
-    {#if ctxSize > 0}
-      {currentTokens} / {ctxSize} tokens ({percentage}%)
-    {:else}
-      {currentTokens} tokens
-    {/if}
-  </span>
-</div>
+{#if currentTokens > 0}
+  <div class="token-display">
+    <MaterialIcon name="memory" width="16" height="16" />
+    <span class="usage-text">
+      {#if ctxSize > 0}
+        {currentTokens} / {ctxSize} tokens ({percentage}%)
+      {:else}
+        {currentTokens} tokens
+      {/if}
+    </span>
+  </div>
+{/if}
 
 <style>
   .token-display {

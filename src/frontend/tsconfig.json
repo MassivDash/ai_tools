@@ -21,7 +21,8 @@
       "@types/*": ["src/types/*"],
       "@types": ["src/types/index.ts"],
       "@stores/*": ["src/stores/*"],
-      "@ui/*": ["src/components/ui/*"]
+      "@ui/*": ["src/components/ui/*"],
+      "@hooks/*": ["src/hooks/*"]
     },
     "types": ["vitest/jsdom"]
   }

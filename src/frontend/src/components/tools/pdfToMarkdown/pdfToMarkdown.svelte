@@ -359,26 +359,6 @@
       border-color 0.3s ease;
   }
 
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .checkbox-label input[type='checkbox'] {
-    cursor: pointer;
-    width: 1.1rem;
-    height: 1.1rem;
-  }
-
-  .checkbox-label span {
-    color: var(--text-primary, #333);
-    font-size: 0.95rem;
-    transition: color 0.3s ease;
-  }
-
   .error {
     padding: 0.75rem;
     background-color: rgba(255, 200, 200, 0.2);

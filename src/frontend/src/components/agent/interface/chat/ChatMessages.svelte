@@ -1,12 +1,13 @@
 <script lang="ts">
-  import type { ChatMessage } from '../types'
+  import type { ChatMessage } from '../../types'
   import MessageItem from './MessageItem.svelte'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   interface Props {
     messages?: ChatMessage[]
     loading?: boolean
     chatContainer?: HTMLDivElement
+    bottomAnchor?: HTMLDivElement
     onQuote?: (_text: string) => void
   }
 
@@ -14,6 +15,7 @@
     messages = $bindable([]),
     loading = $bindable(false),
     chatContainer = $bindable(),
+    bottomAnchor = $bindable(),
     onQuote
   }: Props = $props()
 
@@ -51,6 +53,7 @@
       </div>
     {/if}
   {/if}
+  <div class="scroll-anchor" bind:this={bottomAnchor}></div>
 </div>
 
 <style>
@@ -167,7 +170,13 @@
 
   @media screen and (max-width: 768px) {
     .chat-messages {
-      padding: 0;
+      padding: 0.5rem;
     }
+  }
+
+  .scroll-anchor {
+    height: 1px;
+    width: 100%;
+    flex-shrink: 0;
   }
 </style>

@@ -1,18 +1,18 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import { useAgentWebSocket } from '../../hooks/useAgentWebSocket'
-  import { useTextToSpeech } from '../../hooks/useTextToSpeech.svelte'
-  import { activeTools as activeToolsStore } from '../../stores/activeTools'
-  import { chatLayout } from '../../stores/chatLayout'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import { useAgentWebSocket } from '@hooks/useAgentWebSocket'
+  import { useTextToSpeech } from '@hooks/useTextToSpeech.svelte'
+  import { activeTools as activeToolsStore } from '@stores/activeTools'
+  import { chatLayout } from '@stores/chatLayout'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
   import type {
     ChatMessage,
     AgentStreamEvent,
     ModelCapabilities,
     FileAttachment
-  } from './types'
-  import { generateMessageId, cleanTextForSpeech } from './utils/formatting'
+  } from '@types'
+  import { generateMessageId, cleanTextForSpeech } from '../utils/formatting'
   import ChatHeader from './chat/ChatHeader.svelte'
   import ChatMessages from './chat/ChatMessages.svelte'
   import ChatInput from './chat/ChatInput.svelte'
@@ -37,11 +37,13 @@
   let error: string = $state('')
   let conversationId: string | null = $state(null)
   let chatContainer: HTMLDivElement = $state()
+  let bottomAnchor: HTMLDivElement = $state()
   let currentStreamingMessage: string = $state('')
   let streamingMessageId: string | null = $state(null)
 
   const tts = useTextToSpeech()
   let ttsEnabled = $state(false)
+  let language = $state('en-US')
 
   // Subscribe to active tools store - use $derived for reactivity
   let activeToolsSet: Set<string> = $state(new Set())
@@ -65,6 +67,9 @@
     completion_tokens: number
     total_tokens: number
   } | null = $state(null)
+
+  // Scroll state
+  let isAtBottom = $state(true)
 
   // Track attachments from ChatInput
   let currentAttachments: FileAttachment[] = $state([])
@@ -323,7 +328,6 @@
     // Explicitly signal backend to stop, if we have a conversation ID
     if (conversationId) {
       try {
-        console.log('Sending cancellation request...')
         await axiosBackendInstance.post(`agent/chat/${conversationId}/cancel`)
 
         // Optimistically update status to show we are stopping
@@ -332,9 +336,12 @@
           messages[statusIndex] = {
             ...messages[statusIndex],
             statusType: 'tool_error',
-            content: 'Stopping generation...'
+            content: 'Generation stopped'
           }
         }
+
+        // Immediate visual feedback
+        loading = false
       } catch (err) {
         console.error('Failed to send explicit cancel signal to backend:', err)
         // Fallback: If backend is unreachable, then we MUST abort locally
@@ -355,17 +362,59 @@
     }
   }
 
-  // Auto-scroll function
-  const scrollToBottom = (smooth = false) => {
+  // Scroll Listener + AutoScroll Guard
+  // The observer was too aggressive in "re-sticking" the user to the bottom.
+
+  let isAutoScrolling = false
+
+  const handleScroll = () => {
+    if (!chatContainer || isAutoScrolling) return
+
+    const { scrollTop, scrollHeight, clientHeight } = chatContainer
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+
+    // If far from bottom (and not just because of a small bounce or margin), mark as scrolled up
+    // Using 50px threshold
+    isAtBottom = distanceFromBottom <= 50
+  }
+
+  $effect(() => {
     if (chatContainer) {
-      if (smooth) {
-        chatContainer.scrollTo({
-          top: chatContainer.scrollHeight,
-          behavior: 'smooth'
-        })
-      } else {
-        chatContainer.scrollTop = chatContainer.scrollHeight
+      chatContainer.addEventListener('scroll', handleScroll)
+      return () => chatContainer.removeEventListener('scroll', handleScroll)
+    }
+  })
+
+  // Auto-scroll function
+  const scrollToBottom = (force = false, smooth = false) => {
+    if (chatContainer) {
+      // If we are not at bottom and not forcing, don't scroll
+      if (!isAtBottom && !force) return
+
+      // If we are forcing, we expect to go to bottom
+      if (force) {
+        // We set this to true so we don't accidentally mark as "scrolled up" before the scroll happens
+        isAtBottom = true
       }
+
+      isAutoScrolling = true
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      })
+
+      // Reset auto-scroll flag after a short delay
+      // This ensures the resulting scroll event isn't mistaken for a user scroll
+      setTimeout(() => {
+        isAutoScrolling = false
+        // Re-verify bottom state after scroll settles
+        if (chatContainer) {
+          const { scrollTop, scrollHeight, clientHeight } = chatContainer
+          const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+          // Update state if we actually reached bottom
+          if (distanceFromBottom <= 50) isAtBottom = true
+        }
+      }, 100)
     }
   }
 
@@ -511,7 +560,7 @@
             if (ttsEnabled && tts.isSupported && currentStreamingMessage) {
               const speechText = cleanTextForSpeech(currentStreamingMessage)
               if (speechText) {
-                tts.speak(speechText)
+                tts.speak(speechText, language)
               }
             }
           }
@@ -619,7 +668,13 @@
     <div class="error">{error}</div>
   {/if}
 
-  <ChatMessages {messages} {loading} bind:chatContainer onQuote={handleQuote} />
+  <ChatMessages
+    {messages}
+    {loading}
+    bind:chatContainer
+    bind:bottomAnchor
+    onQuote={handleQuote}
+  />
 
   <ChatInput
     bind:inputMessage
@@ -639,6 +694,7 @@
     onStopTTS={tts.cancel}
     {tokenUsage}
     {ctxSize}
+    bind:language
   />
 
   <div

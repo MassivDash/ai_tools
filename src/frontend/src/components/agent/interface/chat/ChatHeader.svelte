@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Button from '../../ui/Button.svelte'
-  import Badge from '../../ui/Badge.svelte'
-  import { formatToolName } from '../utils/formatting'
+  import Button from '@ui/Button.svelte'
+  import Badge from '@ui/Badge.svelte'
+  import { formatToolName } from '../../utils/formatting'
 
   export let activeToolsList: string[] = []
   export let hasMessages: boolean = false

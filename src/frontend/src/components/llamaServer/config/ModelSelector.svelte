@@ -16,7 +16,7 @@
     modelNotes: Map<string, ModelNote>
     newHfModel: string
     newHfModelBackend: string
-    onSelect: (model: ModelInfo) => void
+    onSelect: (_model: ModelInfo) => void
   }
 
   let {

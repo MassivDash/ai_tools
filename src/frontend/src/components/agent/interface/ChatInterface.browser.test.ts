@@ -5,13 +5,13 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
-import ChatInterface from './chatInterface.svelte'
-import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
+import ChatInterface from './ChatInterface.svelte'
+import { axiosBackendInstance } from '../../../axiosInstance/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
-import { clearToolsCache } from './utils/toolIcons'
+import { clearToolsCache } from '../utils/toolIcons'
 
 // Mock axiosBackendInstance
-vi.mock('@axios/axiosBackendInstance.ts', () => ({
+vi.mock('../../../axiosInstance/axiosBackendInstance.ts', () => ({
   axiosBackendInstance: {
     get: vi.fn(),
     post: vi.fn(),
@@ -43,9 +43,9 @@ const mocks = vi.hoisted(() => {
 })
 
 // We need to capture the event handler passed to useAgentWebSocket
-let wsEventHandler: (event: any) => void = () => {}
+let wsEventHandler: (_event: any) => void = () => {}
 
-vi.mock('../../hooks/useAgentWebSocket', () => ({
+vi.mock('@hooks/useAgentWebSocket', () => ({
   useAgentWebSocket: vi.fn((handler) => {
     wsEventHandler = handler
     return mocks.mockAgentWs
@@ -53,7 +53,7 @@ vi.mock('../../hooks/useAgentWebSocket', () => ({
 }))
 
 // Mock activeTools store
-vi.mock('../../stores/activeTools', () => ({
+vi.mock('@stores/activeTools', () => ({
   activeTools: {
     subscribe: vi.fn((run) => {
       run(new Set(['calculator']))
@@ -63,7 +63,7 @@ vi.mock('../../stores/activeTools', () => ({
 }))
 
 // Mock window.fetch for streaming response
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -126,7 +126,7 @@ test('loads history when conversationId is provided', async () => {
 })
 
 test('sends a message and handles optimistic update', async () => {
-  ;(global.fetch as any).mockResolvedValue({
+  ;(globalThis.fetch as any).mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({})
   })
@@ -135,17 +135,12 @@ test('sends a message and handles optimistic update', async () => {
 
   const textarea = screen.getByPlaceholderText(/Type your message/)
   await fireEvent.input(textarea, { target: { value: 'Hello Agent' } })
-  // MaterialIcon button might lack accessible name depending on implementation, usually we look for the icon parent or title
 
-  // Use container query for send button if needed, or by class if available.
-  // ChatInput has a button with 'send' in MaterialIcon.
-  // Best to query by title 'Send' if it had one? It doesn't.
-  // Query by .send-button class if tested in integration.
   const btn = document.querySelector('.send-button')
   expect(btn).toBeTruthy()
   if (btn) await fireEvent.click(btn)
 
-  expect(global.fetch).toHaveBeenCalled()
+  expect(globalThis.fetch).toHaveBeenCalled()
 
   // Optimistic update should show message
   await waitFor(() => {
@@ -173,60 +168,52 @@ test('displays incoming streaming text', async () => {
   })
 })
 
-test('displays tool calls and results', async () => {
+test('smart scroll respects user position via scroll listener', async () => {
   render(ChatInterface as Component)
+  await waitFor(() => expect(wsEventHandler).toBeDefined())
 
-  // Tool Call
-  wsEventHandler({
-    type: 'tool_call',
-    tool_name: 'calculator'
+  const scrollContainer = document.querySelector(
+    '.chat-messages'
+  ) as HTMLDivElement
+  expect(scrollContainer).toBeTruthy()
+
+  // Mock scrollTo
+  scrollContainer.scrollTo = vi.fn()
+
+  // Initial state: At bottom
+  Object.defineProperty(scrollContainer, 'scrollTop', {
+    value: 1000,
+    writable: true
   })
+  Object.defineProperty(scrollContainer, 'scrollHeight', {
+    value: 1500,
+    writable: true
+  })
+  Object.defineProperty(scrollContainer, 'clientHeight', {
+    value: 500,
+    writable: true
+  })
+
+  // 1. Simulate user scrolling up manually
+  // distanceFromBottom = 1500 - 800 - 500 = 200px ( > 50px threshold)
+  scrollContainer.scrollTop = 800
+  await fireEvent.scroll(scrollContainer)
+
+  // Incoming chunk should NOT trigger scrollTo
+  wsEventHandler({ type: 'text_chunk', text: ' chunk' })
+
+  await new Promise((r) => setTimeout(r, 50))
+  expect(scrollContainer.scrollTo).not.toHaveBeenCalled()
+
+  // 2. Simulate user scrolling back to bottom manually
+  // distanceFromBottom = 0
+  scrollContainer.scrollTop = 1000
+  await fireEvent.scroll(scrollContainer)
+
+  // Incoming chunk SHOULD trigger scrollTo
+  wsEventHandler({ type: 'text_chunk', text: ' chunk 2' })
 
   await waitFor(() => {
-    expect(screen.getByText(/Calling calculator/)).toBeTruthy()
+    expect(scrollContainer.scrollTo).toHaveBeenCalled()
   })
-
-  // Tool Result
-  wsEventHandler({
-    type: 'tool_result',
-    tool_name: 'calculator',
-    success: true,
-    result: '42'
-  })
-
-  await waitFor(() => {
-    expect(screen.getByText(/completed/)).toBeTruthy()
-  })
-})
-
-test('handles multimodal image upload and structure', async () => {
-  ;(global.fetch as any).mockResolvedValue({ ok: true })
-
-  render(ChatInterface as Component)
-
-  // We need to bypass the complex file upload UI interaction for this integration test
-  // OR we can manually trigger the sendMessage logic if we could access component instance (difficult in testing-library).
-  // Instead, let's try to mock the attachment state if possible? No.
-
-  // We must simulate the user flow:
-  // 1. Enter text
-  // 2. Add file (we'll assume ChatInput works as verified in unit test)
-  // 3. Click send
-
-  // But doing full file upload simulation here is duplicate of ChatInput test + added complexity.
-  // Let's verify that IF sendMessage creates a structured payload, it renders correctly.
-
-  // Actually, simpler: verify that if we send a message (text), it renders.
-  // We already verified Optimistic update above.
-
-  // Let's verify that ChatInterface correctly handles a 'user' message with array content if we could inject it?
-  // We can't inject state easily.
-
-  // Let's settle for: sending a message sends correct payload structure.
-
-  // Mock ChatInput's attachment
-  // Since ChatInput is a child, we interact with it.
-  // To mock the file read, we need to mock FileReader again like in ChatInput test.
-
-  // ... (Skip complex file mock setup to keep this test file clean, focusing on WebSocket integration)
 })

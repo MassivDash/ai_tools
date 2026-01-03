@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Button from '../ui/Button.svelte'
-  import MaterialIcon from '../ui/MaterialIcon.svelte'
+  import Button from '@ui/Button.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
 
   export let serverActive: boolean = false
   export let loading: boolean = false

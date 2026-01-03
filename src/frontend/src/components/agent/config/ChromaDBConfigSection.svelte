@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import SearchableList from '../../ui/SearchableList.svelte'
-  import MaterialIcon from '../../ui/MaterialIcon.svelte'
-  import CheckboxWithHelp from '../../ui/CheckboxWithHelp.svelte'
-  import LabelWithHelp from '../../ui/LabelWithHelp.svelte'
+  import SearchableList from '@ui/SearchableList.svelte'
+  import MaterialIcon from '@ui/MaterialIcon.svelte'
+  import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
+  import LabelWithHelp from '@ui/LabelWithHelp.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { Collection, ModelInfo } from '../types'
-  import type { ModelNote } from '@types'
+  import type { Collection, ModelInfo, ModelNote } from '@types'
 
   export let chromadbEnabled: boolean = false
   export let collections: Collection[] = []

@@ -18,7 +18,7 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
 
   const { rate = 1, pitch = 1, volume = 1, lang = 'en-US' } = options
 
-  function speak(text: string) {
+  function speak(text: string, langOverride?: string) {
     if (!issupported) {
       error = 'Text to speech not supported'
       return
@@ -31,7 +31,7 @@ export function useTextToSpeech(options: TextToSpeechOptions = {}) {
     utterance.rate = rate
     utterance.pitch = pitch
     utterance.volume = volume
-    utterance.lang = lang
+    utterance.lang = langOverride || lang
 
     utterance.onstart = () => {
       isSpeaking = true

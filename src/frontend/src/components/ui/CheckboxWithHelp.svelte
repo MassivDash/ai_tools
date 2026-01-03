@@ -6,7 +6,7 @@
     label: string
     helpText?: string
     class?: string
-    onchange?: (e: Event) => void
+    onchange?: (_e: Event) => void
   }
 
   let {

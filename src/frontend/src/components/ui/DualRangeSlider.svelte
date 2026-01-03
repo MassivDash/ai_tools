@@ -19,9 +19,6 @@
 
   let sliderContainer: HTMLDivElement
   let isDragging: 'min' | 'max' | null = $state(null)
-  let startX = 0
-  let startMinValue = 0
-  let startMaxValue = 0
 
   // Generate tick marks (reactive to prop changes)
   const tickMarks = $derived(
@@ -51,9 +48,7 @@
   const handleStart = (e: MouseEvent | TouchEvent, thumb: 'min' | 'max') => {
     e.preventDefault()
     isDragging = thumb
-    startX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    startMinValue = minValue
-    startMaxValue = maxValue
+    isDragging = thumb
 
     const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
       if (!isDragging || !sliderContainer) return

@@ -7,7 +7,7 @@
     disabled?: boolean
     required?: boolean
     class?: string
-    onchange?: (e: Event) => void
+    onchange?: (_e: Event) => void
     row?: boolean
     [key: string]: any
   }
