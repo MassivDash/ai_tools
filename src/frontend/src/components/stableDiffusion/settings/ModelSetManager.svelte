@@ -8,7 +8,7 @@
   import EditableListItem from '../../ui/EditableListItem.svelte'
   import { type SDModelSet } from '../../../validation/stableDiffusion'
 
-  export let onSelectSet: ((set: SDModelSet) => void) | undefined = undefined
+  export let onSelectSet: ((_set: SDModelSet) => void) | undefined = undefined
 
   let modelSets: SDModelSet[] = []
   let loading = false
