@@ -5,25 +5,46 @@
   interface Props {
     state: GameStateSnapshot
     contestantName: string
+    sessionId: string
+    onToggleReady: () => void
   }
 
-  let { state, contestantName }: Props = $props()
+  let { state, contestantName, sessionId, onToggleReady }: Props = $props()
+
+  let myContestant = $derived(
+    state.contestants.find(
+      (c) => c.id === sessionId || c.session_id === sessionId
+    )
+  )
+  let isReady = $derived(myContestant?.ready || false)
 </script>
 
 <div class="contestant-dashboard">
-  <h2>Welcome, {contestantName || 'Player'}!</h2>
+  <h2>Welcome, {contestantName || myContestant?.name || 'Player'}!</h2>
 
   {#if state.status === 'lobby'}
     <div class="waiting-screen">
-      <div class="spinner-box">
-        <MaterialIcon
-          name="clock-outline"
-          width="48"
-          height="48"
-          class="spin"
-        />
-      </div>
-      <h3>Waiting for Presenter to start...</h3>
+      {#if isReady}
+        <div class="spinner-box">
+          <MaterialIcon
+            name="clock-outline"
+            width="48"
+            height="48"
+            class="spin"
+          />
+        </div>
+        <h3>Waiting for Presenter to start...</h3>
+        <p class="status-sub">You are ready!</p>
+        <button class="btn-link" onclick={onToggleReady}>Not Ready?</button>
+      {:else}
+        <div class="ready-prompt">
+          <h3>Are you ready to play?</h3>
+          <p>Click the button below when you are ready.</p>
+          <button class="btn-ready" onclick={onToggleReady}>
+            I'M READY!
+          </button>
+        </div>
+      {/if}
     </div>
   {:else if state.status === 'playing'}
     <div class="game-active-screen">
@@ -95,7 +116,7 @@
   .game-active-screen {
     margin: 2rem 0;
     padding: 2rem;
-    background: #f9f9f9;
+    background: var(--bg-secondary, #f9f9f9);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
@@ -133,5 +154,38 @@
   .presenter-status.offline {
     background-color: #ffebee;
     color: #c62828;
+  }
+
+  .btn-ready {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition:
+      transform 0.1s,
+      box-shadow 0.1s;
+    margin-top: 1rem;
+  }
+  .btn-ready:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--text-secondary, #666);
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+  .status-sub {
+    color: #4caf50;
+    font-weight: bold;
   }
 </style>

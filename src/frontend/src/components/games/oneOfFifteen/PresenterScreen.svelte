@@ -54,6 +54,11 @@
           >
             <span class="c-name">{contestant.name}</span>
             <div class="c-status">
+              {#if contestant.ready}
+                <span class="badge u-ready">READY</span>
+              {:else}
+                <span class="badge u-waiting">WAITING</span>
+              {/if}
               <span
                 class="badge {contestant.online ? 'u-online' : 'u-offline'}"
               >
@@ -75,8 +80,8 @@
   }
 
   .presenter-header-banner {
-    background: #333;
-    color: #fff;
+    background: var(--bg-secondary, #333);
+    color: var(--text-primary-inverse, #fff);
     padding: 1rem 2rem;
     border-radius: 12px;
     display: flex;
@@ -96,7 +101,7 @@
   }
 
   .controls-panel {
-    background: #f5f5f5;
+    background: var(--bg-secondary, #f5f5f5);
     padding: 1.5rem;
     border-radius: 12px;
   }
@@ -111,7 +116,7 @@
 
   .status-text {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--text-secondary, #666);
     margin: 0;
   }
   .status-text.active {
@@ -137,8 +142,8 @@
 
   .contestants-list li {
     padding: 0.75rem;
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
     border-radius: 6px;
     display: flex;
     justify-content: space-between;
@@ -147,7 +152,7 @@
 
   .contestants-list li.offline {
     opacity: 0.6;
-    background: #f5f5f5;
+    background: var(--bg-secondary, #f5f5f5);
   }
 
   .c-name {
@@ -175,5 +180,15 @@
   .u-offline {
     background: #ffebee;
     color: #c62828;
+  }
+  .u-ready {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #2e7d32;
+  }
+  .u-waiting {
+    background: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ef6c00;
   }
 </style>

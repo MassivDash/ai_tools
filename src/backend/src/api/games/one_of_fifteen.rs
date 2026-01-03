@@ -14,6 +14,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 // --- Game State Structures ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum UserRole {
     Presenter,
     Contestant,
@@ -28,6 +29,7 @@ pub struct Contestant {
     // Actually, let's use `id` as the persistent session_id.
     pub session_id: String,
     pub online: bool,
+    pub ready: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -72,6 +74,7 @@ pub enum IncomingMessage {
     StartGame,
     ResetGame,
     GetState,
+    ToggleReady,
 }
 
 // --- WebSocket Messages (Outgoing to Client) ---
@@ -121,13 +124,133 @@ impl OneOfFifteenWebSocket {
         });
     }
 
-    fn send_error(&self, ctx: &mut ws::WebsocketContext<Self>, message: &str) {
-        let msg = OutgoingMessage::Error {
-            message: message.to_string(),
-        };
-        if let Ok(json) = serde_json::to_string(&msg) {
-            ctx.text(json);
+    fn process_message(
+        msg: IncomingMessage,
+        state: &mut GameState,
+        connection_id: &mut String,
+        connection_role: &mut UserRole,
+    ) -> Vec<OutgoingMessage> {
+        let mut responses = Vec::new();
+
+        match msg {
+            IncomingMessage::Identify { session_id } => {
+                // Adopt the session ID
+                *connection_id = session_id.clone();
+
+                // Restore Role
+                if state.presenter_id.as_ref() == Some(connection_id) {
+                    *connection_role = UserRole::Presenter;
+                    state.presenter_online = true;
+                    responses.push(OutgoingMessage::Welcome {
+                        role: UserRole::Presenter,
+                    });
+                } else if let Some(contestant) = state.contestants.get_mut(connection_id) {
+                    *connection_role = UserRole::Contestant;
+                    contestant.online = true;
+                    responses.push(OutgoingMessage::Welcome {
+                        role: UserRole::Contestant,
+                    });
+                } else {
+                    // Session not found or is just a viewer.
+                    responses.push(OutgoingMessage::Error {
+                        message: "Session not found".to_string(),
+                    });
+                }
+            }
+            IncomingMessage::JoinPresenter => {
+                // Check if I am currently a contestant? If so, remove me.
+                if state.contestants.contains_key(connection_id) {
+                    state.contestants.remove(connection_id);
+                }
+
+                if let Some(pid) = &state.presenter_id {
+                    if pid == connection_id {
+                        // Already presenter, just update online status
+                        state.presenter_online = true;
+                        *connection_role = UserRole::Presenter;
+                        responses.push(OutgoingMessage::Welcome {
+                            role: UserRole::Presenter,
+                        });
+                        return responses;
+                    }
+                    if state.presenter_online {
+                        responses.push(OutgoingMessage::Error {
+                            message: "Presenter already exists and is online".to_string(),
+                        });
+                        return responses;
+                    }
+                    // If offline, we can potentially steal it if we want strict single-presenter logic?
+                    responses.push(OutgoingMessage::Error {
+                        message: "Presenter role is reserved".to_string(),
+                    });
+                } else {
+                    state.presenter_id = Some(connection_id.clone());
+                    state.presenter_online = true;
+                    *connection_role = UserRole::Presenter;
+                    responses.push(OutgoingMessage::Welcome {
+                        role: UserRole::Presenter,
+                    });
+                }
+            }
+            IncomingMessage::JoinContestant { name } => {
+                // Check if I am currently Presenter? If so, resign.
+                if state.presenter_id.as_ref() == Some(connection_id) {
+                    state.presenter_id = None;
+                    state.presenter_online = false;
+                }
+
+                // If I am already a contestant (re-join via button?), update name
+                let session_id = connection_id.clone();
+
+                let contestant = Contestant {
+                    name,
+                    score: 0,
+                    id: session_id.clone(),
+                    session_id: session_id.clone(),
+                    online: true,
+                    ready: false,
+                };
+                state.contestants.insert(session_id.clone(), contestant);
+                *connection_role = UserRole::Contestant;
+                responses.push(OutgoingMessage::Welcome {
+                    role: UserRole::Contestant,
+                });
+            }
+            IncomingMessage::StartGame => {
+                if state.presenter_id.as_ref() == Some(connection_id) {
+                    state.status = GameStatus::Playing;
+                    // Broadcast state logic would go here if we were pushing, but clients poll.
+                }
+            }
+            IncomingMessage::ResetGame => {
+                if state.presenter_id.as_ref() == Some(connection_id) {
+                    state.status = GameStatus::Lobby;
+                    state.contestants.values_mut().for_each(|c| c.score = 0);
+                }
+            }
+            IncomingMessage::GetState => {
+                let snapshot = GameStateSnapshot {
+                    has_presenter: state.presenter_id.is_some(),
+                    presenter_online: state.presenter_online,
+                    contestants: state.contestants.values().cloned().collect(),
+                    status: state.status.clone(),
+                };
+                responses.push(OutgoingMessage::StateUpdate(snapshot));
+            }
+            IncomingMessage::ToggleReady => {
+                if let Some(c) = state.contestants.get_mut(connection_id) {
+                    c.ready = !c.ready;
+                    let snapshot = GameStateSnapshot {
+                        has_presenter: state.presenter_id.is_some(),
+                        presenter_online: state.presenter_online,
+                        contestants: state.contestants.values().cloned().collect(),
+                        status: state.status.clone(),
+                    };
+                    responses.push(OutgoingMessage::StateUpdate(snapshot));
+                }
+            }
         }
+        responses
     }
 }
 
@@ -142,11 +265,6 @@ impl Actor for OneOfFifteenWebSocket {
     fn stopping(&mut self, _: &mut Self::Context) -> actix::Running {
         // Cleanup role -> Mark as offline instead of removing
         let mut state = self.state.lock().unwrap();
-        // We use self.id as the session_id for now if we didn't implement separate session tracking yet?
-        // Wait, self.id was just UUID.
-        // If we want persistence, self.id should probably BE the session_id provided by client.
-        // But `stopping` runs when actor dies.
-        // If I update `self.id` to be the session_id?
 
         match self.role {
             UserRole::Presenter => {
@@ -178,124 +296,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
             Ok(ws::Message::Text(text)) => {
                 if let Ok(input) = serde_json::from_str::<IncomingMessage>(&text) {
                     let mut state = self.state.lock().unwrap();
+                    let responses =
+                        Self::process_message(input, &mut state, &mut self.id, &mut self.role);
 
-                    match input {
-                        IncomingMessage::Identify { session_id } => {
-                            // Adopt the session ID
-                            self.id = session_id.clone();
-
-                            // Restore Role
-                            if state.presenter_id.as_ref() == Some(&self.id) {
-                                self.role = UserRole::Presenter;
-                                state.presenter_online = true;
-                                let msg = OutgoingMessage::Welcome {
-                                    role: UserRole::Presenter,
-                                };
-                                ctx.text(serde_json::to_string(&msg).unwrap());
-                            } else if let Some(contestant) = state.contestants.get_mut(&self.id) {
-                                self.role = UserRole::Contestant;
-                                contestant.online = true;
-                                let msg = OutgoingMessage::Welcome {
-                                    role: UserRole::Contestant,
-                                };
-                                ctx.text(serde_json::to_string(&msg).unwrap());
-                            } else {
-                                // Session not found or is just a viewer.
-                                self.send_error(ctx, "Session not found");
-                            }
-                        }
-                        IncomingMessage::JoinPresenter => {
-                            println!("🎤 JoinPresenter request from {}", self.id);
-
-                            // Check if I am currently a contestant? If so, remove me.
-                            if state.contestants.contains_key(&self.id) {
-                                println!("⚠️ Switching from Contestant to Presenter: {}", self.id);
-                                state.contestants.remove(&self.id);
-                            }
-
-                            if let Some(pid) = &state.presenter_id {
-                                if pid == &self.id {
-                                    // Already presenter, just update online status
-                                    state.presenter_online = true;
-                                    self.role = UserRole::Presenter;
-                                    let msg = OutgoingMessage::Welcome {
-                                        role: UserRole::Presenter,
-                                    };
-                                    ctx.text(serde_json::to_string(&msg).unwrap());
-                                    return;
-                                }
-                                if state.presenter_online {
-                                    self.send_error(ctx, "Presenter already exists and is online");
-                                    return;
-                                }
-                                // If offline, we can potentially steal it if we want strict single-presenter logic?
-                                // usage: self.send_error(ctx, "Presenter role is reserved");
-                                // For now, stick to reserved.
-                                self.send_error(ctx, "Presenter role is reserved");
-                            } else {
-                                println!("👑 New Presenter assigned: {}", self.id);
-                                state.presenter_id = Some(self.id.clone());
-                                state.presenter_online = true;
-                                self.role = UserRole::Presenter;
-                                let msg = OutgoingMessage::Welcome {
-                                    role: UserRole::Presenter,
-                                };
-                                ctx.text(serde_json::to_string(&msg).unwrap());
-                            }
-                        }
-                        IncomingMessage::JoinContestant { name } => {
-                            println!("👤 JoinContestant request: {} ({})", name, self.id);
-
-                            // Check if I am currently Presenter? If so, resign.
-                            if state.presenter_id.as_ref() == Some(&self.id) {
-                                println!(
-                                    "⚠️ Resigning from Presenter to join as Contestant: {}",
-                                    self.id
-                                );
-                                state.presenter_id = None;
-                                state.presenter_online = false;
-                            }
-
-                            // If I am already a contestant (re-join via button?), update name
-                            let session_id = self.id.clone();
-
-                            let contestant = Contestant {
-                                name,
-                                score: 0,
-                                id: session_id.clone(),
-                                session_id: session_id.clone(),
-                                online: true,
-                            };
-                            state.contestants.insert(session_id.clone(), contestant);
-                            self.role = UserRole::Contestant;
-                            let msg = OutgoingMessage::Welcome {
-                                role: UserRole::Contestant,
-                            };
-                            ctx.text(serde_json::to_string(&msg).unwrap());
-                        }
-                        IncomingMessage::StartGame => {
-                            if state.presenter_id.as_ref() == Some(&self.id) {
-                                state.status = GameStatus::Playing;
-                                // Broadcast state logic would go here if we were pushing, but clients poll.
-                            }
-                        }
-                        IncomingMessage::ResetGame => {
-                            if state.presenter_id.as_ref() == Some(&self.id) {
-                                state.status = GameStatus::Lobby;
-                                state.contestants.values_mut().for_each(|c| c.score = 0);
-                            }
-                        }
-                        IncomingMessage::GetState => {
-                            let snapshot = GameStateSnapshot {
-                                has_presenter: state.presenter_id.is_some(),
-                                presenter_online: state.presenter_online,
-                                contestants: state.contestants.values().cloned().collect(),
-                                status: state.status.clone(),
-                            };
-                            let msg = OutgoingMessage::StateUpdate(snapshot);
-                            if let Ok(json) = serde_json::to_string(&msg) {
-                                ctx.text(json);
-                            }
+                    for msg in responses {
+                        if let Ok(json) = serde_json::to_string(&msg) {
+                            ctx.text(json);
                         }
                     }
                 }
@@ -320,4 +326,113 @@ pub async fn one_of_fifteen_ws_route(
         &req,
         stream,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_join_presenter_and_resume() {
+        let mut state = GameState::new();
+        let mut id = "session_1".to_string();
+        let mut role = UserRole::Viewer;
+
+        // 1. Join Presenter
+        let msgs = OneOfFifteenWebSocket::process_message(
+            IncomingMessage::JoinPresenter,
+            &mut state,
+            &mut id,
+            &mut role,
+        );
+
+        // Verify state
+        assert_eq!(state.presenter_id, Some("session_1".to_string()));
+        assert!(state.presenter_online);
+        assert_eq!(role, UserRole::Presenter);
+        assert!(matches!(
+            msgs[0],
+            OutgoingMessage::Welcome {
+                role: UserRole::Presenter
+            }
+        ));
+
+        // 2. Simulate Disconnect (mark offline)
+        state.presenter_online = false;
+
+        // 3. New connection, Identify with same ID
+        let mut new_id = "session_1".to_string(); // Same Session ID
+        let mut new_role = UserRole::Viewer; // Default logic role
+        let msgs = OneOfFifteenWebSocket::process_message(
+            IncomingMessage::Identify {
+                session_id: "session_1".to_string(),
+            },
+            &mut state,
+            &mut new_id,
+            &mut new_role,
+        );
+
+        // Verify Resumption
+        assert_eq!(new_role, UserRole::Presenter);
+        assert!(state.presenter_online); // Should be marked online again
+        assert!(matches!(
+            msgs[0],
+            OutgoingMessage::Welcome {
+                role: UserRole::Presenter
+            }
+        ));
+    }
+
+    #[test]
+    fn test_join_contestant_and_resume() {
+        let mut state = GameState::new();
+        let mut id = "session_2".to_string();
+        let mut role = UserRole::Viewer;
+
+        // 1. Join Contestant
+        let msgs = OneOfFifteenWebSocket::process_message(
+            IncomingMessage::JoinContestant {
+                name: "Alice".to_string(),
+            },
+            &mut state,
+            &mut id,
+            &mut role,
+        );
+
+        // Verify state
+        assert!(state.contestants.contains_key("session_2"));
+        assert_eq!(state.contestants.get("session_2").unwrap().name, "Alice");
+        assert_eq!(role, UserRole::Contestant);
+        assert!(matches!(
+            msgs[0],
+            OutgoingMessage::Welcome {
+                role: UserRole::Contestant
+            }
+        ));
+
+        // 2. Simulate Disconnect
+        state.contestants.get_mut("session_2").unwrap().online = false;
+
+        // 3. New connection, Identify
+        let mut new_id = "session_2".to_string();
+        let mut new_role = UserRole::Viewer;
+        let msgs = OneOfFifteenWebSocket::process_message(
+            IncomingMessage::Identify {
+                session_id: "session_2".to_string(),
+            },
+            &mut state,
+            &mut new_id,
+            &mut new_role,
+        );
+
+        // Verify Resumption
+        assert_eq!(new_role, UserRole::Contestant);
+        assert!(state.contestants.get("session_2").unwrap().online);
+        assert!(matches!(
+            msgs[0],
+            OutgoingMessage::Welcome {
+                role: UserRole::Contestant
+            }
+        ));
+    }
 }

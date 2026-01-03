@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import { useWebSocket, type WebSocketOptions } from './useWebSocket'
 
 export type UserRole = 'presenter' | 'contestant' | 'viewer'
@@ -8,6 +9,7 @@ export interface Contestant {
   id: string
   session_id: string
   online: boolean
+  ready: boolean
 }
 
 export type GameStatus = 'lobby' | 'playing' | 'finished'
@@ -56,7 +58,6 @@ export function useOneOfFifteenState() {
     onMessage: (event) => {
       try {
         const msg = JSON.parse(event.data)
-        console.log('[1of15] Received:', msg.type, msg)
         if (msg.type === 'welcome') {
           state.role = msg.role
           state.error = ''
@@ -68,7 +69,6 @@ export function useOneOfFifteenState() {
             status: msg.status
           }
         } else if (msg.type === 'error') {
-          console.error('[1of15] Error from server:', msg.message)
           state.error = msg.message
         }
       } catch (err) {
@@ -148,6 +148,11 @@ export function useOneOfFifteenState() {
     setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
+  const toggleReady = () => {
+    sendMessage({ type: 'toggle_ready' })
+    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
+  }
+
   const disconnectWrapper = () => {
     stopPolling()
     disconnect()
@@ -166,6 +171,7 @@ export function useOneOfFifteenState() {
     logout,
     startGame,
     resetGame,
+    toggleReady,
     sessionId
   }
 }

@@ -278,71 +278,19 @@
       {:else}
         <!-- Game View -->
         <div class="game-view">
-          <p style="background:red; color:white; padding:10px;">
-            DEBUG: Joined={joined} Role={role}
-          </p>
           {#if role === 'presenter'}
-            <div class="presenter-dashboard">
-              <div class="presenter-header-banner">
-                <MaterialIcon name="monitor-dashboard" width="32" height="32" />
-                <h2>Presenter Dashboard</h2>
-              </div>
-
-              <div class="dashboard-grid">
-                <div class="controls-panel">
-                  <h3>Game Controls</h3>
-                  <div class="control-buttons">
-                    {#if game.state.gameState.status === 'lobby'}
-                      <Button
-                        variant="success"
-                        onclick={game.startGame}
-                        disabled={game.state.gameState.contestants.length === 0}
-                      >
-                        <MaterialIcon name="play" width="24" height="24" />
-                        Start Game
-                      </Button>
-                      <p class="status-text">
-                        Status: Lobby (Waiting for players)
-                      </p>
-                    {:else if game.state.gameState.status === 'playing'}
-                      <Button variant="danger" onclick={game.resetGame}>
-                        <MaterialIcon name="refresh" width="24" height="24" />
-                        Reset Game
-                      </Button>
-                      <p class="status-text active">Status: Game in Progress</p>
-                    {/if}
-                  </div>
-                </div>
-
-                <div class="contestants-list">
-                  <h3>
-                    Contestants ({game.state.gameState.contestants.length})
-                  </h3>
-                  <ul>
-                    {#each game.state.gameState.contestants as contestant}
-                      <li
-                        class:online={contestant.online}
-                        class:offline={!contestant.online}
-                      >
-                        <span class="c-name">{contestant.name}</span>
-                        <div class="c-status">
-                          <span
-                            class="badge {contestant.online
-                              ? 'u-online'
-                              : 'u-offline'}"
-                          >
-                            {contestant.online ? 'Online' : 'Offline'}
-                          </span>
-                          <span class="score">Score: {contestant.score}</span>
-                        </div>
-                      </li>
-                    {/each}
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <PresenterScreen
+              state={game.state.gameState}
+              onStartGame={game.startGame}
+              onResetGame={game.resetGame}
+            />
           {:else}
-            <!-- Fallback if logic fails -->
+            <ContestantScreen
+              state={game.state.gameState}
+              {contestantName}
+              sessionId={game.sessionId}
+              onToggleReady={game.toggleReady}
+            />
           {/if}
         </div>
       {/if}
@@ -373,7 +321,7 @@
   .terminal-sidebar {
     width: 60%;
     height: 100%;
-    background-color: #1e1e1e;
+    background-color: var(--bg-terminal, #1e1e1e);
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     z-index: 10;
