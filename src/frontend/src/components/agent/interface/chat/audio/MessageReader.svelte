@@ -7,16 +7,9 @@
     speaking?: boolean
     onToggle: () => void
     onStop: () => void
-    lang?: string
   }
 
-  let {
-    enabled = false,
-    speaking = false,
-    onToggle,
-    onStop,
-    lang = 'en-US'
-  }: Props = $props()
+  let { enabled = false, speaking = false, onToggle, onStop }: Props = $props()
 </script>
 
 {#if onToggle}

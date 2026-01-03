@@ -515,7 +515,6 @@
         speaking={ttsSpeaking}
         onToggle={onToggleTTS}
         onStop={onStopTTS}
-        lang={language}
       />
     {/if}
   </div>
