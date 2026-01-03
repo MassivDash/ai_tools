@@ -3,7 +3,9 @@
   import Card from '../ui/Card.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import RobotPresenter from './robot/RobotPresenter.svelte'
-  import { useTextToSpeech } from '../../hooks/useTextToSpeech.svelte'
+  import { useTextToSpeech } from '@hooks/useTextToSpeech.svelte'
+  import { useStatusWebSocket } from '@hooks/useStatusWebSocket'
+  import { axiosBackendInstance } from '@axios/axiosBackendInstance'
 
   const games = [
     {
@@ -22,124 +24,246 @@
   let soundOn = $state(false) // Default off
   let hasInteracted = $state(false)
 
+  // Interactive Mode
+  let isInteractive = $state(false)
+  let isLlamaActive = $state(false)
+  let serverStarting = $state(false)
+  let pendingForceHappy = $state(false)
+
+  const statusWs = useStatusWebSocket((status) => {
+    isLlamaActive = status.active
+    if (!status.active) isInteractive = false
+  })
+
+  // LLM Helper
+  const generateRobotSpeech = async (prompt: string): Promise<string> => {
+    try {
+      // Don't animate while thinking, just wait for text
+      // robotTalking = true
+
+      const systemPrompt = `You are a quirky, slightly emotional Robot Quiz Host named Quiz Bot. 
+      Keep your response extremely short (under 15 words). 
+      Respond to the following situation:`
+
+      const requestPayload = {
+        message: `${systemPrompt} ${prompt}`,
+        conversation_id: undefined
+      }
+
+      const response = await fetch(
+        `${axiosBackendInstance.defaults.baseURL}/agent/chat/stream`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestPayload)
+        }
+      )
+
+      if (!response.body) return 'Error: No response'
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.type === 'text_chunk' && data.text) {
+                fullText += data.text
+              }
+            } catch (e) {}
+          }
+        }
+      }
+      return fullText.trim() || '...'
+    } catch (e) {
+      console.error('LLM Error', e)
+      return 'I am having trouble thinking...'
+    }
+  }
+
   const tts = useTextToSpeech({ rate: 1.0, pitch: 1.0, volume: 1.0 })
 
-  const speak = (text: string, forceHappy = false) => {
-    robotMessage = text
+  // Sync Animation with Sound
+  let wasSpeaking = false
+  $effect(() => {
+    if (soundOn) {
+      if (tts.isSpeaking) {
+        if (!robotTalking) robotTalking = true // Force animation ON if speaking
+        wasSpeaking = true
+      } else if (wasSpeaking) {
+        // Just finished speaking
+        robotTalking = false
+        if (pendingForceHappy) {
+          robotEmotion = 'happy'
+          pendingForceHappy = false
+        }
+        wasSpeaking = false
+      }
+    }
+  })
 
-    // Always animate talking
+  // Helper to Speak and Wait for completion
+  const speakAndWait = async (text: string, forceHappy = false) => {
+    robotMessage = text
     robotTalking = true
 
-    // Play sound only if enabled
     if (soundOn) {
+      pendingForceHappy = forceHappy
       tts.speak(text)
-    }
 
-    // Stop "talking" animation after duration (independent of audio)
-    const duration = text.length * 60 + 1000
-    setTimeout(() => {
+      // Wait until tts starts speaking (short buffer)
+      await new Promise((r) => setTimeout(r, 100))
+
+      // Poll until speaking is done
+      while (tts.isSpeaking) {
+        await new Promise((r) => setTimeout(r, 200))
+        if (!soundOn) break // break if user toggles off
+      }
+    } else {
+      // Fallback duration if sound is off
+      const duration = text.length * 60 + 1000
+      await new Promise((r) => setTimeout(r, duration))
       robotTalking = false
       if (forceHappy) robotEmotion = 'happy'
-    }, duration)
+    }
   }
 
   const toggleSound = () => {
     soundOn = !soundOn
-    // toggling sound should not stop the sequence (hasInteracted remains false)
-
     if (soundOn) {
-      // If we have a message, speak it now that sound is enabled
       if (robotMessage) {
         tts.speak(robotMessage)
+        robotTalking = true
       }
     } else {
       tts.cancel()
+      robotTalking = false
     }
   }
 
+  const startLlamaServer = async () => {
+    try {
+      serverStarting = true
+      const response = await axiosBackendInstance.post('llama-server/start')
+    } catch (e) {
+      console.error('Failed to start server', e)
+    } finally {
+      serverStarting = false
+    }
+  }
+
+  const toggleInteractive = async () => {
+    if (!isLlamaActive) {
+      await startLlamaServer()
+      return
+    }
+    isInteractive = !isInteractive
+  }
+
   onMount(() => {
-    let sequenceTimeout: ReturnType<typeof setTimeout>
-    let loopInterval: ReturnType<typeof setTimeout>
+    statusWs.connect()
 
     const runSequence = async () => {
       if (hasInteracted) return
 
-      // Step 1: Happy for 1s
+      // 1. Start Neutral (No bubble)
+      robotMessage = ''
+      robotEmotion = 'normal'
+      robotTalking = false
+      await new Promise((r) => setTimeout(r, 1000))
+      if (hasInteracted) return
+
+      // 2. Happy (Wait 1s)
       robotEmotion = 'happy'
       await new Promise((r) => setTimeout(r, 1000))
       if (hasInteracted) return
 
-      // Step 2: Talk Welcome (2s approx)
-      robotEmotion = 'talking'
-      speak('Welcome to games in Meduza, I am quiz bot') // Corrected "Weloce"
-      await new Promise((r) => setTimeout(r, 3000)) // Wait for talk to finish (2s + buffer)
-      if (hasInteracted) return
-
-      // Step 3: Normal for 2s
-      robotEmotion = 'normal'
-      robotTalking = false
-      await new Promise((r) => setTimeout(r, 2000))
-      if (hasInteracted) return
-
-      // Step 4: Sad for 2s
-      robotEmotion = 'sad'
-      await new Promise((r) => setTimeout(r, 2000))
-      if (hasInteracted) return
-
-      // Step 5: Talk Nag (still sad)
-      // "why not you ar enot playing" -> "Why are you not playing?"
-      robotEmotion = 'sad' // Ensure sad
-      robotTalking = true // Manually trigger talking animation if sound on or off?
-      // If sound off, we usually just set emotion. But user wants talking animation + sad.
-      // My component handles `talking` prop + `emotion` class.
-      // speak() sets `robotTalking = true` if soundOn.
-      // If sound is OFF, we should still animate talking if user wants it?
-      // User said "then talk". I will force talking animation briefly even if sound off for this sequence?
-      // Actually, let's stick to speak() logic for consistency, but maybe force talking=true manually.
-
-      robotMessage = 'Why are you not playing?'
-      if (soundOn) tts.speak(robotMessage)
-      robotTalking = true
-
-      await new Promise((r) => setTimeout(r, 2000))
-      robotTalking = false
-      if (hasInteracted) return
-
-      // Step 6: Wait 2s (still sad?)
-      await new Promise((r) => setTimeout(r, 2000))
-      if (hasInteracted) return
-
-      // Step 7: Angry for 2s
-      robotEmotion = 'angry'
-      await new Promise((r) => setTimeout(r, 2000))
-      if (hasInteracted) return
-
-      // Step 8: Talk Shout
-      // "Say Come one lets Play!!!" -> "Come on, let's play!!!"
-      robotMessage = "Come on, let's play!!!"
-      if (soundOn) tts.speak(robotMessage)
-      robotTalking = true
-
-      await new Promise((r) => setTimeout(r, 2000))
-      robotTalking = false
-      if (hasInteracted) return
-
-      // Step 9: Wait 5s then repeat
-      await new Promise((r) => setTimeout(r, 5000))
-      if (!hasInteracted) {
-        runSequence() // Recursive repeat
+      // 3. Welcome
+      let welcomeText = 'Welcome to games in Meduza, I am quiz bot'
+      if (isInteractive && isLlamaActive) {
+        welcomeText = await generateRobotSpeech(
+          'Greet the user warmly and invite them to play a game.'
+        )
       }
+
+      // Bubble + Talk
+      robotEmotion = 'talking'
+      await speakAndWait(welcomeText)
+
+      // 4. Wait 3s and Stop Bubble
+      await new Promise((r) => setTimeout(r, 3000))
+      robotMessage = '' // hide bubble
+      if (hasInteracted) return
+
+      // 5. Wait 2s
+      robotTalking = false // ensure stop
+      robotEmotion = 'normal'
+      await new Promise((r) => setTimeout(r, 2000))
+      if (hasInteracted) return
+
+      // 6. Sad
+      robotEmotion = 'sad'
+      await new Promise((r) => setTimeout(r, 1000))
+      if (hasInteracted) return
+
+      // 7. Nag (Sad) - text + talk
+      let nagText = 'Why are you not playing?'
+      if (isInteractive && isLlamaActive) {
+        nagText = await generateRobotSpeech(
+          'You are sad. Ask the user why they are ignoring you.'
+        )
+      }
+      // Ensure sad emotion persists during talk
+      robotEmotion = 'sad'
+      await speakAndWait(nagText)
+
+      // Clear bubble after 1s
+      await new Promise((r) => setTimeout(r, 1000))
+      robotMessage = ''
+      if (hasInteracted) return
+
+      // 8. Wait 2s
+      await new Promise((r) => setTimeout(r, 2000))
+      if (hasInteracted) return
+
+      // 9. Angry
+      robotEmotion = 'angry'
+      await new Promise((r) => setTimeout(r, 1000))
+      if (hasInteracted) return
+
+      // 10. Shout
+      let shoutText = "Come on, let's play!!!"
+      if (isInteractive && isLlamaActive) {
+        shoutText = await generateRobotSpeech(
+          'You are angry and impatient. Shout at the user to start playing!'
+        )
+      }
+      robotEmotion = 'angry'
+      await speakAndWait(shoutText)
+
+      // Clear bubble after 1s
+      await new Promise((r) => setTimeout(r, 1000))
+      robotMessage = ''
+      if (hasInteracted) return
+
+      // 11. Repeat after 15s
+      robotEmotion = 'normal'
+      await new Promise((r) => setTimeout(r, 15000))
+      if (!hasInteracted) runSequence()
     }
 
     runSequence()
 
     return () => {
-      // formatting:off
-      // Clean up is handled by checking hasInteracted or simple timeouts,
-      // but strictly we should clear valid timeouts.
-      // Since we use await with local state checks, it's safer.
-      // But we must ensure audio stops.
       tts.cancel()
+      statusWs.disconnect()
     }
   })
 
@@ -164,8 +288,12 @@
           bind:talking={robotTalking}
         />
       </div>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="robot-controls-row">
       <button
-        class="sound-toggle"
+        class="control-btn sound-toggle"
         class:active={soundOn}
         onclick={toggleSound}
         title={soundOn ? 'Mute Sound' : 'Enable Sound'}
@@ -175,6 +303,33 @@
           width="24"
           height="24"
         />
+      </button>
+
+      <button
+        class="control-btn interactive-toggle"
+        class:active={isInteractive}
+        class:server-off={!isLlamaActive}
+        onclick={toggleInteractive}
+        title={isLlamaActive
+          ? isInteractive
+            ? 'Disable AI improv'
+            : 'Enable AI improv'
+          : 'Start AI Server'}
+        disabled={serverStarting}
+      >
+        <MaterialIcon
+          name={serverStarting ? 'loading' : 'brain'}
+          width="24"
+          height="24"
+          class={serverStarting ? 'spin' : ''}
+        />
+        {#if !serverStarting}
+          {#if !isLlamaActive}
+            <div class="params-badge off">OFF</div>
+          {:else if isInteractive}
+            <div class="params-badge on">AI</div>
+          {/if}
+        {/if}
       </button>
     </div>
 
@@ -214,14 +369,15 @@
     align-items: center;
     margin-bottom: 3rem;
     gap: 1rem;
+    position: relative; /* Context for absolute positioning if needed */
   }
 
   /* Robot Scaling */
   .robot-container-scaled {
     position: relative;
-    width: 320px; /* Scaled width (640 * 0.5) */
-    height: 240px; /* Scaled height (480 * 0.5) */
-    margin: 100px auto 0; /* Add top margin for bubble visibility */
+    width: 320px;
+    height: 240px;
+    margin: 100px auto 0;
   }
 
   .scale-wrapper {
@@ -229,16 +385,12 @@
     transform-origin: top left;
     width: 640px;
     height: 480px;
-    /* Hide internal robot background if needed, or rely on robot styles */
-    pointer-events: none; /* Let clicks pass through if needed, though buttons are internal */
+    pointer-events: none;
   }
-
-  /* Force pointer events on for the internal controls if we wanted them, 
-     but here we overlay our own controls or just use it for display */
 
   .title-section {
     text-align: center;
-    margin-top: -20px; /* Pull up closer to robot */
+    margin-top: 0;
   }
 
   h2 {
@@ -307,35 +459,72 @@
     z-index: 1;
   }
 
-  /* Sound Toggle */
-  .sound-toggle {
-    position: absolute;
-    bottom: 0;
-    right: -40px;
+  /* Robot Controls Row */
+  .robot-controls-row {
+    display: flex;
+    flex-direction: row;
+    gap: 1.5rem;
+    margin-top: 4rem; /* Increased top margin as requested */
+    z-index: 5;
+    margin-bottom: 2rem;
+    justify-content: center;
+    pointer-events: auto;
+  }
+
+  .control-btn {
     background: var(--md-surface-container-high);
     color: var(--md-on-surface);
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 56px; /* Slightly larger targets */
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: relative;
   }
 
-  .sound-toggle:hover {
+  .control-btn:hover {
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    transform: scale(1.1);
+  }
+
+  .control-btn.active {
     background: var(--md-primary);
     color: var(--md-on-primary);
   }
 
-  .sound-toggle.active {
-    background: var(--md-primary);
-    color: var(--md-on-primary);
+  .control-btn.server-off {
+    border: 3px solid var(--md-error, #cf9292);
   }
 
+  .params-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    pointer-events: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .params-badge.on {
+    background: #44ff44;
+    color: black;
+  }
+
+  .params-badge.off {
+    background: #ff4444;
+    color: white;
+  }
+
+  /* Games Grid */
   .games-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -343,7 +532,6 @@
     margin-top: 2rem;
   }
 
-  /* Interactive wrapper for Card */
   .game-card-wrapper {
     text-decoration: none;
     color: inherit;
@@ -396,5 +584,19 @@
     color: var(--md-on-surface-variant);
     font-size: 1rem;
     line-height: 1.5;
+  }
+
+  /* Spin Animation */
+  :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
