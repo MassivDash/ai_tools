@@ -4,17 +4,32 @@
   import Button from '../ui/Button.svelte'
   import MaterialIcon from '../ui/MaterialIcon.svelte'
   import PageSubHeader from '../ui/PageSubHeader.svelte'
-  import ServerControls from '../agent/ServerControls.svelte'
+  import Input from '../ui/Input.svelte'
+  import ServerControls from '../agent/config/ServerControls.svelte'
   import Terminal from '../llamaServer/terminal.svelte'
   import LlamaConfig from '../llamaServer/config/LlamaConfig.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import type { LlamaServerStatus, LlamaServerResponse } from '../agent/types'
+  import { useOneOfFifteenState } from '../../hooks/useOneOfFifteenState.svelte'
+  import type { LlamaServerStatus, LlamaServerResponse } from '@types'
+  import PresenterScreen from './oneOfFifteen/PresenterScreen.svelte'
+  import ContestantScreen from './oneOfFifteen/ContestantScreen.svelte'
 
   // --- Server State ---
   let serverStatus: LlamaServerStatus = $state({ active: false, port: 8080 })
   let serverLoading = $state(false)
   let showConfig = $state(false)
   let showTerminal = $state(false)
+
+  // --- Game State (via Hook) ---
+  const game = useOneOfFifteenState()
+  let contestantName = $state('')
+  // We use game.state.role, game.state.gameState, game.isConnected
+
+  // Computed helpers
+  let joined = $derived(!!game.state.role)
+  let role = $derived(game.state.role)
+  // Local UI state
+  let selectingContestant = $state(false)
 
   let error = $state('')
 
@@ -29,12 +44,21 @@
     }
   )
 
+  $effect(() => {
+    if (serverStatus.active && !game.isConnected) {
+      game.connect()
+    } else if (!serverStatus.active && game.isConnected) {
+      game.disconnect()
+    }
+  })
+
   onMount(() => {
     statusWs.connect()
   })
 
   onDestroy(() => {
     statusWs.disconnect()
+    game.disconnect()
   })
 
   // --- Server Controls ---
@@ -92,6 +116,17 @@
       />
     </div>
 
+    {#if joined}
+      <Button
+        variant="danger"
+        class="button-icon-only"
+        onclick={game.logout}
+        title="Leave Game (Clear Session)"
+      >
+        <MaterialIcon name="logout" width="24" height="24" />
+      </Button>
+    {/if}
+
     <Button
       variant="info"
       class="button-icon-only"
@@ -132,26 +167,21 @@
     {/if}
 
     <div class="game-lobby">
-      <div class="lobby-card">
-        <MaterialIcon
-          name="gamepad-variant"
-          width="80"
-          height="80"
-          class="game-logo"
-        />
-        <h1>1 of 15</h1>
-        <p class="description">
-          A general knowledge quiz game hosted by an AI personality. Prepare to
-          answer 15 questions correctly to win!
-        </p>
+      {#if !serverStatus.active}
+        <div class="lobby-card">
+          <MaterialIcon
+            name="gamepad-variant"
+            width="80"
+            height="80"
+            class="game-logo"
+          />
+          <h1>1 of 15</h1>
+          <p class="description">
+            A general knowledge quiz game hosted by an AI personality. Start the
+            server to begin.
+          </p>
 
-        <div class="status-box">
-          {#if serverStatus.active}
-            <div class="status-ready">
-              <MaterialIcon name="check-circle" width="24" height="24" />
-              <span>Game Server Ready</span>
-            </div>
-          {:else}
+          <div class="status-box">
             <div class="status-waiting">
               <MaterialIcon name="server-network-off" width="24" height="24" />
               <span>Server Offline</span>
@@ -159,9 +189,163 @@
             <p class="hint">
               Start the server using the controls above to play.
             </p>
+          </div>
+        </div>
+      {:else if !joined}
+        <!-- Setup / Role Selection -->
+        <div class="setup-container">
+          {#if role === null && !selectingContestant}
+            <h2>Choose Your Role</h2>
+            <div class="role-selection">
+              <Button
+                variant="primary"
+                class="role-card"
+                disabled={game.state.gameState.has_presenter}
+                title={game.state.gameState.has_presenter
+                  ? 'Presenter already needed'
+                  : 'Become the Presenter'}
+                onclick={() => {
+                  game.joinPresenter()
+                  // Allow UI to update from hook state
+                }}
+              >
+                <div class="role-content">
+                  <MaterialIcon
+                    name="monitor-dashboard"
+                    width="48"
+                    height="48"
+                  />
+                  <span class="role-title">Presenter</span>
+                  <span class="role-desc">Main screen, questions, controls</span
+                  >
+                </div>
+              </Button>
+
+              <Button
+                variant="secondary"
+                class="role-card"
+                onclick={() => {
+                  // Just local UI transition, hook handles actual join on name submit
+                  // We can't set "local role" without joining yet?
+                  // The original design had an intermediate "Enter Name" step LOCAL only.
+                  // But now `role` is derived from `game.state.role`.
+                  // We need a local UI state for "Selecting Contestant".
+                  // I will re-introduce a local `viewState` or similar.
+                  // Or simpler: If logic allows, just set `role` locally?
+                  // `role` is derived.
+                  // Let's use a separate local boolean `selectingContestant`.
+                  selectingContestant = true
+                }}
+              >
+                <div class="role-content">
+                  <MaterialIcon name="account" width="48" height="48" />
+                  <span class="role-title">Contestant</span>
+                  <span class="role-desc">Join the game, answer questions</span>
+                </div>
+              </Button>
+            </div>
+          {:else if selectingContestant}
+            <div class="name-entry-card">
+              <h2>Enter Your Name</h2>
+              <div class="input-group">
+                <Input
+                  placeholder="Your Name"
+                  bind:value={contestantName}
+                  autofocus
+                />
+              </div>
+              <div class="actions">
+                <Button
+                  variant="ghost"
+                  onclick={() => (selectingContestant = false)}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={!contestantName.trim()}
+                  onclick={() => {
+                    game.joinContestant(contestantName)
+                    // Hook updates state.role -> 'contestant', which hides this view
+                  }}
+                >
+                  Join Game
+                </Button>
+              </div>
+            </div>
           {/if}
         </div>
-      </div>
+      {:else}
+        <!-- Game View -->
+        <div class="game-view">
+          <p style="background:red; color:white; padding:10px;">
+            DEBUG: Joined={joined} Role={role}
+          </p>
+          {#if role === 'presenter'}
+            <div class="presenter-dashboard">
+              <div class="presenter-header-banner">
+                <MaterialIcon name="monitor-dashboard" width="32" height="32" />
+                <h2>Presenter Dashboard</h2>
+              </div>
+
+              <div class="dashboard-grid">
+                <div class="controls-panel">
+                  <h3>Game Controls</h3>
+                  <div class="control-buttons">
+                    {#if game.state.gameState.status === 'lobby'}
+                      <Button
+                        variant="success"
+                        onclick={game.startGame}
+                        disabled={game.state.gameState.contestants.length === 0}
+                      >
+                        <MaterialIcon name="play" width="24" height="24" />
+                        Start Game
+                      </Button>
+                      <p class="status-text">
+                        Status: Lobby (Waiting for players)
+                      </p>
+                    {:else if game.state.gameState.status === 'playing'}
+                      <Button variant="danger" onclick={game.resetGame}>
+                        <MaterialIcon name="refresh" width="24" height="24" />
+                        Reset Game
+                      </Button>
+                      <p class="status-text active">Status: Game in Progress</p>
+                    {/if}
+                  </div>
+                </div>
+
+                <div class="contestants-list">
+                  <h3>
+                    Contestants ({game.state.gameState.contestants.length})
+                  </h3>
+                  <ul>
+                    {#each game.state.gameState.contestants as contestant}
+                      <li
+                        class:online={contestant.online}
+                        class:offline={!contestant.online}
+                      >
+                        <span class="c-name">{contestant.name}</span>
+                        <div class="c-status">
+                          <span
+                            class="badge {contestant.online
+                              ? 'u-online'
+                              : 'u-offline'}"
+                          >
+                            {contestant.online ? 'Online' : 'Offline'}
+                          </span>
+                          <span class="score">Score: {contestant.score}</span>
+                        </div>
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          {:else}
+            <!-- Fallback if logic fails -->
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -295,16 +479,6 @@
     border: 1px solid var(--border-color, #e0e0e0);
   }
 
-  .status-ready {
-    color: var(--success-color, #4caf50);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-weight: 600;
-    font-size: 1.2rem;
-  }
-
   .status-waiting {
     color: var(--text-secondary, #bbb);
     display: flex;
@@ -320,4 +494,98 @@
     color: var(--text-tertiary, #999);
     margin-top: 0.5rem;
   }
+
+  /* --- Game Setup Styles --- */
+  .setup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .setup-container h2 {
+    font-size: 2rem;
+    margin: 0;
+    color: var(--text-primary, #333);
+  }
+
+  .role-selection {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Custom styling for Buttons to make them look like cards */
+  :global(.role-card) {
+    height: auto !important;
+    padding: 2rem !important;
+    border-radius: 16px !important;
+    flex: 1;
+    min-width: 250px;
+    max-width: 350px;
+    transition: transform 0.2s;
+  }
+
+  :global(.role-card:hover) {
+    transform: translateY(-4px);
+  }
+
+  .role-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .role-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .role-desc {
+    font-size: 1rem;
+    opacity: 0.9;
+    font-weight: 400;
+  }
+
+  .name-entry-card {
+    background-color: var(--bg-secondary, #fafafa);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 16px;
+    padding: 3rem;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+
+  .input-group {
+    width: 100%;
+  }
+
+  .actions {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* --- In-Game Views --- */
+  .game-view {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Presenter specific styles - MOVED TO SUBCOMPONENTS */
 </style>
