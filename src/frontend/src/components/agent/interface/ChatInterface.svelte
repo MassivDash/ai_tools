@@ -336,9 +336,12 @@
           messages[statusIndex] = {
             ...messages[statusIndex],
             statusType: 'tool_error',
-            content: 'Stopping generation...'
+            content: 'Generation stopped'
           }
         }
+
+        // Immediate visual feedback
+        loading = false
       } catch (err) {
         console.error('Failed to send explicit cancel signal to backend:', err)
         // Fallback: If backend is unreachable, then we MUST abort locally

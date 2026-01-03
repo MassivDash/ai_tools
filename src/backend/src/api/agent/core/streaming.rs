@@ -217,6 +217,13 @@ pub async fn execute_agent_loop_streaming(
                 chunk_option = response.chunk() => {
                     match chunk_option {
                         Ok(Some(chunk)) => {
+                            // Eagerly check cancellation
+                            if *cancel_rx.borrow() {
+                                println!("⚠️ Cancellation signal received (eager check)");
+                                loop_cancelled = true;
+                                break;
+                            }
+
                             let chunk_str = String::from_utf8_lossy(&chunk);
                             for line in chunk_str.lines() {
                                 if let Some(data) = line.strip_prefix("data: ") {
@@ -254,21 +261,6 @@ pub async fn execute_agent_loop_streaming(
                                                     if let Some(reasoning) = delta.get("reasoning_content").and_then(|c| c.as_str()) {
                                                         if !reasoning.is_empty() {
                                                             accumulated_reasoning_content.push_str(reasoning);
-                                                            // Optional: log reasoning stream? The user specifically asked for "responses from LLM as also streamed"
-                                                            // But reasoning is part of response. Let's log formatted reasoning if we want, or just append raw text?
-                                                            // The user might want to see reasoning appear. Let's log it with a prefix or just raw.
-                                                            // Given it's "raw" streaming, maybe just streaming it is fine.
-                                                            // To distinguish, maybe we don't log it raw mixed with content.
-                                                            // BUT, for now, let's assume "response" means the main content.
-                                                            // Wait, if I mix them in the same file without labels, it might be confusing.
-                                                            // However, usually they don't interleave perfectly line by line.
-                                                            // Let's log it but maybe formatted or just raw?
-                                                            // Let's stick to content for now to match "text chunks", or check if I should log everything.
-                                                            // "make sure the responses from LLM as aslo streamed to the file"
-                                                            // I'll log reasoning too, but I'll prefix it if possible, or just log.
-                                                            // Getting clean separation in a raw stream is hard.
-                                                            // I'll leave reasoning out of the RAW stream for now to keep the text clean,
-                                                            // as I already log the full reasoning block at the end in the message log.
                                                         }
                                                     }
 
