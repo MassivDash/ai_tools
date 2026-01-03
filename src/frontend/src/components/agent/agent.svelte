@@ -306,11 +306,6 @@
       {:else}
         <EmptyState />
       {/if}
-      <!-- Add extra space at bottom as requested -->
-      <div
-        class="bottom-spacer"
-        style="height: 500px; width: 100%; flex-shrink: 0;"
-      ></div>
     </div>
     <AgentConfig
       isOpen={showConfig}
@@ -404,6 +399,7 @@
     padding: 0;
     /* Ensure it fills parent */
     flex: 1;
+    margin-bottom: 300px;
   }
 
   .main-content.with-terminal {
