@@ -1,0 +1,744 @@
+// Variables
+$pixel-on: #ffdd00;
+$pixel-off: #111;
+$pixel-dim: #666;
+$pixel-red: #ff4444;
+$grid-cols: 32;
+$grid-rows: 24;
+$talk-duration: 0.4s;
+
+// Helper function to convert row/col to pixel number
+@function pixel($row, $col) {
+  @return ($row - 1) * $grid-cols + $col;
+}
+
+// NORMAL EYES - rows 6-11, cols 8-13 & 20-25
+$left-eye: (
+  pixel(6, 9),
+  pixel(6, 10),
+  pixel(6, 11),
+  pixel(6, 12),
+  pixel(7, 8),
+  pixel(7, 9),
+  pixel(7, 10),
+  pixel(7, 11),
+  pixel(7, 12),
+  pixel(7, 13),
+  pixel(8, 8),
+  pixel(8, 9),
+  pixel(8, 10),
+  pixel(8, 11),
+  pixel(8, 12),
+  pixel(8, 13),
+  pixel(9, 8),
+  pixel(9, 9),
+  pixel(9, 10),
+  pixel(9, 11),
+  pixel(9, 12),
+  pixel(9, 13),
+  pixel(10, 8),
+  pixel(10, 9),
+  pixel(10, 10),
+  pixel(10, 11),
+  pixel(10, 12),
+  pixel(10, 13),
+  pixel(11, 9),
+  pixel(11, 10),
+  pixel(11, 11),
+  pixel(11, 12)
+);
+
+$right-eye: (
+  pixel(6, 21),
+  pixel(6, 22),
+  pixel(6, 23),
+  pixel(6, 24),
+  pixel(7, 20),
+  pixel(7, 21),
+  pixel(7, 22),
+  pixel(7, 23),
+  pixel(7, 24),
+  pixel(7, 25),
+  pixel(8, 20),
+  pixel(8, 21),
+  pixel(8, 22),
+  pixel(8, 23),
+  pixel(8, 24),
+  pixel(8, 25),
+  pixel(9, 20),
+  pixel(9, 21),
+  pixel(9, 22),
+  pixel(9, 23),
+  pixel(9, 24),
+  pixel(9, 25),
+  pixel(10, 20),
+  pixel(10, 21),
+  pixel(10, 22),
+  pixel(10, 23),
+  pixel(10, 24),
+  pixel(10, 25),
+  pixel(11, 21),
+  pixel(11, 22),
+  pixel(11, 23),
+  pixel(11, 24)
+);
+
+// SURPRISED EYES - BIGGER and ROUNDER (rows 5-12, wider)
+$surprised-left-eye: (
+  // Row 5
+  pixel(5, 9),
+  pixel(5, 10),
+  pixel(5, 11),
+  pixel(5, 12),
+  // Row 6
+  pixel(6, 8),
+  pixel(6, 9),
+  pixel(6, 10),
+  pixel(6, 11),
+  pixel(6, 12),
+  pixel(6, 13),
+  // Row 7
+  pixel(7, 7),
+  pixel(7, 8),
+  pixel(7, 9),
+  pixel(7, 10),
+  pixel(7, 11),
+  pixel(7, 12),
+  pixel(7, 13),
+  pixel(7, 14),
+  // Row 8
+  pixel(8, 7),
+  pixel(8, 8),
+  pixel(8, 9),
+  pixel(8, 10),
+  pixel(8, 11),
+  pixel(8, 12),
+  pixel(8, 13),
+  pixel(8, 14),
+  // Row 9
+  pixel(9, 7),
+  pixel(9, 8),
+  pixel(9, 9),
+  pixel(9, 10),
+  pixel(9, 11),
+  pixel(9, 12),
+  pixel(9, 13),
+  pixel(9, 14),
+  // Row 10
+  pixel(10, 7),
+  pixel(10, 8),
+  pixel(10, 9),
+  pixel(10, 10),
+  pixel(10, 11),
+  pixel(10, 12),
+  pixel(10, 13),
+  pixel(10, 14),
+  // Row 11
+  pixel(11, 8),
+  pixel(11, 9),
+  pixel(11, 10),
+  pixel(11, 11),
+  pixel(11, 12),
+  pixel(11, 13),
+  // Row 12
+  pixel(12, 9),
+  pixel(12, 10),
+  pixel(12, 11),
+  pixel(12, 12)
+);
+
+$surprised-right-eye: (
+  // Row 5
+  pixel(5, 21),
+  pixel(5, 22),
+  pixel(5, 23),
+  pixel(5, 24),
+  // Row 6
+  pixel(6, 20),
+  pixel(6, 21),
+  pixel(6, 22),
+  pixel(6, 23),
+  pixel(6, 24),
+  pixel(6, 25),
+  // Row 7
+  pixel(7, 19),
+  pixel(7, 20),
+  pixel(7, 21),
+  pixel(7, 22),
+  pixel(7, 23),
+  pixel(7, 24),
+  pixel(7, 25),
+  pixel(7, 26),
+  // Row 8
+  pixel(8, 19),
+  pixel(8, 20),
+  pixel(8, 21),
+  pixel(8, 22),
+  pixel(8, 23),
+  pixel(8, 24),
+  pixel(8, 25),
+  pixel(8, 26),
+  // Row 9
+  pixel(9, 19),
+  pixel(9, 20),
+  pixel(9, 21),
+  pixel(9, 22),
+  pixel(9, 23),
+  pixel(9, 24),
+  pixel(9, 25),
+  pixel(9, 26),
+  // Row 10
+  pixel(10, 19),
+  pixel(10, 20),
+  pixel(10, 21),
+  pixel(10, 22),
+  pixel(10, 23),
+  pixel(10, 24),
+  pixel(10, 25),
+  pixel(10, 26),
+  // Row 11
+  pixel(11, 20),
+  pixel(11, 21),
+  pixel(11, 22),
+  pixel(11, 23),
+  pixel(11, 24),
+  pixel(11, 25),
+  // Row 12
+  pixel(12, 21),
+  pixel(12, 22),
+  pixel(12, 23),
+  pixel(12, 24)
+);
+
+// ANGRY EYES - ANGLED/NARROWER (rows 7-10, angled inward)
+$angry-left-eye: (
+  // Row 7 (angled down from outside)
+  pixel(7, 8),
+  pixel(7, 9),
+  pixel(7, 10),
+  pixel(7, 11),
+  // Row 8
+  pixel(8, 9),
+  pixel(8, 10),
+  pixel(8, 11),
+  pixel(8, 12),
+  // Row 9
+  pixel(9, 10),
+  pixel(9, 11),
+  pixel(9, 12),
+  pixel(9, 13),
+  // Row 10
+  pixel(10, 11),
+  pixel(10, 12)
+);
+
+$angry-right-eye: (
+  // Row 7 (angled down from outside)
+  pixel(7, 22),
+  pixel(7, 23),
+  pixel(7, 24),
+  pixel(7, 25),
+  // Row 8
+  pixel(8, 21),
+  pixel(8, 22),
+  pixel(8, 23),
+  pixel(8, 24),
+  // Row 9
+  pixel(9, 20),
+  pixel(9, 21),
+  pixel(9, 22),
+  pixel(9, 23),
+  // Row 10
+  pixel(10, 21),
+  pixel(10, 22)
+);
+
+// ANGRY EYEBROWS - above the eyes
+$angry-left-brow: (
+  pixel(5, 7),
+  pixel(5, 8),
+  pixel(5, 9),
+  pixel(5, 10),
+  pixel(6, 6),
+  pixel(6, 7),
+  pixel(6, 8)
+);
+
+$angry-right-brow: (
+  pixel(5, 23),
+  pixel(5, 24),
+  pixel(5, 25),
+  pixel(5, 26),
+  pixel(6, 25),
+  pixel(6, 26),
+  pixel(6, 27)
+);
+
+// MOUTH PATTERNS
+$normal-mouth: (
+  pixel(17, 13),
+  pixel(17, 14),
+  pixel(17, 15),
+  pixel(17, 16),
+  pixel(17, 17),
+  pixel(17, 18),
+  pixel(17, 19),
+  pixel(17, 20),
+  pixel(18, 13),
+  pixel(18, 14),
+  pixel(18, 15),
+  pixel(18, 16),
+  pixel(18, 17),
+  pixel(18, 18),
+  pixel(18, 19),
+  pixel(18, 20)
+);
+
+$happy-mouth: (
+  pixel(17, 11),
+  pixel(17, 12),
+  pixel(17, 21),
+  pixel(17, 22),
+  pixel(18, 11),
+  pixel(18, 12),
+  pixel(18, 13),
+  pixel(18, 20),
+  pixel(18, 21),
+  pixel(19, 12),
+  pixel(19, 13),
+  pixel(19, 14),
+  pixel(19, 15),
+  pixel(19, 16),
+  pixel(19, 17),
+  pixel(19, 18),
+  pixel(19, 19),
+  pixel(19, 20),
+  pixel(19, 21),
+  pixel(20, 13),
+  pixel(20, 14),
+  pixel(20, 15),
+  pixel(20, 16),
+  pixel(20, 17),
+  pixel(20, 18),
+  pixel(20, 19),
+  pixel(20, 20)
+);
+
+$sad-mouth: (
+  pixel(16, 14),
+  pixel(16, 15),
+  pixel(16, 16),
+  pixel(16, 17),
+  pixel(16, 18),
+  pixel(16, 19),
+  pixel(17, 13),
+  pixel(17, 14),
+  pixel(17, 15),
+  pixel(17, 16),
+  pixel(17, 17),
+  pixel(17, 18),
+  pixel(17, 19),
+  pixel(17, 20),
+  pixel(18, 12),
+  pixel(18, 13),
+  pixel(18, 14),
+  pixel(18, 15),
+  pixel(18, 16),
+  pixel(18, 17),
+  pixel(18, 18),
+  pixel(18, 19),
+  pixel(18, 20),
+  pixel(18, 21),
+  pixel(19, 11),
+  pixel(19, 12),
+  pixel(19, 21),
+  pixel(19, 22)
+);
+
+// SURPRISED MOUTH - BIG O shape
+$surprised-mouth: (
+  // Row 16
+  pixel(16, 15),
+  pixel(16, 16),
+  pixel(16, 17),
+  pixel(16, 18),
+  // Row 17
+  pixel(17, 14),
+  pixel(17, 19),
+  // Row 18
+  pixel(18, 13),
+  pixel(18, 20),
+  // Row 19
+  pixel(19, 13),
+  pixel(19, 20),
+  // Row 20
+  pixel(20, 14),
+  pixel(20, 19),
+  // Row 21
+  pixel(21, 15),
+  pixel(21, 16),
+  pixel(21, 17),
+  pixel(21, 18)
+);
+
+// ANGRY MOUTH - JAGGED/GRITTED
+$angry-mouth: (
+  pixel(17, 12),
+  pixel(17, 13),
+  pixel(17, 15),
+  pixel(17, 16),
+  pixel(17, 18),
+  pixel(17, 19),
+  pixel(17, 21),
+  pixel(18, 13),
+  pixel(18, 14),
+  pixel(18, 16),
+  pixel(18, 17),
+  pixel(18, 19),
+  pixel(18, 20),
+  pixel(19, 12),
+  pixel(19, 13),
+  pixel(19, 15),
+  pixel(19, 16),
+  pixel(19, 18),
+  pixel(19, 19),
+  pixel(19, 21)
+);
+
+// TALK WAVE PATTERNS (same as before)
+$talk-wave-low: (
+  pixel(18, 12),
+  pixel(18, 13),
+  pixel(18, 16),
+  pixel(18, 17),
+  pixel(18, 20),
+  pixel(18, 21)
+);
+
+$talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
+
+// Main styles
+// Renamed from 'body' to wrapper class to support embedding
+.robot-wrapper {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at center, #1a1a1a, #000);
+  // height: 100vh; // Removed fixed height to allow embedding
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+  color: #ddd;
+  width: 100%;
+}
+
+.robot-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 50px;
+}
+
+.robot-head {
+  width: 640px;
+  height: 480px;
+  background: linear-gradient(145deg, #333, #111);
+  border: 15px solid #555;
+  border-radius: 30px;
+  box-shadow:
+    inset 0 0 60px #000,
+    0 25px 50px rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 20px;
+    background: #666;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .screen {
+    width: 580px;
+    height: 420px;
+    background: #000;
+    border-radius: 15px;
+    position: relative;
+    box-shadow: inset 0 0 40px #000;
+    overflow: hidden;
+
+    .pixels {
+      display: grid;
+      grid-template-columns: repeat($grid-cols, 1fr);
+      grid-template-rows: repeat($grid-rows, 1fr);
+      width: 100%;
+      height: 100%;
+      gap: 1px;
+      padding: 10px;
+      box-sizing: border-box;
+
+      .pixel {
+        background: $pixel-off;
+        border-radius: 1px;
+        transition: all 0.1s ease;
+        min-width: 0;
+        min-height: 0;
+      }
+    }
+
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0.01) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.01) 1px,
+          transparent 1px
+        );
+      background-size: calc(580px / #{$grid-cols}) calc(420px / #{$grid-rows});
+      pointer-events: none;
+    }
+  }
+}
+
+// Base state - all pixels off
+.robot-head {
+  .pixel {
+    background: $pixel-off;
+  }
+}
+
+// Normal state
+.robot-head.normal {
+  @each $i in $left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+    }
+  }
+
+  @each $i in $right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+    }
+  }
+
+  @each $i in $normal-mouth {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-dim;
+    }
+  }
+}
+
+// Happy state - SMILE (curve goes UP)
+.robot-head.happy {
+  @each $i in $left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 3px $pixel-on;
+    }
+  }
+
+  @each $i in $right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 3px $pixel-on;
+    }
+  }
+
+  @each $i in $happy-mouth {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 2px $pixel-on;
+    }
+  }
+}
+
+// Sad state - FROWN (curve goes DOWN) - SAME BRIGHT YELLOW
+.robot-head.sad {
+  @each $i in $left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+    }
+  }
+
+  @each $i in $right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+    }
+  }
+
+  @each $i in $sad-mouth {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+    }
+  }
+}
+
+// Talking animation - wave pattern _-_- to -_-_
+@keyframes wave-pattern-1 {
+  0% {
+    background: $pixel-on;
+  }
+  50% {
+    background: $pixel-off;
+  }
+  100% {
+    background: $pixel-on;
+  }
+}
+
+@keyframes wave-pattern-2 {
+  0% {
+    background: $pixel-off;
+  }
+  50% {
+    background: $pixel-on;
+  }
+  100% {
+    background: $pixel-off;
+  }
+}
+
+// Surprised state - BIG EYES + BIG O MOUTH
+.robot-head.surprised {
+  @each $i in $surprised-left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 3px $pixel-on;
+    }
+  }
+
+  @each $i in $surprised-right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 3px $pixel-on;
+    }
+  }
+
+  @each $i in $surprised-mouth {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 2px $pixel-on;
+    }
+  }
+}
+
+// Angry state - RED ANGLED EYES + RED BROWS + RED JAGGED MOUTH
+.robot-head.angry {
+  @each $i in $angry-left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-red;
+      box-shadow: 0 0 3px $pixel-red;
+    }
+  }
+
+  @each $i in $angry-right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-red;
+      box-shadow: 0 0 3px $pixel-red;
+    }
+  }
+
+  @each $i in $angry-left-brow {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-red;
+      box-shadow: 0 0 2px $pixel-red;
+    }
+  }
+
+  @each $i in $angry-right-brow {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-red;
+      box-shadow: 0 0 2px $pixel-red;
+    }
+  }
+
+  @each $i in $angry-mouth {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-red;
+      box-shadow: 0 0 2px $pixel-red;
+    }
+  }
+}
+
+.robot-head.talking {
+  // Keep eyes bright during talking
+  @each $i in $left-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 4px $pixel-on;
+    }
+  }
+
+  @each $i in $right-eye {
+    .pixel:nth-child(#{$i}) {
+      background: $pixel-on;
+      box-shadow: 0 0 4px $pixel-on;
+    }
+  }
+
+  // Wave pattern _-_- (starts low-high-low-high)
+  @each $i in $talk-wave-low {
+    .pixel:nth-child(#{$i}) {
+      animation: wave-pattern-1 $talk-duration infinite;
+    }
+  }
+
+  @each $i in $talk-wave-high {
+    .pixel:nth-child(#{$i}) {
+      animation: wave-pattern-2 $talk-duration infinite;
+    }
+  }
+
+  .screen {
+    box-shadow:
+      inset 0 0 40px #000,
+      0 0 25px rgba($pixel-on, 0.5);
+  }
+}
+
+// Controls
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  button {
+    background: linear-gradient(145deg, #444, #222);
+    color: #ddd;
+    border: 2px solid #555;
+    padding: 15px 30px;
+    font-size: 18px;
+    font-family: 'Courier New', monospace;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(145deg, #555, #333);
+      border-color: #777;
+      color: #fff;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}

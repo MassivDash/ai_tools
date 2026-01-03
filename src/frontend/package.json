@@ -57,6 +57,7 @@
     "prettier-config-standard": "^7.0.0",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-svelte": "^3.4.1",
+    "sass": "^1.97.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.0.16"
   }
