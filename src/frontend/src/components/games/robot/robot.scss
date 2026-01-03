@@ -9,7 +9,7 @@ $talk-duration: 0.4s;
 
 // Helper function to convert row/col to pixel number
 @function pixel($row, $col) {
-  @return ($row - 1) * $grid-cols + $col;
+  @return ($row - 1) * $grid-cols +$col;
 }
 
 // NORMAL EYES - rows 6-11, cols 8-13 & 20-25
@@ -415,7 +415,12 @@ $talk-wave-low: (
   pixel(18, 21)
 );
 
-$talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
+$talk-wave-high: (
+  pixel(17, 14),
+  pixel(17, 15),
+  pixel(17, 18),
+  pixel(17, 19)
+);
 
 // Main styles
 // Renamed from 'body' to wrapper class to support embedding
@@ -498,16 +503,12 @@ $talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(
-          to right,
+        linear-gradient(to right,
           rgba(255, 255, 255, 0.01) 1px,
-          transparent 1px
-        ),
-        linear-gradient(
-          to bottom,
+          transparent 1px),
+        linear-gradient(to bottom,
           rgba(255, 255, 255, 0.01) 1px,
-          transparent 1px
-        );
+          transparent 1px);
       background-size: calc(580px / #{$grid-cols}) calc(420px / #{$grid-rows});
       pointer-events: none;
     }
@@ -592,9 +593,11 @@ $talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
   0% {
     background: $pixel-on;
   }
+
   50% {
     background: $pixel-off;
   }
+
   100% {
     background: $pixel-on;
   }
@@ -604,9 +607,11 @@ $talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
   0% {
     background: $pixel-off;
   }
+
   50% {
     background: $pixel-on;
   }
+
   100% {
     background: $pixel-off;
   }
@@ -675,6 +680,7 @@ $talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
 }
 
 .robot-head.talking {
+
   // Keep eyes bright during talking
   @each $i in $left-eye {
     .pixel:nth-child(#{$i}) {
@@ -710,35 +716,5 @@ $talk-wave-high: (pixel(17, 14), pixel(17, 15), pixel(17, 18), pixel(17, 19));
   }
 }
 
-// Controls
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-
-  button {
-    background: linear-gradient(145deg, #444, #222);
-    color: #ddd;
-    border: 2px solid #555;
-    padding: 15px 30px;
-    font-size: 18px;
-    font-family: 'Courier New', monospace;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-
-    &:hover:not(:disabled) {
-      background: linear-gradient(145deg, #555, #333);
-      border-color: #777;
-      color: #fff;
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-}
+// Controls removed as per request
+// .controls { ... }

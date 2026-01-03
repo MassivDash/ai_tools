@@ -31,15 +31,7 @@
       </div>
     </div>
 
-    <!-- Controls for demo/testing -->
-    <div class="controls">
-      <button onclick={() => (emotion = 'happy')}>Happy</button>
-      <button onclick={() => (emotion = 'normal')}>Normal</button>
-      <button onclick={() => (emotion = 'sad')}>Sad</button>
-      <button onclick={() => (emotion = 'surprised')}>Surprised</button>
-      <button onclick={() => (emotion = 'angry')}>Angry</button>
-      <button onclick={startTalking}>Talk</button>
-    </div>
+    <!-- Controls removed as requested, controlled via props now -->
   </div>
 </div>
 
