@@ -183,8 +183,8 @@
     }
   }
 
-  const handleSelectConversation = (event: CustomEvent<string>) => {
-    currentConversationId = event.detail
+  const handleSelectConversation = (id: string) => {
+    currentConversationId = id
     // Logic to reload chat for this ID will be in ChatInterface (via prop)
   }
 
@@ -265,9 +265,9 @@
       isOpen={showHistory}
       {currentConversationId}
       shouldRefresh={shouldRefreshHistory}
-      on:select={handleSelectConversation}
-      on:new={handleNewConversation}
-      on:close={() => (showHistory = false)}
+      onSelect={handleSelectConversation}
+      onNew={handleNewConversation}
+      onClose={() => (showHistory = false)}
     />
 
     <TestingSidebar
