@@ -5,7 +5,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
-import ChatInterface from './chatInterface.svelte'
+import ChatInterface from './ChatInterface.svelte'
 import { axiosBackendInstance } from '../../../axiosInstance/axiosBackendInstance.ts'
 import type { Component } from 'svelte'
 import { clearToolsCache } from '../utils/toolIcons'

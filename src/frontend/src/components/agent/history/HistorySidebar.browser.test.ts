@@ -57,57 +57,56 @@ test('loads conversations on open', async () => {
 })
 
 test('shows empty state when no conversations', async () => {
-    mockedAxios.get.mockResolvedValue({ data: [] })
-  
-    render(HistorySidebar as Component, {
-      props: { isOpen: true, currentConversationId: undefined }
-    })
-  
-    await waitFor(() => {
-      expect(screen.getByText('No history yet')).toBeTruthy()
-    })
+  mockedAxios.get.mockResolvedValue({ data: [] })
+
+  render(HistorySidebar as Component, {
+    props: { isOpen: true, currentConversationId: undefined }
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('No history yet')).toBeTruthy()
+  })
 })
 
 test('clicking new chat dispatches event', async () => {
-    mockedAxios.get.mockResolvedValue({ data: [] })
-    const newChatSpy = vi.fn()
-    
-    render(HistorySidebar as Component, {
-        props: { 
-            isOpen: true, 
-            currentConversationId: undefined,
-            onNew: newChatSpy
-        }
-    })
+  mockedAxios.get.mockResolvedValue({ data: [] })
+  const newChatSpy = vi.fn()
 
-    const newBtn = screen.getByTitle('New Chat')
-    await fireEvent.click(newBtn)
+  render(HistorySidebar as Component, {
+    props: {
+      isOpen: true,
+      currentConversationId: undefined,
+      onNew: newChatSpy
+    }
+  })
 
-    expect(newChatSpy).toHaveBeenCalled()
+  const newBtn = screen.getByTitle('New Chat')
+  await fireEvent.click(newBtn)
+
+  expect(newChatSpy).toHaveBeenCalled()
 })
 
 test('selecting a conversation dispatches event', async () => {
-    const conversations = [
-        { id: '1', title: 'Chat 1', model: 'llama2', created_at: Date.now() }
-    ]
-    mockedAxios.get.mockResolvedValue({ data: conversations })
-    
-    const selectSpy = vi.fn()
+  const conversations = [
+    { id: '1', title: 'Chat 1', model: 'llama2', created_at: Date.now() }
+  ]
+  mockedAxios.get.mockResolvedValue({ data: conversations })
 
-    render(HistorySidebar as Component, {
-        props: { 
-            isOpen: true, 
-            currentConversationId: undefined,
-            onSelect: selectSpy
-        }
-    })
+  const selectSpy = vi.fn()
 
-    await waitFor(() => expect(screen.getByText('Chat 1')).toBeTruthy())
+  render(HistorySidebar as Component, {
+    props: {
+      isOpen: true,
+      currentConversationId: undefined,
+      onSelect: selectSpy
+    }
+  })
 
-    // Click the item (EditableListItem renders title in a span)
-    const item = screen.getByText('Chat 1')
-    await fireEvent.click(item)
+  await waitFor(() => expect(screen.getByText('Chat 1')).toBeTruthy())
 
-    expect(selectSpy).toHaveBeenCalledWith('1')
+  // Click the item (EditableListItem renders title in a span)
+  const item = screen.getByText('Chat 1')
+  await fireEvent.click(item)
+
+  expect(selectSpy).toHaveBeenCalledWith('1')
 })
-

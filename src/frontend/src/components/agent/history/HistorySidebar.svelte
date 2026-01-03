@@ -9,7 +9,7 @@
   export let isOpen = false
   export let shouldRefresh = false
 
-  export let onSelect: ((id: string) => void) | undefined = undefined
+  export let onSelect: ((_id: string) => void) | undefined = undefined
   export let onNew: (() => void) | undefined = undefined
   export let onClose: (() => void) | undefined = undefined
 
