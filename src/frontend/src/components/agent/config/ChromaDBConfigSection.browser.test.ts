@@ -33,16 +33,16 @@ afterEach(() => {
 })
 
 const defaultProps = {
-    chromadbEnabled: false,
-    collections: [],
-    models: [],
-    selectedCollection: '',
-    selectedEmbeddingModel: '',
-    loadingCollections: false,
-    loadingModels: false,
-    onToggle: vi.fn(),
-    onCollectionSelect: vi.fn(),
-    onModelSelect: vi.fn()
+  chromadbEnabled: false,
+  collections: [],
+  models: [],
+  selectedCollection: '',
+  selectedEmbeddingModel: '',
+  loadingCollections: false,
+  loadingModels: false,
+  onToggle: vi.fn(),
+  onCollectionSelect: vi.fn(),
+  onModelSelect: vi.fn()
 }
 
 test('renders disabled state correctly', () => {
@@ -54,13 +54,13 @@ test('renders disabled state correctly', () => {
 })
 
 test('renders enabled state with empty lists', async () => {
-  render(ChromaDBConfigSection as Component, { 
-      props: { ...defaultProps, chromadbEnabled: true } 
+  render(ChromaDBConfigSection as Component, {
+    props: { ...defaultProps, chromadbEnabled: true }
   })
-  
+
   // Wait for model notes load
   await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledWith('model-notes')
+    expect(mockedAxios.get).toHaveBeenCalledWith('model-notes')
   })
 
   expect(screen.getByText('Collection')).toBeTruthy()
@@ -70,31 +70,31 @@ test('renders enabled state with empty lists', async () => {
 })
 
 test('renders collections and models', async () => {
-    const collections = [{ id: 'c1', name: 'My Collection', count: 10 }]
-    const models = [{ name: 'nomic-embed-text', size: '2GB' }]
+  const collections = [{ id: 'c1', name: 'My Collection', count: 10 }]
+  const models = [{ name: 'nomic-embed-text', size: '2GB' }]
 
-    render(ChromaDBConfigSection as Component, { 
-        props: { 
-            ...defaultProps, 
-            chromadbEnabled: true,
-            collections,
-            models
-        } 
-    })
+  render(ChromaDBConfigSection as Component, {
+    props: {
+      ...defaultProps,
+      chromadbEnabled: true,
+      collections,
+      models
+    }
+  })
 
-    expect(screen.getByText('My Collection')).toBeTruthy()
-    expect(screen.getByText('10 documents')).toBeTruthy()
-    expect(screen.getByText('nomic-embed-text')).toBeTruthy()
+  expect(screen.getByText('My Collection')).toBeTruthy()
+  expect(screen.getByText('10 documents')).toBeTruthy()
+  expect(screen.getByText('nomic-embed-text')).toBeTruthy()
 })
 
 test('handles toggling', async () => {
-    const onToggle = vi.fn()
-    render(ChromaDBConfigSection as Component, { 
-        props: { ...defaultProps, onToggle } 
-    })
+  const onToggle = vi.fn()
+  render(ChromaDBConfigSection as Component, {
+    props: { ...defaultProps, onToggle }
+  })
 
-    const input = screen.getByLabelText('Enable ChromaDB')
-    await fireEvent.click(input)
+  const input = screen.getByLabelText('Enable ChromaDB')
+  await fireEvent.click(input)
 
-    expect(onToggle).toHaveBeenCalled()
+  expect(onToggle).toHaveBeenCalled()
 })
