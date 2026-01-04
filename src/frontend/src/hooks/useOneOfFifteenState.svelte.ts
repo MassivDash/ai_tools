@@ -5,6 +5,7 @@ export type UserRole = 'presenter' | 'contestant' | 'viewer'
 
 export interface Contestant {
   name: string
+  age: string
   score: number
   id: string
   session_id: string
@@ -122,8 +123,8 @@ export function useOneOfFifteenState() {
     setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
-  const joinContestant = (name: string) => {
-    sendMessage({ type: 'join_contestant', name })
+  const joinContestant = (name: string, age: string) => {
+    sendMessage({ type: 'join_contestant', name, age })
     setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 

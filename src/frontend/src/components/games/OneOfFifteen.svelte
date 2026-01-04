@@ -13,6 +13,7 @@
   import type { LlamaServerStatus, LlamaServerResponse } from '@types'
   import PresenterScreen from './oneOfFifteen/PresenterScreen.svelte'
   import ContestantScreen from './oneOfFifteen/ContestantScreen.svelte'
+  import { ContestantJoinSchema } from '../../validation/oneOfFifteen'
 
   // --- Server State ---
   let serverStatus: LlamaServerStatus = $state({ active: false, port: 8080 })
@@ -23,11 +24,18 @@
   // --- Game State (via Hook) ---
   const game = useOneOfFifteenState()
   let contestantName = $state('')
+  let contestantAge = $state('')
   // We use game.state.role, game.state.gameState, game.isConnected
 
   // Computed helpers
   let joined = $derived(!!game.state.role)
   let role = $derived(game.state.role)
+  let isFormValid = $derived(
+    ContestantJoinSchema.safeParse({
+      name: contestantName,
+      age: contestantAge
+    }).success
+  )
   // Local UI state
   let selectingContestant = $state(false)
 
@@ -246,12 +254,17 @@
             </div>
           {:else if selectingContestant}
             <div class="name-entry-card">
-              <h2>Enter Your Name</h2>
+              <h2>Enter Details</h2>
               <div class="input-group">
                 <Input
                   placeholder="Your Name"
                   bind:value={contestantName}
                   autofocus
+                />
+                <Input
+                  placeholder="Age"
+                  bind:value={contestantAge}
+                  type="number"
                 />
               </div>
               <div class="actions">
@@ -263,9 +276,18 @@
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={!contestantName.trim()}
+                  disabled={!isFormValid}
                   onclick={() => {
-                    game.joinContestant(contestantName)
+                    const result = ContestantJoinSchema.safeParse({
+                      name: contestantName,
+                      age: contestantAge
+                    })
+                    if (result.success) {
+                      game.joinContestant(
+                        result.data.name,
+                        result.data.age.toString()
+                      )
+                    }
                     // Hook updates state.role -> 'contestant', which hides this view
                   }}
                 >

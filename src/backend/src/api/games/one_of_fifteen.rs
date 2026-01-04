@@ -24,6 +24,7 @@ pub enum UserRole {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contestant {
     pub name: String,
+    pub age: String, // Added
     pub score: i32,
     pub id: String, // WebSocket Session ID (or random UUID) - TO BE REMOVED/MIGRATED to session logic? No, keeping as connection ID for now, but need session_id for persistence.
     // Actually, let's use `id` as the persistent session_id.
@@ -70,7 +71,7 @@ pub type GameStateHandle = Arc<Mutex<GameState>>;
 pub enum IncomingMessage {
     Identify { session_id: String },
     JoinPresenter,
-    JoinContestant { name: String },
+    JoinContestant { name: String, age: String },
     StartGame,
     ResetGame,
     GetState,
@@ -192,7 +193,7 @@ impl OneOfFifteenWebSocket {
                     });
                 }
             }
-            IncomingMessage::JoinContestant { name } => {
+            IncomingMessage::JoinContestant { name, age } => {
                 // Check if I am currently Presenter? If so, resign.
                 if state.presenter_id.as_ref() == Some(connection_id) {
                     state.presenter_id = None;
@@ -204,6 +205,7 @@ impl OneOfFifteenWebSocket {
 
                 let contestant = Contestant {
                     name,
+                    age,
                     score: 0,
                     id: session_id.clone(),
                     session_id: session_id.clone(),
@@ -393,6 +395,7 @@ mod tests {
         let msgs = OneOfFifteenWebSocket::process_message(
             IncomingMessage::JoinContestant {
                 name: "Alice".to_string(),
+                age: "25".to_string(),
             },
             &mut state,
             &mut id,

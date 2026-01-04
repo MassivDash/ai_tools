@@ -52,7 +52,12 @@
             class:online={contestant.online}
             class:offline={!contestant.online}
           >
-            <span class="c-name">{contestant.name}</span>
+            <span class="c-name">
+              {contestant.name}
+              {#if contestant.age}
+                <span class="c-age">({contestant.age})</span>
+              {/if}
+            </span>
             <div class="c-status">
               {#if contestant.ready}
                 <span class="badge u-ready">READY</span>
@@ -157,6 +162,13 @@
 
   .c-name {
     font-weight: 600;
+  }
+
+  .c-age {
+    font-weight: 400;
+    color: var(--text-secondary, #666);
+    margin-left: 0.5rem;
+    font-size: 0.9em;
   }
 
   .c-status {
