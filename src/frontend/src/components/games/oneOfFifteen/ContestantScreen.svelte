@@ -14,6 +14,10 @@
     sessionId: string
     onToggleReady: () => void
     onSubmitAnswer: (_answer: string) => void
+    // Actions passed from parent (where socket is connected)
+    pointToPlayer: (id: string) => void
+    buzzIn: () => void
+    makeDecision: (choice: 'self' | 'point', targetId?: string) => void
   }
 
   let {
@@ -21,11 +25,14 @@
     contestantName,
     sessionId,
     onToggleReady,
-    onSubmitAnswer
+    onSubmitAnswer,
+    pointToPlayer,
+    buzzIn,
+    makeDecision
   }: Props = $props()
 
-  // Destructure hook for additional actions
-  const { pointToPlayer, buzzIn, makeDecision } = useOneOfFifteenState()
+  // No longer instantiating the hook here, as it would create a disconnected socket.
+  // const { pointToPlayer, buzzIn, makeDecision } = useOneOfFifteenState()
 
   // --- Derived State ---
 

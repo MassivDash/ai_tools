@@ -304,6 +304,9 @@
               sessionId={game.sessionId}
               onToggleReady={game.toggleReady}
               onSubmitAnswer={game.submitAnswer}
+              pointToPlayer={game.pointToPlayer}
+              buzzIn={game.buzzIn}
+              makeDecision={game.makeDecision}
             />
           {/if}
         </div>
