@@ -8,7 +8,7 @@
     players: Contestant[]
     myId: string
     pointerName: string
-    onPointToPlayer: (id: string) => void
+    onPointToPlayer: (_id: string) => void
   }
 
   let { isMyTurnToPoint, players, myId, pointerName, onPointToPlayer }: Props =

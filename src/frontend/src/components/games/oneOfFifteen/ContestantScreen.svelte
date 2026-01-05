@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { useOneOfFifteenState } from '../../../hooks/useOneOfFifteenState.svelte'
   import type { GameStateSnapshot } from '../../../hooks/useOneOfFifteenState.svelte'
 
   // Sub-components
@@ -15,9 +14,9 @@
     onToggleReady: () => void
     onSubmitAnswer: (_answer: string) => void
     // Actions passed from parent (where socket is connected)
-    pointToPlayer: (id: string) => void
+    pointToPlayer: (_id: string) => void
     buzzIn: () => void
-    makeDecision: (choice: 'self' | 'point', targetId?: string) => void
+    makeDecision: (_choice: 'self' | 'point', _targetId?: string) => void
   }
 
   let {

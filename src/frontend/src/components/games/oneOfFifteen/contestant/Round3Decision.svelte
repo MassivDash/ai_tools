@@ -5,7 +5,7 @@
   interface Props {
     players: Contestant[]
     myId: string
-    onMakeDecision: (choice: 'self' | 'point', targetId?: string) => void
+    onMakeDecision: (_choice: 'self' | 'point', _targetId?: string) => void
   }
 
   let { players, myId, onMakeDecision }: Props = $props()

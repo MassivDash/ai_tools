@@ -50,6 +50,7 @@
         conversation_id: undefined
       }
 
+      /* eslint-disable no-undef */
       const response = await fetch(
         `${axiosBackendInstance.defaults.baseURL}/agent/chat/stream`,
         {
@@ -58,11 +59,14 @@
           body: JSON.stringify(requestPayload)
         }
       )
+      /* eslint-enable no-undef */
 
       if (!response.body) return 'Error: No response'
 
       const reader = response.body.getReader()
+      /* eslint-disable no-undef */
       const decoder = new TextDecoder()
+      /* eslint-enable no-undef */
       let fullText = ''
 
       while (true) {
@@ -77,7 +81,9 @@
               if (data.type === 'text_chunk' && data.text) {
                 fullText += data.text
               }
-            } catch (e) {}
+            } catch (_e) {
+              // ignore
+            }
           }
         }
       }
@@ -151,7 +157,7 @@
   const startLlamaServer = async () => {
     try {
       serverStarting = true
-      const response = await axiosBackendInstance.post('llama-server/start')
+      await axiosBackendInstance.post('llama-server/start')
     } catch (e) {
       console.error('Failed to start server', e)
     } finally {

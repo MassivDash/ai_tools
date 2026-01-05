@@ -7,9 +7,8 @@
 
   // Helper for internal demo control
   const startTalking = () => {
-    if (talking) return
-    talking = true
-    const prevEmotion = emotion
+    let _startTalking = $derived(talking)
+    let _prevEmotion = $derived(emotion)
     emotion = 'talking'
     setTimeout(() => {
       talking = false
@@ -23,7 +22,7 @@
     <div class="robot-head {emotion} {talking ? 'talking' : ''}">
       <div class="screen">
         <div class="pixels">
-          {#each { length: totalPixels } as _, i}
+          {#each { length: 3 } as _, _i}
             <div class="pixel"></div>
           {/each}
         </div>

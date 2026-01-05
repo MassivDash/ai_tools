@@ -13,7 +13,7 @@
     questionNumber?: number
     activePlayerName: string
     onTimeout: () => void
-    onSubmitAnswer: (answer: string) => void
+    onSubmitAnswer: (_answer: string) => void
   }
 
   let {

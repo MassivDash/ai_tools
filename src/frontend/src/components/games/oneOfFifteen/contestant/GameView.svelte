@@ -21,17 +21,16 @@
     activePlayerName: string
     questionNumber?: number
     // Actions
-    pointToPlayer: (id: string) => void
+    pointToPlayer: (_id: string) => void
     buzzIn: () => void
-    makeDecision: (choice: 'self' | 'point', targetId?: string) => void
+    makeDecision: (_choice: 'self' | 'point', _targetId?: string) => void
     onTimeout: () => void
-    onSubmitAnswer: (answer: string) => void
+    onSubmitAnswer: (_answer: string) => void
   }
 
   let {
     gameState,
     sessionId,
-    isRound2,
     isRound3,
     isPointingPhase,
     isMyTurnToPoint,
