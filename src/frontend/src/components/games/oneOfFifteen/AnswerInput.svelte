@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    onSubmit: (answer: string) => void
+    onSubmit: (_answer: string) => void
     disabled?: boolean
   }
 

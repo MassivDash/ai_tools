@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onDestroy } from 'svelte'
 
   interface Props {
     startTime: number | undefined

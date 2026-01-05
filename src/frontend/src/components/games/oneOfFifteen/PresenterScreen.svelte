@@ -11,8 +11,6 @@
     onResetGame: () => void
   }
 
-  import { onDestroy } from 'svelte'
-
   let { gameState, onStartGame, onResetGame }: Props = $props()
 
   const tts = useTextToSpeech() // Default config

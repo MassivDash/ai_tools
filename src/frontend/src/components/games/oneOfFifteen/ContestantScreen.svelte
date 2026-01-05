@@ -13,7 +13,7 @@
     contestantName: string
     sessionId: string
     onToggleReady: () => void
-    onSubmitAnswer: (answer: string) => void
+    onSubmitAnswer: (_answer: string) => void
   }
 
   let {
@@ -58,7 +58,6 @@
       // Timeout in Round 3 also bad, maybe? Or logic handled by backend?
       // Backend doesn't have explicit timeout message yet except implicit time check.
       // Sending timeout answer is safe fallback.
-      console.log('Timer expired. Auto-submitting timeout.')
       onSubmitAnswer('!!!TIMEOUT!!!')
     }
   }
@@ -196,7 +195,6 @@
             players={gameState.contestants}
             excludeId={sessionId}
             onSelect={(id) => {
-              console.log('Pointing to player:', id)
               pointToPlayer(id)
             }}
           />

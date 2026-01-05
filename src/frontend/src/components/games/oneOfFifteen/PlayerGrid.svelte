@@ -3,7 +3,7 @@
 
   interface Props {
     players: Contestant[]
-    onSelect: (id: string) => void
+    onSelect: (_id: string) => void
     disabled?: boolean
     excludeId?: string
   }
@@ -23,7 +23,6 @@
       <button
         class="player-card"
         onclick={() => {
-          console.log('Player card clicked:', player.id)
           onSelect(player.id)
         }}
         {disabled}
