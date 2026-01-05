@@ -400,6 +400,5 @@ mod tests {
         let config = OllamaConfig::default();
         let _manager = OllamaManager::new(config);
         // Just verify it can be created
-        assert!(true);
     }
 }

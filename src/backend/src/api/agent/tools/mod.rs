@@ -30,10 +30,10 @@ mod tests {
     #[test]
     fn test_register_all() {
         let mut registry = ToolRegistry::new();
-        let mut config = AgentConfig::default();
-
-        // Enable a few tools
-        config.enabled_tools = vec![ToolType::GitHubPublic, ToolType::Weather];
+        let config = AgentConfig {
+            enabled_tools: vec![ToolType::GitHubPublic, ToolType::Weather],
+            ..Default::default()
+        };
 
         let context = RegisterContext {
             chroma_address: None,

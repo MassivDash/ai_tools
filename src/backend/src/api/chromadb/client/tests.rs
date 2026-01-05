@@ -144,9 +144,7 @@ mod unit_tests {
         let chromadb_meta = to_chromadb_metadata(Some(original.clone()));
         assert!(chromadb_meta.is_some());
 
-        let converted_back = chromadb_meta
-            .as_ref()
-            .map(|m| chromadb_metadata_to_hashmap(m));
+        let converted_back = chromadb_meta.as_ref().map(chromadb_metadata_to_hashmap);
         assert_eq!(converted_back, Some(original));
     }
 
@@ -167,8 +165,8 @@ mod unit_tests {
             serde_json::Value::Number(_)
         ));
 
-        let float_val = MetadataValue::Float(3.14);
-        assert_eq!(metadata_value_to_string(&float_val), "3.14");
+        let float_val = MetadataValue::Float(3.15); // Using 3.15 for testing (avoid clippy approx_constant)
+        assert_eq!(metadata_value_to_string(&float_val), "3.15");
         assert!(matches!(
             metadata_value_to_json(&float_val),
             serde_json::Value::Number(_)

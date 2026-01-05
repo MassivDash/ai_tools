@@ -233,15 +233,6 @@
                 variant="secondary"
                 class="role-card"
                 onclick={() => {
-                  // Just local UI transition, hook handles actual join on name submit
-                  // We can't set "local role" without joining yet?
-                  // The original design had an intermediate "Enter Name" step LOCAL only.
-                  // But now `role` is derived from `game.state.role`.
-                  // We need a local UI state for "Selecting Contestant".
-                  // I will re-introduce a local `viewState` or similar.
-                  // Or simpler: If logic allows, just set `role` locally?
-                  // `role` is derived.
-                  // Let's use a separate local boolean `selectingContestant`.
                   selectingContestant = true
                 }}
               >
@@ -302,16 +293,17 @@
         <div class="game-view">
           {#if role === 'presenter'}
             <PresenterScreen
-              state={game.state.gameState}
+              gameState={game.state.gameState}
               onStartGame={game.startGame}
               onResetGame={game.resetGame}
             />
           {:else}
             <ContestantScreen
-              state={game.state.gameState}
+              gameState={game.state.gameState}
               {contestantName}
               sessionId={game.sessionId}
               onToggleReady={game.toggleReady}
+              onSubmitAnswer={game.submitAnswer}
             />
           {/if}
         </div>

@@ -11,15 +11,29 @@ export interface Contestant {
   session_id: string
   online: boolean
   ready: boolean
+  lives: number
+  round1_misses: number
+  round1_questions: number
+  eliminated: boolean
 }
 
-export type GameStatus = 'lobby' | 'playing' | 'finished'
+export type Round = 'lobby' | 'round1' | 'round2' | 'round3' | 'finished'
+
+export interface Question {
+  text: string
+  correct_answer: string
+  options?: string[]
+}
 
 export interface GameStateSnapshot {
   has_presenter: boolean
   presenter_online: boolean
   contestants: Contestant[]
-  status: GameStatus
+  round: Round
+  active_player_id?: string
+  current_question?: Question
+  timer_start?: number
+  decision_pending?: boolean
 }
 
 export interface OneOfFifteenState {
@@ -39,7 +53,7 @@ export function useOneOfFifteenState() {
       has_presenter: false,
       presenter_online: false,
       contestants: [],
-      status: 'lobby'
+      round: 'lobby'
     },
     error: ''
   })
@@ -65,9 +79,13 @@ export function useOneOfFifteenState() {
         } else if (msg.type === 'state_update') {
           state.gameState = {
             has_presenter: msg.has_presenter,
-            presenter_online: msg.presenter_online, // Added
+            presenter_online: msg.presenter_online,
             contestants: msg.contestants,
-            status: msg.status
+            round: msg.round,
+            active_player_id: msg.active_player_id,
+            current_question: msg.current_question,
+            timer_start: msg.timer_start, // Added
+            decision_pending: msg.decision_pending
           }
         } else if (msg.type === 'error') {
           state.error = msg.message
@@ -132,10 +150,6 @@ export function useOneOfFifteenState() {
     clearSession()
     disconnectWrapper()
     state.role = null
-    // Use window.location.reload() to fully reset state/session for now?
-    // Or just clear local state.
-    // If we clear session, we should probably generate a new one if they want to rejoin as different person without reload.
-    // But useGameSession hook runs once.
     window.location.reload()
   }
 
@@ -152,6 +166,24 @@ export function useOneOfFifteenState() {
   const toggleReady = () => {
     sendMessage({ type: 'toggle_ready' })
     setTimeout(() => sendMessage({ type: 'get_state' }), 100)
+  }
+
+  const submitAnswer = (answer: string) => {
+    sendMessage({ type: 'submit_answer', answer })
+    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
+  }
+
+  const pointToPlayer = (targetId: string) => {
+    sendMessage({ type: 'point_to_player', target_id: targetId })
+    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
+  }
+
+  const buzzIn = () => {
+    sendMessage({ type: 'buzz_in' })
+  }
+
+  const makeDecision = (choice: 'self' | 'point', targetId?: string) => {
+    sendMessage({ type: 'make_decision', choice, target_id: targetId })
   }
 
   const disconnectWrapper = () => {
@@ -173,7 +205,10 @@ export function useOneOfFifteenState() {
     startGame,
     resetGame,
     toggleReady,
+    submitAnswer,
+    pointToPlayer,
+    buzzIn,
+    makeDecision,
     sessionId
   }
 }
-// Need to remove 'derived' usage if not imported, accessing $state directly in getter is reactive in Svelte 5.

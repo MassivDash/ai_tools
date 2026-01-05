@@ -207,6 +207,5 @@ mod tests {
     #[test]
     fn test_function_exists() {
         // Verify the function is defined
-        assert!(true);
     }
 }
