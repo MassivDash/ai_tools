@@ -81,7 +81,7 @@
               if (data.type === 'text_chunk' && data.text) {
                 fullText += data.text
               }
-            } catch (_e) {
+            } catch {
               // ignore
             }
           }

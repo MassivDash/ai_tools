@@ -35,7 +35,7 @@ describe('Timer Component', () => {
   // Regression test for the "immediate update" fix
   it('updates immediately when startTime changes', async () => {
     const startTime1 = Date.now() / 1000
-    const { component } = render(Timer, { startTime: startTime1, duration: 60 })
+    render(Timer, { startTime: startTime1, duration: 60 })
 
     expect(screen.getByText('60')).toBeInTheDocument()
 
@@ -57,7 +57,7 @@ describe('Timer Component', () => {
     const { rerender } = render(Timer, { startTime: startTime1, duration: 60 })
 
     // reset timers to now for the new start time
-    const newStartTime = (Date.now() + 100000) / 1000 // future? no just a different time.
+    // const newStartTime = (Date.now() + 100000) / 1000 // future? no just a different time.
     // Let's simply say "now" is the new start time.
     const now = Date.now() / 1000
 

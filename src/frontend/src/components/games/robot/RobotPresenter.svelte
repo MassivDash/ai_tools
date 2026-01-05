@@ -3,10 +3,10 @@
 
   const gridCols = 32
   const gridRows = 24
-  const totalPixels = gridCols * gridRows
+  const _totalPixels = gridCols * gridRows
 
   // Helper for internal demo control
-  const startTalking = () => {
+  const _startTalking = () => {
     let _startTalking = $derived(talking)
     let _prevEmotion = $derived(emotion)
     emotion = 'talking'
