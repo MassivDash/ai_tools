@@ -10,7 +10,9 @@ pub fn award_points(state: &mut GameState, player_id: &str, amount: i32) {
 /// Deduct a life from a player
 pub fn deduct_life(state: &mut GameState, player_id: &str) {
     if let Some(contestant) = state.contestants.get_mut(player_id) {
-        contestant.lives = contestant.lives.saturating_sub(1);
+        if contestant.lives > 0 {
+            contestant.lives -= 1;
+        }
     }
 }
 

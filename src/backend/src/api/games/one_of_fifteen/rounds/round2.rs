@@ -34,9 +34,8 @@ pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<Outg
     // Store the player who answered correctly for potential rollback
     state.last_pointer_id = Some(player_id.to_string());
 
-    // The player who answered will point to the next player
-    // This is handled by waiting for PointToPlayer message
-    state.active_player_id = None;
+    // The player who answered correctly stays active to point to the next player
+    state.active_player_id = Some(player_id.to_string());
 
     // Check if we should transition to Round 3
     if check_survivors(state) <= 3 {
@@ -65,21 +64,25 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
             .unwrap_or(false);
 
         if prev_active {
-            state.active_player_id = None; // They will use PointToPlayer
+            // Return control to the previous pointer
+            state.active_player_id = Some(prev_pointer);
         } else {
             // Previous pointer is gone, pick random
             state.active_player_id = None;
             if let Some(random_id) =
                 crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
             {
+                state.active_player_id = Some(random_id.clone());
                 state.last_pointer_id = Some(random_id);
             }
         }
     } else {
         // No previous pointer, pick random
+        state.active_player_id = None;
         if let Some(random_id) =
             crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
         {
+            state.active_player_id = Some(random_id.clone());
             state.last_pointer_id = Some(random_id);
         }
     }

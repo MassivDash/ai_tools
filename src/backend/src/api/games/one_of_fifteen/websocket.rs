@@ -199,7 +199,8 @@ impl OneOfFifteenWebSocket {
                 }
             }
             IncomingMessage::PointToPlayer { target_id } => {
-                if state.round == Round::Round2 {
+                let is_active = state.active_player_id.as_ref() == Some(connection_id);
+                if state.round == Round::Round2 && is_active {
                     // Delegate to round2 module for validation and state update
                     let msgs = rounds::round2::handle_point_to_player(state, &target_id);
                     responses.extend(msgs);
@@ -328,11 +329,18 @@ impl OneOfFifteenWebSocket {
 
                 // Check if there's a next player who needs a question
                 let action = if let Some(next_player_id) = &state.active_player_id {
-                    if let Some(contestant) = state.contestants.get(next_player_id) {
-                        Some(AsyncAction::GenerateQuestion {
-                            age: contestant.age.clone(),
-                            past_questions: state.past_questions.clone(),
-                        })
+                    // Only generate if we are still in Round 1.
+                    // If we transitioned to Round 2, the active player (random starter)
+                    // should POINT, not Answer immediately.
+                    if state.round == Round::Round1 {
+                        if let Some(contestant) = state.contestants.get(next_player_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: contestant.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -349,19 +357,11 @@ impl OneOfFifteenWebSocket {
                     rounds::round2::handle_wrong_answer(state, &player_id)
                 };
 
-                // Check if there's a next player who needs a question
-                let action = if let Some(next_player_id) = &state.active_player_id {
-                    if let Some(contestant) = state.contestants.get(next_player_id) {
-                        Some(AsyncAction::GenerateQuestion {
-                            age: contestant.age.clone(),
-                            past_questions: state.past_questions.clone(),
-                        })
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+                // In Round 2, we NEVER automatically generate a question after an answer.
+                // The next step is always for the active player (either the retained pointer
+                // or the new random starter) to POINT to someone.
+                // That PointToPlayer message will trigger the question generation.
+                let action = None;
 
                 (msgs, action)
             }

@@ -16,7 +16,7 @@ describe('Timer Component', () => {
   it('renders initial time correctly', () => {
     const startTime = Date.now() / 1000
     render(Timer, { startTime, duration: 60 })
-    
+
     expect(screen.getByText('60')).toBeInTheDocument()
     expect(screen.getByText('seconds')).toBeInTheDocument()
   })
@@ -26,7 +26,7 @@ describe('Timer Component', () => {
     render(Timer, { startTime, duration: 60 })
 
     await act(() => {
-        vi.advanceTimersByTime(1000)
+      vi.advanceTimersByTime(1000)
     })
 
     expect(screen.getByText('59')).toBeInTheDocument()
@@ -36,31 +36,31 @@ describe('Timer Component', () => {
   it('updates immediately when startTime changes', async () => {
     const startTime1 = Date.now() / 1000
     const { component } = render(Timer, { startTime: startTime1, duration: 60 })
-    
+
     expect(screen.getByText('60')).toBeInTheDocument()
 
     // Simulate 30 seconds passing for the first timer
     await act(() => {
-        vi.advanceTimersByTime(30000)
+      vi.advanceTimersByTime(30000)
     })
     expect(screen.getByText('30')).toBeInTheDocument()
 
     // Now switch to a NEW start time (simulate next player)
-    // We need to update the prop. In Svelte 5 with testing-library, we re-render or update props manually if possible, 
-    // but the simplest way with render result is using component.$set if it was Svelte 4, 
-    // or just rerendering with new props if we were using a parent. 
+    // We need to update the prop. In Svelte 5 with testing-library, we re-render or update props manually if possible,
+    // but the simplest way with render result is using component.$set if it was Svelte 4,
+    // or just rerendering with new props if we were using a parent.
     // For this test, let's remount or assume prop reactivity.
-    // Ideally we test the component's reactivity. 
+    // Ideally we test the component's reactivity.
     // Let's destroy and re-render to simulate parent passing new props or use `@testing-library/svelte`'s rerender if available.
     // Actually, `render` returns `rerender`.
-    
+
     const { rerender } = render(Timer, { startTime: startTime1, duration: 60 })
-    
+
     // reset timers to now for the new start time
     const newStartTime = (Date.now() + 100000) / 1000 // future? no just a different time.
     // Let's simply say "now" is the new start time.
     const now = Date.now() / 1000
-    
+
     await act(() => {
       rerender({ startTime: now, duration: 60 })
     })
@@ -75,7 +75,7 @@ describe('Timer Component', () => {
 
     // Advance 6 seconds -> 9s left
     await act(() => {
-        vi.advanceTimersByTime(6000)
+      vi.advanceTimersByTime(6000)
     })
 
     const timerDiv = screen.getByText('seconds').parentElement
@@ -88,7 +88,7 @@ describe('Timer Component', () => {
     render(Timer, { startTime, duration: 5, onTimeout })
 
     await act(() => {
-        vi.advanceTimersByTime(5000)
+      vi.advanceTimersByTime(5000)
     })
 
     expect(screen.getByText('0')).toBeInTheDocument()
