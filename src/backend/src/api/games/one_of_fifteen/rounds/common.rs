@@ -55,6 +55,16 @@ pub fn count_active_contestants(state: &GameState) -> usize {
     state.contestants.values().filter(|c| !c.eliminated).count()
 }
 
+/// Check if the timer has expired
+pub fn is_timed_out(timer_start: Option<u64>, duration_seconds: u64) -> bool {
+    if let Some(start_ts) = timer_start {
+        if let Ok(now) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            return now.as_secs() > start_ts + duration_seconds;
+        }
+    }
+    false
+}
+
 /// Get all active contestant IDs
 pub fn get_active_contestant_ids(state: &GameState) -> Vec<String> {
     state
@@ -63,4 +73,32 @@ pub fn get_active_contestant_ids(state: &GameState) -> Vec<String> {
         .filter(|c| !c.eliminated && c.online)
         .map(|c| c.id.clone())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn test_is_timed_out() {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Not timed out (start time is current time)
+        assert!(!is_timed_out(Some(now), 60));
+
+        // Timed out (start time is 61 seconds ago)
+        let past = now - 61;
+        assert!(is_timed_out(Some(past), 60));
+
+        // Not timed out (start time is 59 seconds ago)
+        let recent = now - 59;
+        assert!(!is_timed_out(Some(recent), 60));
+
+        // No timer start should not time out
+        assert!(!is_timed_out(None, 60));
+    }
 }

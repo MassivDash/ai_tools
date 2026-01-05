@@ -15,7 +15,8 @@
   $effect(() => {
     if (startTime) {
       clearInterval(timerInterval)
-      timerInterval = setInterval(() => {
+
+      const updateTimer = () => {
         const now = Date.now() / 1000
         const start = startTime || 0
         const elapsed = now - start
@@ -25,7 +26,13 @@
           clearInterval(timerInterval)
           if (onTimeout) onTimeout()
         }
-      }, 1000)
+      }
+
+      // Run immediately
+      updateTimer()
+
+      // Then set interval
+      timerInterval = setInterval(updateTimer, 1000)
     } else {
       timeLeft = duration // Reset if no start time
     }

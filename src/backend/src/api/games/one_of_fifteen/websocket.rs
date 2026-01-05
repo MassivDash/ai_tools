@@ -148,9 +148,9 @@ impl OneOfFifteenWebSocket {
                             });
                         }
 
-                        let start = SystemTime::now();
-                        state.timer_start =
-                            Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                        // Timer will be started when question is generated
+                        // state.timer_start =
+                        //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
                     }
                 }
             }
@@ -182,14 +182,10 @@ impl OneOfFifteenWebSocket {
                 if state.active_player_id.as_ref() == Some(connection_id) {
                     let mut final_answer = answer.clone();
 
-                    if state.round == Round::Round1 {
-                        if let Some(start_ts) = state.timer_start {
-                            if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
-                                if now.as_secs() > start_ts + 62 {
-                                    final_answer = "!!!TIMEOUT!!!".to_string();
-                                }
-                            }
-                        }
+                    if state.round == Round::Round1
+                        && rounds::common::is_timed_out(state.timer_start, 62)
+                    {
+                        final_answer = "!!!TIMEOUT!!!".to_string();
                     }
 
                     if let Some(q) = &state.current_question {
@@ -215,9 +211,10 @@ impl OneOfFifteenWebSocket {
                             past_questions: state.past_questions.clone(),
                         });
 
-                        let start = SystemTime::now();
-                        state.timer_start =
-                            Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                        // Timer started in generation
+                        // let start = SystemTime::now();
+                        // state.timer_start =
+                        //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
                     }
                 }
             }
@@ -238,9 +235,10 @@ impl OneOfFifteenWebSocket {
                                 past_questions: state.past_questions.clone(),
                             });
 
-                            let start = SystemTime::now();
-                            state.timer_start =
-                                Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                            // Timer started in generation
+                            // let start = SystemTime::now();
+                            // state.timer_start =
+                            //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
                         }
                     }
                 }
@@ -267,9 +265,10 @@ impl OneOfFifteenWebSocket {
                                 past_questions: state.past_questions.clone(),
                             });
 
-                            let start = SystemTime::now();
-                            state.timer_start =
-                                Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                            // Timer started in generation
+                            // let start = SystemTime::now();
+                            // state.timer_start =
+                            //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
                         }
                     }
                 }
@@ -294,6 +293,11 @@ impl OneOfFifteenWebSocket {
                         let mut state = state.lock().unwrap();
                         state.past_questions.push(q.text.clone());
                         state.current_question = Some(q);
+
+                        // Start timer here!
+                        let start = SystemTime::now();
+                        state.timer_start =
+                            Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
 
                         let snapshot = rounds::common::create_state_snapshot(&state);
                         let msg = OutgoingMessage::StateUpdate(snapshot);
