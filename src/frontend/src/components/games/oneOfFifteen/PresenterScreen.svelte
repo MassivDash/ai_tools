@@ -4,6 +4,7 @@
   import type { GameStateSnapshot } from '../../../hooks/useOneOfFifteenState.svelte'
   import RobotPresenter from '../robot/RobotPresenter.svelte'
   import { useTextToSpeech } from '../../../hooks/useTextToSpeech.svelte'
+  import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 
   interface Props {
     gameState: GameStateSnapshot
@@ -17,6 +18,10 @@
   let lastSpokenQuestion = $state('')
   let robotEmotion = $state('normal')
   let robotTalking = $state(false)
+  // Intro Speech State
+  let isIntroPlaying = $state(false)
+  let introGenerating = $state(false)
+  let lastSpokenRound = $state('') // Track round announcements
   let timeLeft = $state(60)
   let timerInterval: any
 
@@ -36,8 +41,119 @@
     return () => clearInterval(timerInterval)
   })
 
+  // LLM Helper for Intro
+  const generateIntroSpeech = async (): Promise<string> => {
+    try {
+      const names = gameState.contestants.map((c) => c.name).join(', ')
+      const count = gameState.contestants.length
+      const prompt = `Welcome to One of 15. There are ${count} contestants: ${names}. Say hello to them, tell a joke, and end with "Let's go!!". Keep it under 40 words.`
+
+      const systemPrompt = `You are a quirky, slightly emotional Robot Quiz Host named Quiz Bot.`
+
+      const requestPayload = {
+        message: `${systemPrompt} ${prompt}`,
+        conversation_id: undefined
+      }
+
+      /* eslint-disable no-undef */
+      const response = await fetch(
+        `${axiosBackendInstance.defaults.baseURL}/agent/chat/stream`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestPayload)
+        }
+      )
+      /* eslint-enable no-undef */
+
+      if (!response.body) return "Welcome everyone! Let's go!!"
+
+      const reader = response.body.getReader()
+      /* eslint-disable no-undef */
+      const decoder = new TextDecoder()
+      /* eslint-enable no-undef */
+      let fullText = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.type === 'text_chunk' && data.text) {
+                fullText += data.text
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+      return fullText.trim() || "Welcome quite everyone! Let's go!!"
+    } catch (e) {
+      console.error('LLM Error', e)
+      return "Welcome to the game! Let's start!"
+    }
+  }
+
+  const speakAndWait = async (text: string) => {
+    robotTalking = true
+    tts.speak(text)
+    // Wait for start
+    await new Promise((r) => setTimeout(r, 100))
+    // Poll loop
+    while (tts.isSpeaking) {
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    robotTalking = false
+  }
+
+  // Handle Start Logic
+  const handleStartGame = async () => {
+    if (gameState.contestants.length === 0) return
+    isIntroPlaying = true
+    introGenerating = true
+
+    // 1. Generate and Speak Intro
+    const speech = await generateIntroSpeech()
+    introGenerating = false // generation done
+
+    robotEmotion = 'happy'
+    await speakAndWait(speech)
+    robotEmotion = 'normal'
+
+    // 2. Start Game (Backend)
+    isIntroPlaying = false
+    onStartGame()
+  }
+
+  // Round Announcements Effect
   $effect(() => {
-    // ... exisiting speech effect logic
+    const announceRound = async () => {
+      if (gameState.round !== lastSpokenRound && !isIntroPlaying) {
+        if (gameState.round === 'round1') {
+          lastSpokenRound = 'round1'
+          await speakAndWait('Start of Round 1')
+        } else if (gameState.round === 'round2') {
+          lastSpokenRound = 'round2'
+          await speakAndWait("Let's start Round 2")
+        } else if (gameState.round === 'round3') {
+          lastSpokenRound = 'round3'
+          await speakAndWait('Final Round 3')
+        }
+      }
+    }
+    announceRound()
+  })
+
+  // Question Speech Effect
+  $effect(() => {
+    // Only speak question if we are in game
+    if (isIntroPlaying || gameState.round === 'lobby') return
+
     if (
       gameState.current_question &&
       gameState.current_question.text !== lastSpokenQuestion
@@ -57,7 +173,7 @@
 <div class="presenter-dashboard">
   <!-- Robot Presenter Panel - Top Full Width -->
   <div class="robot-panel">
-    {#if gameState.round !== 'lobby'}
+    {#if gameState.round !== 'lobby' || isIntroPlaying}
       <RobotPresenter emotion={robotEmotion} talking={robotTalking} />
 
       <div class="game-status-bar">
@@ -97,8 +213,8 @@
         {#if gameState.round === 'lobby'}
           <Button
             variant="success"
-            onclick={onStartGame}
-            disabled={gameState.contestants.length === 0}
+            onclick={handleStartGame}
+            disabled={gameState.contestants.length === 0 || isIntroPlaying}
           >
             <MaterialIcon name="play" width="24" height="24" />
             Start Game

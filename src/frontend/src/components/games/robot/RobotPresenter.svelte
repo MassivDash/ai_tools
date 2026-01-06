@@ -3,18 +3,9 @@
 
   const gridCols = 32
   const gridRows = 24
-  const _totalPixels = gridCols * gridRows
+  const totalPixels = gridCols * gridRows
 
-  // Helper for internal demo control
-  const _startTalking = () => {
-    let _startTalking = $derived(talking)
-    let _prevEmotion = $derived(emotion)
-    emotion = 'talking'
-    setTimeout(() => {
-      talking = false
-      emotion = 'normal' // Reset to normal as per original React logic
-    }, 3000) // 3 seconds as per original
-  }
+  // Helper for internal demo control removed as it is unused and confusing logic
 </script>
 
 <div class="robot-wrapper">
@@ -22,7 +13,7 @@
     <div class="robot-head {emotion} {talking ? 'talking' : ''}">
       <div class="screen">
         <div class="pixels">
-          {#each { length: 3 } as _, _i}
+          {#each { length: totalPixels } as _, _i}
             <div class="pixel"></div>
           {/each}
         </div>
