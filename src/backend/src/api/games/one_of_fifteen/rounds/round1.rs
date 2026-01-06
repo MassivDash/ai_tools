@@ -4,8 +4,7 @@ use crate::api::games::one_of_fifteen::types::{GameState, OutgoingMessage, Round
 
 /// Handle a correct answer in Round 1
 pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Award points
-    award_points(state, player_id, 10);
+    // Award points - DISABLED for Round 1
 
     // Increment question count
     if let Some(contestant) = state.contestants.get_mut(player_id) {
@@ -69,13 +68,22 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
 
 /// Handle a timeout in Round 1
 pub fn handle_timeout(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Timeout penalties:
-    // 1. Deduct life
-    // 2. Do NOT increment "misses" (so 2-miss elimination rule doesn't apply)
+    // Track miss and deduct life
+    if let Some(contestant) = state.contestants.get_mut(player_id) {
+        contestant.round1_misses += 1;
+        contestant.round1_questions += 1;
+    }
+
     deduct_life(state, player_id);
 
-    // Check for elimination (only if ran out of lives)
-    check_elimination(state, player_id);
+    // Check for elimination (2 misses in Round 1)
+    if let Some(contestant) = state.contestants.get(player_id) {
+        if contestant.round1_misses >= 2 {
+            if let Some(c) = state.contestants.get_mut(player_id) {
+                c.eliminated = true;
+            }
+        }
+    }
 
     // Reset question state
     reset_question_state(state);
@@ -157,37 +165,12 @@ mod tests {
             current_question: None,
             timer_start: None,
             decision_pending: false,
+            round3_exclusive: false,
             past_questions: vec![],
             player_queue: vec!["player1".to_string()],
             active: true,
             buzzer_queue: vec![],
             last_pointer_id: None,
         }
-    }
-
-    #[test]
-    fn test_handle_timeout_deducts_life_only() {
-        let mut state = create_test_state();
-
-        // Timeout 1
-        handle_timeout(&mut state, "player1");
-
-        let c = state.contestants.get("player1").unwrap();
-        assert_eq!(c.lives, 2);
-        assert_eq!(c.round1_misses, 0, "Misses should not increase on timeout");
-        assert_eq!(c.eliminated, false);
-
-        // Timeout 2
-        handle_timeout(&mut state, "player1");
-        let c = state.contestants.get("player1").unwrap();
-        assert_eq!(c.lives, 1);
-        assert_eq!(c.round1_misses, 0);
-        assert_eq!(c.eliminated, false);
-
-        // Timeout 3 -> Elimination
-        handle_timeout(&mut state, "player1");
-        let c = state.contestants.get("player1").unwrap();
-        assert_eq!(c.lives, 0);
-        assert_eq!(c.eliminated, true); // Should be eliminated now
     }
 }

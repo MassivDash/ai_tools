@@ -60,6 +60,7 @@ pub struct GameState {
     pub buzzer_queue: Vec<String>,
     pub last_pointer_id: Option<String>,
     pub decision_pending: bool,
+    pub round3_exclusive: bool,
 }
 
 // --- WebSocket Messages (Incoming from Client) ---

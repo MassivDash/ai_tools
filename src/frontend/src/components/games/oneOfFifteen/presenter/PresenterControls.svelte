@@ -28,14 +28,18 @@
       <p class="status-text">
         Status: Lobby ({playerCount} players)
       </p>
-    {:else if round !== 'finished'}
+    {:else}
       <Button variant="danger" onclick={onResetGame}>
         <MaterialIcon name="refresh" width="24" height="24" />
         Reset Game
       </Button>
-      <p class="status-text active">
-        Status: {round} Active
-      </p>
+      {#if round !== 'finished'}
+        <p class="status-text active">
+          Status: {round} Active
+        </p>
+      {:else}
+        <p class="status-text active">Status: Game Over</p>
+      {/if}
     {/if}
   </div>
 </div>

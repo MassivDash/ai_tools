@@ -20,6 +20,7 @@ impl GameState {
             buzzer_queue: Vec::new(),
             last_pointer_id: None,
             decision_pending: false,
+            round3_exclusive: false,
         }
     }
 }

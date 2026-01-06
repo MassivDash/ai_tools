@@ -25,8 +25,7 @@ pub fn handle_point_to_player(state: &mut GameState, target_id: &str) -> Vec<Out
 
 /// Handle a correct answer in Round 2
 pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Award points
-    award_points(state, player_id, 10);
+    // Award points - DISABLED for Round 2
 
     // Reset question state
     reset_question_state(state);

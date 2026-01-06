@@ -178,10 +178,18 @@ impl OneOfFifteenWebSocket {
                         c.round1_misses = 0;
                         c.round1_questions = 0;
                         c.eliminated = false;
+                        c.ready = false; // Reset ready state
                     });
                     state.active_player_id = None;
                     state.current_question = None;
                     state.timer_start = None;
+                    state.decision_pending = false;
+                    state.past_questions = vec![];
+                    state.buzzer_queue = vec![];
+                    state.last_pointer_id = None;
+                    state.player_queue = vec![]; // Clear player queue
+                    state.active = true; // Ensure game is active
+                    state.round3_exclusive = false; // Reset Exclusive Mode
                 }
             }
             IncomingMessage::GetState => {
@@ -248,20 +256,9 @@ impl OneOfFifteenWebSocket {
                     let msgs = rounds::round3::handle_buzz_in(state, connection_id);
                     responses.extend(msgs);
 
-                    // Generate question only if player is valid
-                    if let Some(c) = state.contestants.get(connection_id) {
-                        if !c.eliminated && c.online {
-                            action = Some(AsyncAction::GenerateQuestion {
-                                age: c.age.clone(),
-                                past_questions: state.past_questions.clone(),
-                            });
-
-                            // Timer started in generation
-                            // let start = SystemTime::now();
-                            // state.timer_start =
-                            //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
-                        }
-                    }
+                    // BuzzIn only locks the player. Question is already persistent.
+                    // No new question generation needed here.
+                    // action is already None from outer scope
                 }
             }
             IncomingMessage::MakeDecision { choice, target_id } => {
@@ -278,18 +275,29 @@ impl OneOfFifteenWebSocket {
                     responses.extend(msgs);
 
                     // Generate next question based on the decision
-                    let next_player = state.active_player_id.clone();
-                    if let Some(player_id) = next_player {
-                        if let Some(player) = state.contestants.get(&player_id) {
+                    // Use random active player for age context since it is open floor
+                    // Generate next question based on the decision
+                    // Use the ACTIVE PLAYER (who was set in handle_correct_answer_decision) for context
+                    // If it was "Self", active_player_id is current player.
+                    // If it was "Point", active_player_id is target.
+                    if let Some(target_player_id) = &state.active_player_id {
+                        if let Some(player) = state.contestants.get(target_player_id) {
                             action = Some(AsyncAction::GenerateQuestion {
                                 age: player.age.clone(),
                                 past_questions: state.past_questions.clone(),
                             });
-
-                            // Timer started in generation
-                            // let start = SystemTime::now();
-                            // state.timer_start =
-                            //     Some(start.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                        }
+                    } else {
+                        // If for some reason no active player, fallback to random (shouldn't happen in logic)
+                        if let Some(random_id) =
+                            crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
+                        {
+                            if let Some(player) = state.contestants.get(&random_id) {
+                                action = Some(AsyncAction::GenerateQuestion {
+                                    age: player.age.clone(),
+                                    past_questions: state.past_questions.clone(),
+                                });
+                            }
                         }
                     }
                 }
@@ -386,35 +394,101 @@ impl OneOfFifteenWebSocket {
                 // The next step is always for the active player (either the retained pointer
                 // or the new random starter) to POINT to someone.
                 // That PointToPlayer message will trigger the question generation.
-                let action = None;
+                // Check if we transitioned to Round 3
+                let action = if state.round == Round::Round3 {
+                    // Generate first question for Round 3
+                    if let Some(random_id) =
+                        crate::api::games::one_of_fifteen::player_selection::select_random_active(
+                            state,
+                        )
+                    {
+                        if let Some(player) = state.contestants.get(&random_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: player.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
 
                 (msgs, action)
             }
             Round::Round3 => {
                 if is_correct {
-                    // Check if player has reached 30 points AFTER this answer
+                    // Check score or if already in exclusive mode
                     let player_score = state
                         .contestants
                         .get(&player_id)
                         .map(|c| c.score)
                         .unwrap_or(0);
 
-                    if player_score >= 30 {
-                        // Player has 30+ points - enable decision mechanic
+                    // Entry Condition: Score >= 30
+                    // Sustain Condition: Already in Exclusive Mode
+                    if player_score >= 30 || state.round3_exclusive {
+                        // STAY IN / ENTER EXCLUSIVE MODE
+                        state.round3_exclusive = true;
                         state.decision_pending = true;
                         rounds::common::reset_question_state(state);
+
+                        // STOP question generation logic here.
+                        // We must wait for the player to make a Decision (Point/Self).
+                        // Do NOT clear active_player_id. It stays with the correct answerer.
                         (vec![rounds::common::create_state_update(state)], None)
                     } else {
-                        // Below 30 points - just award points, no decision
+                        // Below 30 points AND not in exclusive mode
                         rounds::common::award_points(state, &player_id, 10);
                         rounds::common::reset_question_state(state);
                         state.active_player_id = None; // Wait for next buzz
-                        (vec![rounds::common::create_state_update(state)], None)
+
+                        // Generate next question immediately (Group)
+                        let action = if let Some(random_id) =
+                            crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
+                        {
+                            if let Some(player) = state.contestants.get(&random_id) {
+                                Some(AsyncAction::GenerateQuestion {
+                                    age: player.age.clone(),
+                                    past_questions: state.past_questions.clone(),
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        (vec![rounds::common::create_state_update(state)], action)
                     }
                 } else {
                     let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
-                    // No next question in Round 3 after wrong answer - wait for buzz-in
-                    (msgs, None)
+
+                    // WRONG ANSWER -> BREAK CHAIN
+                    state.round3_exclusive = false;
+                    state.decision_pending = false;
+
+                    // Generate next question immediately (Group) - Return to Buzzing
+                    let action = if let Some(random_id) =
+                        crate::api::games::one_of_fifteen::player_selection::select_random_active(
+                            state,
+                        ) {
+                        if let Some(player) = state.contestants.get(&random_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: player.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    (msgs, action)
                 }
             }
             _ => (vec![rounds::common::create_state_update(state)], None),
