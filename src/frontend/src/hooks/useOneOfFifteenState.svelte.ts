@@ -1,4 +1,3 @@
- 
 import { useWebSocket, type WebSocketOptions } from './useWebSocket'
 
 export type UserRole = 'presenter' | 'contestant' | 'viewer'

@@ -203,7 +203,12 @@ impl OneOfFifteenWebSocket {
                         final_answer = "!!!TIMEOUT!!!".to_string();
                     }
 
-                    if let Some(q) = &state.current_question {
+                    if final_answer == "!!!TIMEOUT!!!" {
+                        let (msgs, next_action) =
+                            Self::handle_timeout(state, connection_id.clone());
+                        responses.extend(msgs);
+                        action = next_action;
+                    } else if let Some(q) = &state.current_question {
                         action = Some(AsyncAction::ValidateAnswer {
                             question: q.text.clone(),
                             correct: q.correct_answer.clone(),
@@ -411,6 +416,48 @@ impl OneOfFifteenWebSocket {
                     // No next question in Round 3 after wrong answer - wait for buzz-in
                     (msgs, None)
                 }
+            }
+            _ => (vec![rounds::common::create_state_update(state)], None),
+        }
+    }
+
+    fn handle_timeout(
+        state: &mut GameState,
+        player_id: String,
+    ) -> (Vec<OutgoingMessage>, Option<AsyncAction>) {
+        let round = state.round.clone();
+
+        match round {
+            Round::Round1 => {
+                let msgs = rounds::round1::handle_timeout(state, &player_id);
+
+                // Check for next player similar to handle_validate_answer
+                let action = if let Some(next_player_id) = &state.active_player_id {
+                    if state.round == Round::Round1 {
+                        if let Some(contestant) = state.contestants.get(next_player_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: contestant.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                (msgs, action)
+            }
+            // For other rounds, fall back to logic treating timeout as wrong answer if not specified
+            Round::Round2 => {
+                let msgs = rounds::round2::handle_wrong_answer(state, &player_id);
+                (msgs, None)
+            }
+            Round::Round3 => {
+                let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
+                (msgs, None)
             }
             _ => (vec![rounds::common::create_state_update(state)], None),
         }
