@@ -11,7 +11,10 @@
     duration: number
     currentQuestion: Question | null | undefined
     questionNumber?: number
-    activePlayerName: string
+    // activePlayerName removed - redundant if isActivePlayer is true for "Your Turn",
+    // and for "Waiting" we can pass it if needed, but logic handles it.
+    // Actually, waiting turn DOES need the name.
+    activePlayerName?: string
     onTimeout: () => void
     onSubmitAnswer: (_answer: string) => void
   }
@@ -19,7 +22,7 @@
   let {
     isActivePlayer,
     timerStart,
-    duration,
+    duration = 60,
     currentQuestion,
     questionNumber,
     activePlayerName,
@@ -48,7 +51,7 @@
   <div class="waiting-turn">
     <h3>Waiting for other players...</h3>
     <p>
-      Active Player: {activePlayerName}
+      Active Player: {activePlayerName || 'Unknown'}
     </p>
     {#if currentQuestion}
       <QuestionDisplay questionText={currentQuestion.text} />

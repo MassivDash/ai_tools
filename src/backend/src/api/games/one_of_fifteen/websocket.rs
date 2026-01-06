@@ -1,6 +1,7 @@
 use actix::prelude::*;
 use actix_web::{get, web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // Import from our modules
@@ -13,6 +14,12 @@ use super::types::*;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+// --- Message Types ---
+
+#[derive(Message, Clone)]
+#[rtype(result = "()")]
+pub struct BroadcastingMessage(pub OutgoingMessage);
+
 // --- WebSocket Actor ---
 
 pub struct OneOfFifteenWebSocket {
@@ -20,15 +27,23 @@ pub struct OneOfFifteenWebSocket {
     state: GameStateHandle,
     id: String,
     role: UserRole,
+    broadcaster: super::BroadcastHandle,
+    ai_api_url: String,
 }
 
 impl OneOfFifteenWebSocket {
-    pub fn new(state: GameStateHandle) -> Self {
+    pub fn new(
+        state: GameStateHandle,
+        broadcaster: super::BroadcastHandle,
+        ai_api_url: String,
+    ) -> Self {
         Self {
             hb: Instant::now(),
             state,
             id: uuid::Uuid::new_v4().to_string(),
             role: UserRole::Viewer,
+            broadcaster,
+            ai_api_url,
         }
     }
 
@@ -283,13 +298,15 @@ impl OneOfFifteenWebSocket {
         state: GameStateHandle,
         age: String,
         past_questions: Vec<String>,
+        broadcaster: super::BroadcastHandle,
+        ai_api_url: String,
     ) {
         ctx.spawn(
-            actix::fut::wrap_future(
-                async move { generate_question_ai(&age, &past_questions).await },
-            )
+            actix::fut::wrap_future(async move {
+                generate_question_ai(&ai_api_url, &age, &past_questions).await
+            })
             .map(
-                move |res, _, ctx: &mut ws::WebsocketContext<OneOfFifteenWebSocket>| {
+                move |res, _, _ctx: &mut ws::WebsocketContext<OneOfFifteenWebSocket>| {
                     if let Some(q) = res {
                         let mut state = state.lock().unwrap();
                         state.past_questions.push(q.text.clone());
@@ -302,8 +319,11 @@ impl OneOfFifteenWebSocket {
 
                         let snapshot = rounds::common::create_state_snapshot(&state);
                         let msg = OutgoingMessage::StateUpdate(snapshot);
-                        if let Ok(json) = serde_json::to_string(&msg) {
-                            ctx.text(json);
+
+                        // Broadcast!
+                        let b = broadcaster.lock().unwrap();
+                        for recip in b.iter() {
+                            recip.do_send(BroadcastingMessage(msg.clone()));
                         }
                     }
                 },
@@ -402,25 +422,62 @@ impl Actor for OneOfFifteenWebSocket {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
+        // Register self in broadcaster
+        let mut b = self.broadcaster.lock().unwrap();
+        b.push(ctx.address().recipient());
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> actix::Running {
         let mut state = self.state.lock().unwrap();
+        let mut update_needed = false;
 
         match self.role {
             UserRole::Presenter => {
                 if state.presenter_id.as_ref() == Some(&self.id) {
                     state.presenter_online = false;
+                    state.presenter_id = None;
+                    update_needed = true;
                 }
             }
             UserRole::Contestant => {
-                if let Some(c) = state.contestants.get_mut(&self.id) {
-                    c.online = false;
+                if state.contestants.remove(&self.id).is_some() {
+                    update_needed = true;
+                }
+                // Also remove from queue if present
+                if let Some(pos) = state.player_queue.iter().position(|x| x == &self.id) {
+                    state.player_queue.remove(pos);
+                }
+                // If active player left, clear active player
+                if state.active_player_id.as_ref() == Some(&self.id) {
+                    state.active_player_id = None;
+                    state.current_question = None; // Reset current question if active player leaves
+                    state.timer_start = None;
                 }
             }
             _ => {}
         }
+
+        if update_needed {
+            let snapshot = rounds::common::create_state_snapshot(&state);
+            let msg = OutgoingMessage::StateUpdate(snapshot);
+            // Broadcast the departure
+            let broadcaster = self.broadcaster.lock().unwrap();
+            for recip in broadcaster.iter() {
+                recip.do_send(BroadcastingMessage(msg.clone()));
+            }
+        }
+
         actix::Running::Stop
+    }
+}
+
+impl Handler<BroadcastingMessage> for OneOfFifteenWebSocket {
+    type Result = ();
+
+    fn handle(&mut self, msg: BroadcastingMessage, ctx: &mut Self::Context) {
+        if let Ok(json) = serde_json::to_string(&msg.0) {
+            ctx.text(json);
+        }
     }
 }
 
@@ -436,24 +493,51 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
             }
             Ok(ws::Message::Text(text)) => match serde_json::from_str::<IncomingMessage>(&text) {
                 Ok(input) => {
+                    let ai_api_url = self.ai_api_url.clone();
                     let mut state = self.state.lock().unwrap();
                     let (responses, action) =
                         Self::process_message(input, &mut state, &mut self.id, &mut self.role);
 
+                    // Broadcast logic:
+                    // Only broadcast if the message is a StateUpdate (which implies shared state change)
+                    // The Error and Welcome messages are private to the connection.
+                    let broadcaster = self.broadcaster.lock().unwrap();
+
                     for msg in responses {
-                        if let Ok(json) = serde_json::to_string(&msg) {
-                            ctx.text(json);
+                        match msg {
+                            OutgoingMessage::StateUpdate(_) => {
+                                // Broadcast to all
+                                for recip in broadcaster.iter() {
+                                    recip.do_send(BroadcastingMessage(msg.clone()));
+                                }
+                            }
+                            _ => {
+                                // Send only to self
+                                if let Ok(json) = serde_json::to_string(&msg) {
+                                    ctx.text(json);
+                                }
+                            }
                         }
                     }
 
                     if let Some(act) = action {
                         let state = self.state.clone();
+                        let broadcaster_clone = self.broadcaster.clone(); // Pass for async usage if needed?
+                                                                          // Actually spawn_question_generation needs to broadcast too?
+                                                                          // Yes!
                         match act {
                             AsyncAction::GenerateQuestion {
                                 age,
                                 past_questions,
                             } => {
-                                Self::spawn_question_generation(ctx, state, age, past_questions);
+                                Self::spawn_question_generation(
+                                    ctx,
+                                    state,
+                                    age,
+                                    past_questions,
+                                    broadcaster_clone,
+                                    ai_api_url.clone(),
+                                );
                             }
                             AsyncAction::ValidateAnswer {
                                 question,
@@ -461,9 +545,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
                                 answer,
                                 player_id,
                             } => {
+                                let api_url = ai_api_url.clone();
                                 ctx.spawn(
                                     actix::fut::wrap_future(async move {
-                                        validate_answer_ai(&question, &correct, &answer).await
+                                        validate_answer_ai(&api_url, &question, &correct, &answer)
+                                            .await
                                     })
                                     .map(
                                         move |is_correct,
@@ -481,9 +567,24 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
                                                     player_id,
                                                 );
 
+                                            let broadcaster = broadcaster_clone.lock().unwrap();
+
                                             for msg in msgs {
-                                                if let Ok(json) = serde_json::to_string(&msg) {
-                                                    ctx.text(json);
+                                                match msg {
+                                                    OutgoingMessage::StateUpdate(_) => {
+                                                        for recip in broadcaster.iter() {
+                                                            recip.do_send(BroadcastingMessage(
+                                                                msg.clone(),
+                                                            ));
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        if let Ok(json) =
+                                                            serde_json::to_string(&msg)
+                                                        {
+                                                            ctx.text(json);
+                                                        }
+                                                    }
                                                 }
                                             }
 
@@ -493,12 +594,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
                                                 past_questions,
                                             }) = next_action
                                             {
-                                                drop(state_lock); // Release lock before spawning
+                                                drop(state_lock); // Release lock
+                                                drop(broadcaster);
                                                 Self::spawn_question_generation(
                                                     ctx,
                                                     state_clone,
                                                     age,
                                                     past_questions,
+                                                    broadcaster_clone.clone(),
+                                                    ai_api_url.clone(),
                                                 );
                                             }
                                         },
@@ -526,9 +630,34 @@ pub async fn one_of_fifteen_ws_route(
     req: HttpRequest,
     stream: web::Payload,
     state: web::Data<GameStateHandle>,
+    broadcaster: web::Data<super::BroadcastHandle>,
+    llama_config: web::Data<Arc<std::sync::Mutex<crate::api::llama_server::types::Config>>>,
 ) -> Result<HttpResponse, Error> {
+    let (host, port) = {
+        let config = llama_config.lock().unwrap();
+        (
+            config
+                .host
+                .clone()
+                .unwrap_or_else(|| "127.0.0.1".to_string()),
+            config.port.unwrap_or(8090),
+        )
+    };
+
+    // Normalize host (handle 0.0.0.0 if necessary, though localhost/127.0.0.1 is usually safer for internal calls)
+    let host = if host == "0.0.0.0" {
+        "127.0.0.1".to_string()
+    } else {
+        host
+    };
+    let api_url = format!("http://{}:{}/v1/chat/completions", host, port);
+
     ws::start(
-        OneOfFifteenWebSocket::new(state.get_ref().clone()),
+        OneOfFifteenWebSocket::new(
+            state.get_ref().clone(),
+            broadcaster.get_ref().clone(),
+            api_url,
+        ),
         &req,
         stream,
     )

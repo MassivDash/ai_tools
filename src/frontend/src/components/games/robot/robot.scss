@@ -9,7 +9,7 @@ $talk-duration: 0.4s;
 
 // Helper function to convert row/col to pixel number
 @function pixel($row, $col) {
-  @return ($row - 1) * $grid-cols +$col;
+  @return ($row - 1) * $grid-cols + $col;
 }
 
 // NORMAL EYES - rows 6-11, cols 8-13 & 20-25

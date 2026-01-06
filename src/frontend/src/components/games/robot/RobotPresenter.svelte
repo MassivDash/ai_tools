@@ -26,5 +26,5 @@
 </div>
 
 <style lang="scss">
-  @import './robot.scss';
+  @use 'robot';
 </style>

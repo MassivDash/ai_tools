@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+ 
 import { useWebSocket, type WebSocketOptions } from './useWebSocket'
 
 export type UserRole = 'presenter' | 'contestant' | 'viewer'
@@ -76,6 +76,8 @@ export function useOneOfFifteenState() {
         if (msg.type === 'welcome') {
           state.role = msg.role
           state.error = ''
+          // Request initial state on welcome
+          sendMessage({ type: 'get_state' })
         } else if (msg.type === 'state_update') {
           state.gameState = {
             has_presenter: msg.has_presenter,
@@ -84,7 +86,7 @@ export function useOneOfFifteenState() {
             round: msg.round,
             active_player_id: msg.active_player_id,
             current_question: msg.current_question,
-            timer_start: msg.timer_start, // Added
+            timer_start: msg.timer_start,
             decision_pending: msg.decision_pending
           }
         } else if (msg.type === 'error') {
@@ -100,11 +102,10 @@ export function useOneOfFifteenState() {
       if (sessionId) {
         sendMessage({ type: 'identify', session_id: sessionId })
       }
-      startPolling()
+      // No polling needed!
     },
     onClose: () => {
       connected = false
-      stopPolling()
     },
     onError: () => {
       connected = false
@@ -114,68 +115,44 @@ export function useOneOfFifteenState() {
   const { connect, disconnect, send: wsSend } = useWebSocket(options)
 
   const sendMessage = (msg: any) => {
-    // If identifying, we might not be fully "ready" logic-wise but socket is open.
     if (wsSend(JSON.stringify(msg))) {
       // success
     }
   }
 
-  let pollInterval: any = null
-
-  const startPolling = () => {
-    if (pollInterval) return
-    pollInterval = setInterval(() => {
-      sendMessage({ type: 'get_state' })
-    }, 2000)
-  }
-
-  const stopPolling = () => {
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = null
-    }
-  }
-
   const joinPresenter = () => {
     sendMessage({ type: 'join_presenter' })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const joinContestant = (name: string, age: string) => {
     sendMessage({ type: 'join_contestant', name, age })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const logout = () => {
     clearSession()
-    disconnectWrapper()
+    disconnect()
     state.role = null
     window.location.reload()
   }
 
   const startGame = () => {
     sendMessage({ type: 'start_game' })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const resetGame = () => {
     sendMessage({ type: 'reset_game' })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const toggleReady = () => {
     sendMessage({ type: 'toggle_ready' })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const submitAnswer = (answer: string) => {
     sendMessage({ type: 'submit_answer', answer })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const pointToPlayer = (targetId: string) => {
     sendMessage({ type: 'point_to_player', target_id: targetId })
-    setTimeout(() => sendMessage({ type: 'get_state' }), 100)
   }
 
   const buzzIn = () => {
@@ -186,19 +163,13 @@ export function useOneOfFifteenState() {
     sendMessage({ type: 'make_decision', choice, target_id: targetId })
   }
 
-  const disconnectWrapper = () => {
-    stopPolling()
-    disconnect()
-    connected = false
-  }
-
   return {
     state,
     get isConnected() {
       return connected
     },
     connect,
-    disconnect: disconnectWrapper,
+    disconnect,
     joinPresenter,
     joinContestant,
     logout,

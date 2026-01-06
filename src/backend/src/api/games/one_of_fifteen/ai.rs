@@ -1,8 +1,11 @@
 use crate::api::games::one_of_fifteen::types::Question;
+use regex::Regex;
 
-const LLAMA_API_URL: &str = "http://localhost:8099/v1/chat/completions";
-
-pub async fn generate_question_ai(age: &str, past_questions: &[String]) -> Option<Question> {
+pub async fn generate_question_ai(
+    api_url: &str,
+    age: &str,
+    past_questions: &[String],
+) -> Option<Question> {
     let client = reqwest::Client::new();
     let past_q_text = if past_questions.is_empty() {
         "".to_string()
@@ -27,35 +30,26 @@ pub async fn generate_question_ai(age: &str, past_questions: &[String]) -> Optio
         "temperature": 0.8
     });
 
-    println!("Sending AI request to: {}", LLAMA_API_URL);
-    println!(
-        "Request body: {}",
-        serde_json::to_string(&body).unwrap_or_default()
-    );
+    println!("Sending AI request to: {}", api_url);
 
-    match client.post(LLAMA_API_URL).json(&body).send().await {
+    match client.post(api_url).json(&body).send().await {
         Ok(res) => {
-            println!("AI Request Status: {}", res.status());
             if let Ok(json) = res.json::<serde_json::Value>().await {
-                println!("AI Response JSON: {}", json);
                 if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
-                    let cleaned = content
-                        .trim()
-                        .trim_start_matches("```json")
-                        .trim_end_matches("```")
-                        .trim();
-                    println!("Cleaned content: {}", cleaned);
-                    if let Ok(q) = serde_json::from_str::<Question>(cleaned) {
-                        println!("Successfully parsed Question: {:?}", q);
-                        return Some(q);
+                    // Robust JSON extraction using Regex
+                    // Looks for { ... } potentially surrounded by other text
+                    let re = Regex::new(r"\{[\s\S]*\}").unwrap();
+                    if let Some(caps) = re.captures(content) {
+                        let json_str = caps.get(0).unwrap().as_str();
+                        if let Ok(q) = serde_json::from_str::<Question>(json_str) {
+                            return Some(q);
+                        } else {
+                            println!("Failed to parse extracted JSON: {}", json_str);
+                        }
                     } else {
-                        println!("Failed to parse JSON into Question");
+                        println!("No JSON object found in response: {}", content);
                     }
-                } else {
-                    println!("No content field in AI response");
                 }
-            } else {
-                println!("Failed to parse AI response as JSON");
             }
         }
         Err(e) => println!("AI Request failed: {}", e),
@@ -63,7 +57,12 @@ pub async fn generate_question_ai(age: &str, past_questions: &[String]) -> Optio
     None
 }
 
-pub async fn validate_answer_ai(question: &str, correct_answer: &str, user_answer: &str) -> bool {
+pub async fn validate_answer_ai(
+    api_url: &str,
+    question: &str,
+    correct_answer: &str,
+    user_answer: &str,
+) -> bool {
     let client = reqwest::Client::new();
     let prompt = format!(
         "Question: {}\nCorrect Answer: {}\nUser's Answer: {}\nIs the user's answer correct? Answer 'yes' or 'no' only. Be lenient with minor typos or paraphrasing.",
@@ -79,7 +78,7 @@ pub async fn validate_answer_ai(question: &str, correct_answer: &str, user_answe
         "temperature": 0.3
     });
 
-    match client.post(LLAMA_API_URL).json(&body).send().await {
+    match client.post(api_url).json(&body).send().await {
         Ok(res) => {
             if let Ok(json) = res.json::<serde_json::Value>().await {
                 if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
