@@ -240,7 +240,8 @@ pub type ActiveGenerations = std::sync::Arc<
 /// Agent config request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfigRequest {
-    pub enabled_tools: Vec<ToolType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled_tools: Option<Vec<ToolType>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chromadb: Option<ChromaDBToolConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]

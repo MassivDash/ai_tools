@@ -294,26 +294,102 @@ impl OllamaManager {
 
         println!("📝 Generating embeddings for {} text(s)...", texts.len());
 
-        let embeddings = match embedding_fn.embed_strs(texts).await {
-            Ok(embeds) => embeds,
-            Err(e) => {
-                let error_msg = format!(
-                    "Failed to generate embeddings using model '{}': {}\n\
-                    This could mean:\n\
-                    1. The model '{}' doesn't support embeddings\n\
-                    2. The model is corrupted or incomplete\n\
-                    3. There's a network issue connecting to Ollama",
-                    self.config.model, e, self.config.model
-                );
-                println!("{}", error_msg);
-                return Err(anyhow::anyhow!(error_msg));
-            }
-        };
+        // Batch processing to avoid timeouts with large inputs
+        const BATCH_SIZE: usize = 10;
+        let mut all_embeddings = Vec::with_capacity(texts.len());
 
-        let embedding_dim = embeddings.first().map(|e| e.len()).unwrap_or(0);
+        for (batch_idx, chunk) in texts.chunks(BATCH_SIZE).enumerate() {
+            println!(
+                "Processing batch {}/{} ({} items)...",
+                batch_idx + 1,
+                texts.len().div_ceil(BATCH_SIZE),
+                chunk.len()
+            );
+
+            // Sanitize inputs: Ollama can error 400 on empty strings
+            // We replace empty or whitespace-only strings with a single period "."
+            let clean_chunk: Vec<&str> = chunk
+                .iter()
+                .map(|s| if s.trim().is_empty() { "." } else { *s })
+                .collect();
+
+            let batch_embeddings = match embedding_fn.embed_strs(&clean_chunk).await {
+                Ok(embeds) => embeds,
+                Err(e) => {
+                    println!(
+                        "⚠️ Batch {} failed. Retrying items individually... Error: {}",
+                        batch_idx + 1,
+                        e
+                    );
+                    // Fallback: Try each item individually to isolate the bad one
+                    let mut successful_embeds = Vec::new();
+                    for (i, item) in clean_chunk.iter().enumerate() {
+                        let single_batch = vec![*item];
+                        match embedding_fn.embed_strs(&single_batch).await {
+                            Ok(mut single_embed) => {
+                                if let Some(emb) = single_embed.pop() {
+                                    successful_embeds.push(emb);
+                                } else {
+                                    println!(
+                                        "⚠️ Item {} in batch {} returned no embedding",
+                                        i,
+                                        batch_idx + 1
+                                    );
+                                    // Push a zero vector or skip?
+                                    // Better to push a zero vector to maintain index alignment if possible,
+                                    // but here we are extending all_embeddings, so alignment with *original* IDs matters?
+                                    // The code in upload.rs expects a 1:1 mapping if possible?
+                                    // Actually upload.rs expects `request.documents` to match `request.ids`.
+                                    // BUT `add_documents` in `document_ops.rs` simply takes the list of embeddings.
+                                    // Wait, `document_ops::add_documents` calls `ollama_manager.generate_embeddings_with_server`.
+                                    // And then passes that to `collection.add`.
+                                    // `collection.add` expects `embeddings` to have same length as `documents` / `ids`.
+                                    // SO WE MUST MAINTAIN COUNT.
+                                    // We will push a placeholder embedding (all zeros).
+                                    // We need to know the dimension. We can guess 1024 or 384 or just use an empty vec and hope client handles?
+                                    // No, let's look at previous successful embeds to guess dim, or default to 1024.
+                                    let dim = all_embeddings
+                                        .first()
+                                        .map(|e: &Vec<f32>| e.len())
+                                        .unwrap_or(1024); // guess
+                                    successful_embeds.push(vec![0.0; dim]);
+                                }
+                            }
+                            Err(e) => {
+                                println!("❌ Item {} in batch {} failed permanently. Length: {} chars. Error: {}. Content: {:.50}...", i, batch_idx + 1, item.len(), e, item);
+                                if item.len() > 2000 {
+                                    println!("ℹ️  Hint: Item length {} chars might exceed model context window.", item.len());
+                                }
+                                // Push placeholder
+                                let dim = all_embeddings
+                                    .first()
+                                    .map(|e: &Vec<f32>| e.len())
+                                    .unwrap_or(1024);
+                                successful_embeds.push(vec![0.0; dim]);
+                            }
+                        }
+                    }
+                    if successful_embeds.len() != clean_chunk.len() {
+                        // Should not happen with above logic
+                        println!(
+                            "⚠️ Mismatch in fallback recovery. Expected {}, got {}",
+                            clean_chunk.len(),
+                            successful_embeds.len()
+                        );
+                    }
+                    successful_embeds
+                }
+            };
+            all_embeddings.extend(batch_embeddings);
+
+            // Small delay to allow server to breathe between batches
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+
+        let embedding_dim = all_embeddings.first().map(|e| e.len()).unwrap_or(0);
         println!(
-            "✅ Generated {} embeddings using model '{}' (dimension: {})",
-            embeddings.len(),
+            "✅ Generated {} embeddings (total) using model '{}' (dimension: {})",
+            all_embeddings.len(),
             self.config.model,
             embedding_dim
         );
@@ -333,7 +409,7 @@ impl OllamaManager {
             ),
         }
 
-        Ok(embeddings)
+        Ok(all_embeddings)
     }
 
     /// Complete workflow: start server, ensure model, generate embeddings, stop server

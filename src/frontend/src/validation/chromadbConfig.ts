@@ -7,13 +7,17 @@ export const ChromaDBConfigRequestSchema = z.object({
     .string()
     .trim()
     .min(1, 'Query model cannot be empty')
-    .optional()
+    .optional(),
+  chunk_size: z.number().int().min(1).optional(),
+  chunk_overlap: z.number().int().min(0).optional()
 })
 
 // Helper function to build the payload from form values
 export const buildChromaDBConfigPayload = (values: {
   embedding_model: string
   query_model?: string
+  chunk_size?: number
+  chunk_overlap?: number
 }) => {
   const payload: Record<string, any> = {}
 
@@ -29,6 +33,14 @@ export const buildChromaDBConfigPayload = (values: {
     if (trimmedQueryModel) {
       payload.query_model = trimmedQueryModel
     }
+  }
+
+  if (values.chunk_size !== undefined) {
+    payload.chunk_size = values.chunk_size
+  }
+  
+  if (values.chunk_overlap !== undefined) {
+    payload.chunk_overlap = values.chunk_overlap
   }
 
   return payload

@@ -25,6 +25,8 @@
   interface ConfigResponse {
     embedding_model: string
     query_model: string
+    chunk_size: number
+    chunk_overlap: number
   }
 
   interface ConfigUpdateResponse {
@@ -36,9 +38,14 @@
   let modelNotes: Map<string, ModelNote> = new Map()
   let config: ConfigResponse = {
     embedding_model: 'nomic-embed-text',
-    query_model: 'nomic-embed-text'
+    query_model: 'nomic-embed-text',
+    chunk_size: 384,
+    chunk_overlap: 50
   }
   let newEmbeddingModel = 'nomic-embed-text'
+  let newChunkSize = 384
+  let newChunkOverlap = 50
+
   // query_model is no longer used - queries always use embedding_model
   // Keeping variable for compatibility but not displaying in UI
   let loadingModels = false
@@ -51,6 +58,8 @@
         await axiosBackendInstance.get<ConfigResponse>('chromadb/config')
       config = response.data
       newEmbeddingModel = config.embedding_model
+      newChunkSize = config.chunk_size || 384
+      newChunkOverlap = config.chunk_overlap || 50
       // query_model is no longer used in UI, but we keep it for API compatibility
     } catch (err: any) {
       console.error('Failed to load config:', err)
@@ -100,8 +109,22 @@
     loadModelNotes().catch(console.error)
   }
 
+  const getRecommendedSettings = (modelName: string) => {
+    if (modelName.includes('mxbai') || modelName.includes('nomic')) {
+      return { chunkSize: 384, overlap: 50 } // Safe for 512 context
+    } else if (modelName.includes('minilm')) {
+      return { chunkSize: 256, overlap: 30 } // Smaller context usually
+    } else {
+      return { chunkSize: 384, overlap: 50 } // Default safe
+    }
+  }
+
   const handleEmbeddingModelSelect = (model: ModelInfo) => {
     newEmbeddingModel = model.name
+    // Auto-update chunking settings based on selection
+    const recommended = getRecommendedSettings(model.name)
+    newChunkSize = recommended.chunkSize
+    newChunkOverlap = recommended.overlap
   }
 
   const handleSave = async () => {
@@ -119,7 +142,9 @@
       // Build payload using helper function
       const payload = buildChromaDBConfigPayload({
         embedding_model: newEmbeddingModel,
-        query_model: undefined
+        query_model: undefined,
+        chunk_size: newChunkSize,
+        chunk_overlap: newChunkOverlap
       })
 
       // Validate with Zod
@@ -150,7 +175,7 @@
     } finally {
       savingConfig = false
     }
-  }
+  } // handleSave end
 
   // Use model name as key (should be unique)
   const getModelKey = (model: ModelInfo, index: number) => {
@@ -258,6 +283,50 @@
           </p>
         </div>
       {/if}
+    </div>
+
+    <!-- Chunking Strategy -->
+    <div class="config-section">
+      <div class="section-label">Chunking Strategy</div>
+      <p
+        class="hint-small"
+        style="margin-bottom: 1rem; color: var(--text-secondary);"
+      >
+        Configure how documents are split before embedding. Default values are
+        improved automatically when selecting known models.
+      </p>
+
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+          <LabelWithHelp
+            id="chunk-size"
+            label="Chunk Size (Tokens)"
+            helpText="Target number of tokens per chunk. Should be less than the model's context limit (e.g. 512 for mxbai/nomic)."
+          />
+          <Input
+            id="chunk-size"
+            label=""
+            type="number"
+            bind:value={newChunkSize}
+            placeholder="e.g., 384"
+          />
+        </div>
+
+        <div style="flex: 1; min-width: 200px;">
+          <LabelWithHelp
+            id="chunk-overlap"
+            label="Overlap (Tokens)"
+            helpText="Number of tokens to overlap between chunks to maintain context."
+          />
+          <Input
+            id="chunk-overlap"
+            label=""
+            type="number"
+            bind:value={newChunkOverlap}
+            placeholder="e.g., 50"
+          />
+        </div>
+      </div>
     </div>
   </div>
   <div class="config-footer">

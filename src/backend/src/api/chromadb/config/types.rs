@@ -4,6 +4,18 @@ use serde::{Deserialize, Serialize};
 pub struct ChromaDBConfig {
     pub embedding_model: String,
     pub query_model: String,
+    #[serde(default = "default_chunk_size")]
+    pub chunk_size: usize,
+    #[serde(default = "default_chunk_overlap")]
+    pub chunk_overlap: usize,
+}
+
+fn default_chunk_size() -> usize {
+    384
+}
+
+fn default_chunk_overlap() -> usize {
+    50
 }
 
 impl Default for ChromaDBConfig {
@@ -11,6 +23,8 @@ impl Default for ChromaDBConfig {
         Self {
             embedding_model: "nomic-embed-text".to_string(),
             query_model: "nomic-embed-text".to_string(),
+            chunk_size: default_chunk_size(),
+            chunk_overlap: default_chunk_overlap(),
         }
     }
 }
@@ -31,12 +45,16 @@ pub struct ModelsResponse {
 pub struct ConfigResponse {
     pub embedding_model: String,
     pub query_model: String,
+    pub chunk_size: usize,
+    pub chunk_overlap: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigRequest {
     pub embedding_model: String,
     pub query_model: Option<String>,
+    pub chunk_size: Option<usize>,
+    pub chunk_overlap: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

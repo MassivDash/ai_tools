@@ -133,6 +133,21 @@ pub async fn upload_documents(
     let mut all_ids: Vec<String> = Vec::new();
     let mut all_metadatas: Vec<std::collections::HashMap<String, String>> = Vec::new();
 
+    // Get config for chunking and embedding - Fetch ONCE before processing
+    let (chunk_size, chunk_overlap, embedding_model) = {
+        let config_guard = chromadb_config.lock().unwrap();
+        (
+            config_guard.chunk_size,
+            config_guard.chunk_overlap,
+            config_guard.embedding_model.clone(),
+        )
+    };
+
+    println!(
+        "⚙️  Using chunk size: {}, overlap: {}",
+        chunk_size, chunk_overlap
+    );
+
     for (filename, file_data) in files {
         println!("📄 Processing file: {}", filename);
 
@@ -163,13 +178,12 @@ pub async fn upload_documents(
 
         // Chunk the text using token-based semantic chunking
         // For markdown files, use markdown-aware chunking; otherwise use semantic chunking
-        // Optimal for nomic-embed-text: 512 tokens per chunk, 50 token overlap
         let chunks = match get_tokenizer() {
             Ok(tokenizer) => {
                 if filename.ends_with(".md") || filename.ends_with(".mdx") {
-                    chunk_markdown_semantic_tokens(&text, tokenizer, 512, 50)
+                    chunk_markdown_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
                 } else {
-                    chunk_semantic_tokens(&text, tokenizer, 512, 50)
+                    chunk_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
                 }
             }
             Err(e) => {
@@ -177,17 +191,24 @@ pub async fn upload_documents(
                     "⚠️ Tokenizer error: {:?}. Falling back to character-based chunking.",
                     e
                 );
-                // Fallback to character-based chunking
+                // Fallback to character-based chunking (approx 3-4 chars per token)
+                let char_chunk_size = chunk_size * 3;
+                let char_overlap = chunk_overlap * 3;
                 if filename.ends_with(".md") || filename.ends_with(".mdx") {
-                    chunk_markdown_semantic(&text, 1500, 200)
+                    chunk_markdown_semantic(&text, char_chunk_size, char_overlap)
                 } else {
-                    chunk_semantic(&text, 1500, 200)
+                    chunk_semantic(&text, char_chunk_size, char_overlap)
                 }
             }
         };
 
         // Create documents, IDs, and metadata for each chunk
         for (chunk_idx, chunk) in chunks.iter().enumerate() {
+            // Skip empty or whitespace-only chunks
+            if chunk.trim().is_empty() {
+                continue;
+            }
+
             let chunk_id = Uuid::new_v4().to_string();
             all_ids.push(chunk_id);
             all_documents.push(chunk.clone());
@@ -217,12 +238,6 @@ pub async fn upload_documents(
         ids: all_ids,
         documents: all_documents,
         metadatas: Some(all_metadatas),
-    };
-
-    // Get embedding model from config
-    let embedding_model = {
-        let config_guard = chromadb_config.lock().unwrap();
-        config_guard.embedding_model.clone()
     };
 
     match client.add_documents(request, &embedding_model).await {
@@ -255,14 +270,49 @@ pub async fn upload_documents(
     }
 }
 
-// PDF parser (placeholder - will need pdf-extract or similar crate)
-fn parse_pdf(_data: &[u8]) -> Result<(String, std::collections::HashMap<String, String>), String> {
-    // TODO: Implement PDF parsing using a crate like pdf-extract
-    // For now, return an error
-    Err(
-        "PDF parsing not yet implemented. Please use a crate like 'pdf-extract' or 'lopdf'"
-            .to_string(),
-    )
+// PDF parser using pdftotext (external tool)
+// This is much more robust than Rust crates which can panic on malformed PDFs
+fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, String>), String> {
+    use std::io::Write;
+    use std::process::Command;
+    use tempfile::NamedTempFile;
+
+    // Create a temporary file to write the PDF data to
+    let mut temp_file =
+        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
+    temp_file
+        .write_all(data)
+        .map_err(|e| format!("Failed to write PDF data: {}", e))?;
+
+    // Get the path before we persist (though keep ensures it stays, we just want valid path)
+    let temp_path = temp_file.path().to_owned();
+
+    // Call pdftotext
+    let output = Command::new("pdftotext")
+        .arg("-layout") // Maintain layout
+        .arg("-enc")
+        .arg("UTF-8")
+        .arg(&temp_path)
+        .arg("-") // Output to stdout
+        .output()
+        .map_err(|e| format!("Failed to execute pdftotext: {}", e))?;
+
+    // Clean up is handled by NamedTempFile when it goes out of scope?
+    // Actually NamedTempFile deletes on drop. So we are good.
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("pdftotext failed: {}", stderr));
+    }
+
+    let text = String::from_utf8(output.stdout)
+        .map_err(|e| format!("Invalid UTF-8 output from pdftotext: {}", e))?;
+
+    let mut metadata = std::collections::HashMap::new();
+    metadata.insert("file_type".to_string(), "pdf".to_string());
+    metadata.insert("parser".to_string(), "pdftotext".to_string());
+
+    Ok((text, metadata))
 }
 
 // Text/Markdown parser
@@ -320,48 +370,84 @@ fn chunk_semantic_tokens(
                 Err(_) => current_chunk.len() / 4,
             };
 
-            if current_token_count < target_tokens / 2 {
-                // Current chunk is too small, try to add part of the paragraph
-                let sentences: Vec<&str> = paragraph
-                    .split(&['.', '!', '?', '\n'][..])
-                    .filter(|s| !s.trim().is_empty())
-                    .collect();
+            // If current chunk is already big enough (>= 90% of target), push it and start new
+            // This prevents trying to squeeze too much in and accidentally going over
+            if current_token_count >= (target_tokens * 9 / 10) {
+                chunks.push(current_chunk.trim().to_string());
+                // Start new chunk with overlap
+                current_chunk = get_overlap_text(&chunks, tokenizer, overlap_tokens);
+            }
 
-                for sentence in sentences {
-                    let sentence = sentence.trim();
-                    if sentence.is_empty() {
-                        continue;
+            // Now handle the paragraph sentence by sentence
+            let sentences: Vec<&str> = paragraph
+                .split(&['.', '!', '?', '\n'][..])
+                .filter(|s| !s.trim().is_empty())
+                .collect();
+
+            // Now iterate sentences and add them, splitting if necessary
+            for sentence in sentences {
+                let sentence = sentence.trim();
+                let sentence_token_count = match tokenizer.encode(sentence, false) {
+                    Ok(e) => e.len(),
+                    Err(_) => sentence.len() / 4,
+                };
+
+                // If sentence itself is bigger than target, we MUST hard split it
+                if sentence_token_count > target_tokens {
+                    // Push current chunk if not empty
+                    if !current_chunk.is_empty() {
+                        chunks.push(current_chunk.trim().to_string());
+                        // No need to calculate overlap as we are breaking context here
+                        current_chunk = String::new();
                     }
 
-                    let test_sentence_chunk = if current_chunk.is_empty() {
-                        sentence.to_string()
-                    } else {
-                        format!("{}. {}", current_chunk, sentence)
-                    };
+                    // Split the huge sentence into smaller chunks
+                    // We'll use character approximation to be safe since token splitting is hard
+                    // Assumes 1 token ~= 3 chars to be safe (conservative)
+                    let safe_char_limit = target_tokens * 3;
+                    let mut sentence_remaining = sentence;
 
-                    let sentence_token_count =
-                        match tokenizer.encode(test_sentence_chunk.as_str(), false) {
-                            Ok(encoding) => encoding.len(),
-                            Err(_) => test_sentence_chunk.len() / 4,
+                    while !sentence_remaining.is_empty() {
+                        if sentence_remaining.len() <= safe_char_limit {
+                            chunks.push(sentence_remaining.to_string());
+                            break;
+                        }
+
+                        // Find a split point
+                        let split_idx = if let Some((idx, _)) =
+                            sentence_remaining.char_indices().nth(safe_char_limit)
+                        {
+                            idx
+                        } else {
+                            sentence_remaining.len()
                         };
 
-                    if sentence_token_count > target_tokens && !current_chunk.is_empty() {
+                        chunks.push(sentence_remaining[..split_idx].to_string());
+                        sentence_remaining = &sentence_remaining[split_idx..];
+                    }
+                    continue;
+                }
+
+                // Check if adding sentence exceeds limit
+                let next_chunk_tokens = match tokenizer
+                    .encode(format!("{}. {}", current_chunk, sentence).as_str(), false)
+                {
+                    Ok(e) => e.len(),
+                    Err(_) => (current_chunk.len() + sentence.len()) / 4,
+                };
+
+                if next_chunk_tokens > target_tokens {
+                    // Push current and start new
+                    if !current_chunk.is_empty() {
                         chunks.push(current_chunk.trim().to_string());
-                        // Start new chunk with overlap from previous chunk
                         current_chunk = get_overlap_text(&chunks, tokenizer, overlap_tokens);
                     }
-
-                    if !current_chunk.is_empty() {
-                        current_chunk.push_str(". ");
-                    }
-                    current_chunk.push_str(sentence);
                 }
-            } else {
-                // Current chunk is substantial, save it and start new one
-                chunks.push(current_chunk.trim().to_string());
-                // Start new chunk with overlap from previous chunk
-                current_chunk = get_overlap_text(&chunks, tokenizer, overlap_tokens);
-                current_chunk.push_str(paragraph);
+
+                if !current_chunk.is_empty() {
+                    current_chunk.push_str(". ");
+                }
+                current_chunk.push_str(sentence);
             }
         } else {
             // Add paragraph to current chunk
