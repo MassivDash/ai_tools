@@ -39,8 +39,10 @@ jobs:
           cargo install cargo-watch
           cargo install commitlint-rs
       - name: Setup LCOV
+        if: matrix.os == 'macOS-latest'
         uses: hrishikesh-kadam/setup-lcov@v1
       - name: Install cargo-llvm-cov
+        if: matrix.os == 'macOS-latest'
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install Node.js
         uses: actions/setup-node@v2
@@ -51,7 +53,11 @@ jobs:
           cd src/frontend
           npm install
       - name: Test Cli (Astro_X_Runner)
+        if: matrix.os == 'macOS-latest'
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcovCli.info --manifest-path Cargo.toml
+      - name: Test Cli (Astro_X_Runner) (Ubuntu/Windows)
+        if: matrix.os != 'macOS-latest'
+        run: cargo test --all-features --workspace --manifest-path Cargo.toml
       - name: Report code coverage
         if: matrix.os == 'macOS-latest'
         uses: zgosalvez/github-actions-report-lcov@v4.1.21
@@ -62,7 +68,11 @@ jobs:
           update-comment: true
           title-prefix: "CLI"
       - name: Test Backend
+        if: matrix.os == 'macOS-latest'
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcovBackend.info --manifest-path src/backend/Cargo.toml
+      - name: Test Backend (Ubuntu/Windows)
+        if: matrix.os != 'macOS-latest'
+        run: cargo test --all-features --workspace --manifest-path src/backend/Cargo.toml
 
       - name: Report code coverage
         if: matrix.os == 'macOS-latest'
