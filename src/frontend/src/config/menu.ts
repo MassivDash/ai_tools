@@ -62,6 +62,12 @@ export const menuConfig: MenuConfig = {
       href: '/stable-diffusion',
       id: 'sd-link',
       icon: 'image-filter-hdr'
+    },
+    {
+      label: 'Games',
+      href: '/games',
+      id: 'games-link',
+      icon: 'gamepad-variant'
     }
   ],
   footer: [

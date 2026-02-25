@@ -83,20 +83,88 @@ pub async fn add_documents(
     }
 
     // Convert documents to Option<Vec<Option<String>>>
-    let documents: Option<Vec<Option<String>>> =
-        Some(request.documents.into_iter().map(Some).collect());
+    let docs_vec: Vec<Option<String>> = request.documents.into_iter().map(Some).collect();
 
     // Use ChromaDB's standard add method with generated embeddings
-    collection
-        .add(
-            request.ids,
-            embeddings, // Generated embeddings from documents
-            documents,
-            None, // uris
-            metadatas,
-        )
-        .await
-        .context("Failed to add documents to ChromaDB")?;
+    // We must batch this to avoid hitting request size limits (e.g. 14k vectors is too big)
+    const CHROMA_BATCH_SIZE: usize = 2000;
+    let total_docs = request.ids.len();
+    let num_batches = total_docs.div_ceil(CHROMA_BATCH_SIZE);
+
+    println!(
+        "📦 Uploading {} documents to ChromaDB in {} batches (batch size: {})...",
+        total_docs, num_batches, CHROMA_BATCH_SIZE
+    );
+
+    // Prepare Vectors for indexing access
+    let ids = request.ids;
+    // documents and metadatas are already Options wrapping Vecs, unwrapping for slicing if present
+
+    let metas_vec = metadatas.unwrap_or_default();
+
+    // Check consistency
+    if ids.len() != embeddings.len() {
+        return Err(anyhow::anyhow!(
+            "Mismatch between IDs count ({}) and embeddings count ({})",
+            ids.len(),
+            embeddings.len()
+        ));
+    }
+
+    for batch_idx in 0..num_batches {
+        let start = batch_idx * CHROMA_BATCH_SIZE;
+        let end = std::cmp::min((batch_idx + 1) * CHROMA_BATCH_SIZE, total_docs);
+
+        let batch_ids = ids[start..end].to_vec();
+        let batch_embeddings = embeddings[start..end].to_vec();
+
+        let batch_documents = if !docs_vec.is_empty() {
+            Some(docs_vec[start..end].to_vec())
+        } else {
+            None
+        };
+
+        let batch_metadatas = if !metas_vec.is_empty() {
+            Some(metas_vec[start..end].to_vec())
+        } else {
+            None
+        };
+
+        if let Err(e) = collection
+            .add(
+                batch_ids,
+                batch_embeddings,
+                batch_documents,
+                None, // uris
+                batch_metadatas,
+            )
+            .await
+        {
+            println!(
+                "❌ Failed to add batch {}/{} to ChromaDB: {}",
+                batch_idx + 1,
+                num_batches,
+                e
+            );
+            return Err(anyhow::anyhow!(
+                "Failed to add batch {}/{} to ChromaDB: {}",
+                batch_idx + 1,
+                num_batches,
+                e
+            ));
+        }
+
+        println!(
+            "  ✅ Batch {}/{} added successfully (items {}-{})",
+            batch_idx + 1,
+            num_batches,
+            start,
+            end
+        );
+
+        // Small delay to be nice to the server
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    }
 
     Ok(())
 }
@@ -106,6 +174,5 @@ mod tests {
     #[test]
     fn test_function_exists() {
         // Verify the function is defined
-        assert!(true);
     }
 }

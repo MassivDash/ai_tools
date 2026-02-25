@@ -22,6 +22,7 @@ use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState
 use crate::api::agent::testing::storage::TestingStorage;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::default_configs::DefaultConfigsStorage;
+use crate::api::games::one_of_fifteen::{BroadcastHandle, GameState};
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
@@ -36,6 +37,7 @@ use crate::cors::get_cors_options::get_cors_options;
 use crate::services::agent::configure_agent_services;
 use crate::services::chromadb::configure_chromadb_services;
 use crate::services::converters::configure_converter_services;
+use crate::services::games::configure_games_services;
 use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
 use crate::services::sd_server::configure_sd_server_services;
@@ -155,6 +157,10 @@ async fn main() -> std::io::Result<()> {
 
     use crate::api::sd_server::model_sets::SDModelSetsStorage;
     let sd_model_sets_storage = Arc::new(SDModelSetsStorage::new(db_pool.clone()));
+
+    // Game Session State (Shared across all workers)
+    let one_of_fifteen_state = Arc::new(Mutex::new(GameState::new()));
+    let one_of_fifteen_broadcaster: BroadcastHandle = Arc::new(Mutex::new(Vec::new()));
 
     // Init table and Load Default
     let storage_clone = sd_model_sets_storage.clone();
@@ -303,6 +309,8 @@ async fn main() -> std::io::Result<()> {
     let sd_logs_data = sd_logs.clone();
     let sd_server_state_data = sd_server_state.clone();
     let sd_ws_state_data = sd_ws_state.clone();
+    let one_of_fifteen_state_data = one_of_fifteen_state.clone();
+    let one_of_fifteen_broadcaster_data = one_of_fifteen_broadcaster.clone();
 
     // Determine initial images path for static serving
     let images_path = std::path::Path::new("./public");
@@ -340,6 +348,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(sd_ws_state_data.clone()))
             .app_data(web::Data::new(sd_images_storage.clone()))
             .app_data(web::Data::new(sd_model_sets_storage.clone()))
+            .app_data(web::Data::new(one_of_fifteen_state_data.clone()))
+            .app_data(web::Data::new(one_of_fifteen_broadcaster_data.clone()))
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(
@@ -355,6 +365,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)
             .configure(configure_agent_services)
+            .configure(configure_games_services)
             .configure(configure_model_notes_services)
             .configure(configure_sd_server_services)
             .service(Files::new("/public", &images_path_str).show_files_listing())

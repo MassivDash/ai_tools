@@ -1,0 +1,10 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import OneOfFifteen from '../../components/games/OneOfFifteen.svelte'
+---
+
+<Layout title='1 of 15 - AI Games'>
+  <div transition:animate='fade' style='height: 100vh; overflow: hidden;'>
+    <OneOfFifteen client:load />
+  </div>
+</Layout>

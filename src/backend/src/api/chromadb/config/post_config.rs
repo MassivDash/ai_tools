@@ -30,9 +30,17 @@ pub async fn post_chromadb_config(
         let mut config_guard = config.lock().unwrap();
         config_guard.embedding_model = embedding_model.clone();
         config_guard.query_model = query_model.clone();
+
+        if let Some(size) = request.chunk_size {
+            config_guard.chunk_size = size;
+        }
+        if let Some(overlap) = request.chunk_overlap {
+            config_guard.chunk_overlap = overlap;
+        }
+
         println!(
-            "✅ Updated config - Embedding: {}, Query: {}",
-            config_guard.embedding_model, config_guard.query_model
+            "✅ Updated config - Embedding: {}, Chunk: {}/{}",
+            config_guard.embedding_model, config_guard.chunk_size, config_guard.chunk_overlap
         );
     } // Drop lock here
 

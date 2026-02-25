@@ -12,6 +12,8 @@ pub async fn get_chromadb_config(
     let config_response = ConfigResponse {
         embedding_model: config_guard.embedding_model.clone(),
         query_model: config_guard.query_model.clone(),
+        chunk_size: config_guard.chunk_size,
+        chunk_overlap: config_guard.chunk_overlap,
     };
 
     println!(

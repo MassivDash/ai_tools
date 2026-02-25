@@ -137,21 +137,46 @@ pub async fn convert_pdf_to_markdown(mut payload: Multipart) -> Result<HttpRespo
     }))
 }
 
-/// Extracts text from PDF bytes
+/// Extracts text from PDF bytes using pdftotext (external tool)
 fn extract_text_from_pdf(data: &[u8]) -> Result<String, String> {
-    match pdf_extract::extract_text_from_mem(data) {
-        Ok(text) => {
-            if text.trim().is_empty() {
-                Err(
-                    "PDF contains no extractable text (may be image-based or encrypted)"
-                        .to_string(),
-                )
-            } else {
-                Ok(text)
-            }
-        }
-        Err(e) => Err(format!("Failed to extract text from PDF: {}", e)),
+    use std::io::Write;
+    use std::process::Command;
+    use tempfile::NamedTempFile;
+
+    // Create a temporary file to write the PDF data to
+    let mut temp_file =
+        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
+    temp_file
+        .write_all(data)
+        .map_err(|e| format!("Failed to write PDF data: {}", e))?;
+
+    let temp_path = temp_file.path().to_owned();
+
+    // Call pdftotext
+    let output = Command::new("pdftotext")
+        .arg("-layout") // Maintain layout
+        .arg("-enc")
+        .arg("UTF-8")
+        .arg(&temp_path)
+        .arg("-") // Output to stdout
+        .output()
+        .map_err(|e| format!("Failed to execute pdftotext: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("pdftotext failed: {}", stderr));
     }
+
+    let text = String::from_utf8(output.stdout)
+        .map_err(|e| format!("Invalid UTF-8 output from pdftotext: {}", e))?;
+
+    if text.trim().is_empty() {
+        return Err(
+            "PDF contains no extractable text (may be image-based or encrypted)".to_string(),
+        );
+    }
+
+    Ok(text)
 }
 
 /// Formats plain text as markdown

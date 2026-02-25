@@ -201,7 +201,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_empty_json() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -211,13 +211,13 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_client_error());
     }
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_invalid_json() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -227,13 +227,13 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_client_error());
     }
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_valid_json() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -243,7 +243,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -256,7 +256,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_arrays() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -267,7 +267,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -277,7 +277,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_nested_objects() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -287,7 +287,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -296,7 +296,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_count_tokens() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -306,7 +306,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -322,7 +322,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_empty_object() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -332,7 +332,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -341,7 +341,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_array_of_primitives() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -351,7 +351,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -361,7 +361,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_with_mixed_types() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -371,7 +371,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -380,7 +380,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_whitespace_trimmed() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -390,7 +390,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -399,7 +399,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_large_json() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         // Create a larger JSON object
         let mut large_json = String::from(r#"{"items": ["#);
@@ -419,7 +419,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;
@@ -428,7 +428,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_json_to_toon_token_savings_calculation() {
-        let mut app = test::init_service(App::new().service(convert_json_to_toon)).await;
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/json-to-toon")
@@ -438,7 +438,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
         let body: ToonResponse = test::read_body_json(resp).await;

@@ -405,7 +405,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_convert_url_to_markdown_invalid_url() {
-        let mut app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+        let app = test::init_service(App::new().service(convert_url_to_markdown)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/url-to-markdown")
@@ -421,13 +421,13 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_client_error());
     }
 
     #[actix_rt::test]
     async fn test_convert_url_to_markdown_valid_url_format() {
-        let mut app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+        let app = test::init_service(App::new().service(convert_url_to_markdown)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/url-to-markdown")
@@ -443,14 +443,14 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         // Should not be 400 (bad request) for URL format - might fail on network but that's OK
         assert_ne!(resp.status().as_u16(), 400);
     }
 
     #[actix_rt::test]
     async fn test_convert_url_to_markdown_with_options() {
-        let mut app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+        let app = test::init_service(App::new().service(convert_url_to_markdown)).await;
 
         let req = test::TestRequest::post()
             .uri("/api/url-to-markdown")
@@ -466,7 +466,7 @@ mod tests {
             })
             .to_request();
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
         // Should not be 400 (bad request) for URL format
         assert_ne!(resp.status().as_u16(), 400);
     }

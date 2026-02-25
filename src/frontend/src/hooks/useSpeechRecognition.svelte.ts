@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 export interface SpeechRecognitionOptions {
   onTranscript: (_transcript: string, _isFinal: boolean) => void
   onCommand?: (_command: 'execute' | 'send') => void

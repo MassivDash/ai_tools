@@ -76,8 +76,8 @@ mod tests {
         );
         assert_eq!(metadata_value_to_string(&MetadataValue::Int(42)), "42");
         assert_eq!(
-            metadata_value_to_string(&MetadataValue::Float(3.14)),
-            "3.14"
+            metadata_value_to_string(&MetadataValue::Float(3.15)), // Using 3.15 for testing (avoid clippy approx_constant)
+            "3.15"
         );
         assert_eq!(metadata_value_to_string(&MetadataValue::Bool(true)), "true");
     }

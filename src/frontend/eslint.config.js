@@ -69,7 +69,16 @@ export default [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
-        global: 'readonly'
+        global: 'readonly',
+        // Svelte 5 Runes
+        $state: 'readonly',
+        $derived: 'readonly',
+        $effect: 'readonly',
+        $props: 'readonly',
+        $bindable: 'readonly',
+        $inspect: 'readonly',
+        $host: 'readonly',
+        $snippet: 'readonly'
       }
     },
     rules: {

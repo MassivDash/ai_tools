@@ -50,7 +50,11 @@ jobs:
           cd src/frontend 
           npm run coverage
       - name: Test cli
+        if: matrix.os == 'macOS-latest'
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcovCli.info --manifest-path Cargo.toml
+      - name: Test cli (Ubuntu/Windows)
+        if: matrix.os != 'macOS-latest'
+        run: cargo test --all-features --workspace --manifest-path Cargo.toml
       - name: Report code coverage
         if: matrix.os == 'macOS-latest'
         uses: zgosalvez/github-actions-report-lcov@v4.1.21
@@ -61,7 +65,11 @@ jobs:
           update-comment: true
           title-prefix: "CLI"
       - name: Test Backend
+        if: matrix.os == 'macOS-latest'
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcovBackend.info --manifest-path src/backend/Cargo.toml
+      - name: Test Backend (Ubuntu/Windows)
+        if: matrix.os != 'macOS-latest'
+        run: cargo test --all-features --workspace --manifest-path src/backend/Cargo.toml
       - name: Report code coverage
         if: matrix.os == 'macOS-latest'
         uses: zgosalvez/github-actions-report-lcov@v4.1.21

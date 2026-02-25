@@ -153,6 +153,5 @@ mod tests {
     #[test]
     fn test_functions_exist() {
         // Just verify the functions are defined
-        assert!(true);
     }
 }

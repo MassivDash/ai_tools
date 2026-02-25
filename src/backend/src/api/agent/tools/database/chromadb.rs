@@ -71,7 +71,19 @@ impl ChromaDBTool {
 
                     if include {
                         count += 1;
-                        formatted.push_str(&format!("=== Document {} ===\n{}\n\n", count, doc));
+
+                        let metadata_str = query_response
+                            .metadatas
+                            .as_ref()
+                            .and_then(|batch| batch.get(i))
+                            .and_then(|docs| docs.get(j))
+                            .map(|m| serde_json::to_string_pretty(m).unwrap_or_default())
+                            .unwrap_or_else(|| "{}".to_string());
+
+                        formatted.push_str(&format!(
+                            "=== Document {} ===\nMetadata:\n{}\n\nContent:\n{}\n\n",
+                            count, metadata_str, doc
+                        ));
                     }
                 }
             }

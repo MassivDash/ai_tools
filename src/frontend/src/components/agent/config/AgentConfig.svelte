@@ -10,6 +10,7 @@
   } from '@types'
   import ChromaDBConfigSection from './ChromaDBConfigSection.svelte'
   import ToolsConfigSection from './ToolsConfigSection.svelte'
+  import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   import MaterialIcon from '@ui/MaterialIcon.svelte'
   export let isOpen: boolean = false
   export let onClose: () => void
@@ -21,6 +22,7 @@
   let chromadbEnabled = false
   let selectedCollection = ''
   let selectedEmbeddingModel = ''
+  let debugLogging = false
   let loadingCollections = false
   let loadingModels = false
   let savingConfig = false
@@ -32,6 +34,7 @@
         await axiosBackendInstance.get<AgentConfig>('agent/config')
       // Backend returns enabled_tools as string[] (ToolType enum serialized to snake_case)
       enabledTools = response.data.enabled_tools || []
+      debugLogging = !!response.data.debug_logging
 
       // ChromaDB is now separate from enabled_tools
       if (response.data.chromadb) {
@@ -137,6 +140,7 @@
       // Backend expects: ['financial_data', 'website_check'] etc.
       const payload = {
         enabled_tools: enabledTools, // Already in correct format from tool.tool_type
+        debug_logging: debugLogging,
         chromadb: chromadbEnabled
           ? {
               collection: selectedCollection,
@@ -198,6 +202,14 @@
       onCollectionSelect={handleCollectionSelect}
       onModelSelect={handleModelSelect}
     />
+
+    <div style="margin-bottom: 2rem;">
+      <CheckboxWithHelp
+        bind:checked={debugLogging}
+        label="Debug Conversation Logging"
+        helpText="Writes detailed logs of the agent conversation (system prompts, thinking, tool calls, results) to a single file in public/logs per conversation. Useful for debugging agent behavior."
+      />
+    </div>
 
     <ToolsConfigSection {enabledTools} onToggle={handleToolToggle} />
   </div>

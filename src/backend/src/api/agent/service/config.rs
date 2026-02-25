@@ -40,8 +40,7 @@ pub async fn post_agent_config(
     let mut config_guard = agent_config.lock().unwrap();
 
     // Validate ChromaDB config if provided
-    if req.chromadb.is_some() {
-        let chromadb_config = req.chromadb.as_ref().unwrap();
+    if let Some(ref chromadb_config) = req.chromadb {
         if chromadb_config.collection.trim().is_empty()
             || chromadb_config.embedding_model.trim().is_empty()
         {
@@ -53,13 +52,17 @@ pub async fn post_agent_config(
         }
     }
 
-    // Remove ChromaDB from enabled_tools if present (it's now a separate config section)
-    let mut enabled_tools = req.enabled_tools.clone();
-    enabled_tools.retain(|t| *t != ToolType::ChromaDB);
+    // Update enabled_tools if provided
+    if let Some(mut enabled_tools) = req.enabled_tools.clone() {
+        // Remove ChromaDB from enabled_tools if present (it's now a separate config section)
+        enabled_tools.retain(|t| *t != ToolType::ChromaDB);
+        config_guard.enabled_tools = enabled_tools;
+    }
 
-    // Update configuration
-    config_guard.enabled_tools = enabled_tools;
-    config_guard.chromadb = req.chromadb.clone();
+    // Update ChromaDB config if provided
+    if let Some(chromadb_config) = req.chromadb.clone() {
+        config_guard.chromadb = Some(chromadb_config);
+    }
 
     // Update debug logging if provided
     if let Some(debug_logging) = req.debug_logging {

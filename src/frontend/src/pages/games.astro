@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/Layout.astro'
+import GamesSwitcher from '../components/games/GamesSwitcher.svelte'
+---
+
+<Layout title='AI Games'>
+  <div transition:animate='fade'>
+    <GamesSwitcher client:load />
+  </div>
+</Layout>
