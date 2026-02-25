@@ -38,7 +38,7 @@ export const buildChromaDBConfigPayload = (values: {
   if (values.chunk_size !== undefined) {
     payload.chunk_size = values.chunk_size
   }
-  
+
   if (values.chunk_overlap !== undefined) {
     payload.chunk_overlap = values.chunk_overlap
   }
