@@ -34,10 +34,8 @@ jobs:
           cargo install cargo-watch
           cargo install commitlint-rs
       - name: Setup LCOV
-        if: matrix.os == 'macOS-latest'
         uses: hrishikesh-kadam/setup-lcov@v1
       - name: Install cargo-llvm-cov
-        if: matrix.os == 'macOS-latest'
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install Node.js
         uses: actions/setup-node@v2
