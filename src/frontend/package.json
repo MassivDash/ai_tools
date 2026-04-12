@@ -25,7 +25,7 @@
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "astro": "^5.16.5",
-    "axios": "^1.13.2",
+    "axios": "^1.15.0",
     "chart.js": "^4.5.1",
     "katex": "^0.16.27",
     "marked": "^17.0.1",
