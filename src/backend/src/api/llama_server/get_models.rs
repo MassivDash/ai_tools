@@ -40,7 +40,11 @@ pub async fn get_llama_models() -> ActixResult<HttpResponse> {
             let prev_len = models.len();
             match scan_directory_for_gguf(&dir, &mut models) {
                 Ok(_) => {
-                    println!("✅ Found {} GGUF models in {:?}", models.len() - prev_len, dir);
+                    println!(
+                        "✅ Found {} GGUF models in {:?}",
+                        models.len() - prev_len,
+                        dir
+                    );
                 }
                 Err(e) => {
                     println!("⚠️  Error scanning directory {:?}: {}", dir, e);
