@@ -18,8 +18,8 @@ pub struct ModelsResponse {
 
 #[get("/api/llama-server/models")]
 pub async fn get_llama_models() -> ActixResult<HttpResponse> {
-    let cache_dir = match std::env::var("HOME") {
-        Ok(home) => PathBuf::from(home).join(".cache").join("llama.cpp"),
+    let home_dir = match std::env::var("HOME") {
+        Ok(home) => PathBuf::from(home),
         Err(_) => {
             return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": "Could not determine home directory"
@@ -27,20 +27,28 @@ pub async fn get_llama_models() -> ActixResult<HttpResponse> {
         }
     };
 
+    let llama_cache_dir = home_dir.join(".cache").join("llama.cpp");
+    let hf_cache_dir = home_dir.join(".cache").join("huggingface").join("hub");
+
     let mut models = Vec::new();
 
-    if cache_dir.exists() {
-        println!("📂 Scanning for GGUF models in: {:?}", cache_dir);
-        match scan_directory_for_gguf(&cache_dir, &mut models) {
-            Ok(_) => {
-                println!("✅ Found {} GGUF models", models.len());
+    let dirs_to_scan = vec![llama_cache_dir, hf_cache_dir];
+
+    for dir in dirs_to_scan {
+        if dir.exists() {
+            println!("📂 Scanning for GGUF models in: {:?}", dir);
+            let prev_len = models.len();
+            match scan_directory_for_gguf(&dir, &mut models) {
+                Ok(_) => {
+                    println!("✅ Found {} GGUF models in {:?}", models.len() - prev_len, dir);
+                }
+                Err(e) => {
+                    println!("⚠️  Error scanning directory {:?}: {}", dir, e);
+                }
             }
-            Err(e) => {
-                println!("⚠️  Error scanning directory: {}", e);
-            }
+        } else {
+            println!("⚠️  Cache directory does not exist: {:?}", dir);
         }
-    } else {
-        println!("⚠️  Cache directory does not exist: {:?}", cache_dir);
     }
 
     Ok(HttpResponse::Ok().json(ModelsResponse {

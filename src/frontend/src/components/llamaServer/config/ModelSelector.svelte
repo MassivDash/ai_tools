@@ -126,7 +126,7 @@
     />
   {:else}
     <div class="no-models">
-      <p>No GGUF models found in ~/.cache/llama.cpp/</p>
+      <p>No GGUF models found in ~/.cache/llama.cpp/ or ~/.cache/huggingface/hub/</p>
       <p class="hint-small">Models will appear here once downloaded</p>
     </div>
   {/if}
