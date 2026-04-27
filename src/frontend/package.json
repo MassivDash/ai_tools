@@ -27,6 +27,7 @@
     "astro": "^5.16.5",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
+    "heic2any": "^0.0.4",
     "katex": "^0.16.27",
     "marked": "^17.0.1",
     "marked-katex-extension": "^5.1.6",

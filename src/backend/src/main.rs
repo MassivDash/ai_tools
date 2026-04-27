@@ -4,7 +4,7 @@ use actix_files::{Files, NamedFile};
 use actix_rt::System;
 use actix_web::dev::{fn_service, ServiceRequest, ServiceResponse};
 use actix_web::middleware::{NormalizePath, TrailingSlash};
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{middleware, web, App, HttpResponse, HttpServer};
 
 mod api;
 mod args;
@@ -350,6 +350,20 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(sd_model_sets_storage.clone()))
             .app_data(web::Data::new(one_of_fifteen_state_data.clone()))
             .app_data(web::Data::new(one_of_fifteen_broadcaster_data.clone()))
+            .app_data(
+                web::JsonConfig::default()
+                    .limit(50 * 1024 * 1024) // 50MB
+                    .error_handler(|err, _req| {
+                        actix_web::error::InternalError::from_response(
+                            err,
+                            HttpResponse::BadRequest().json(serde_json::json!({
+                                "error": "JSON Error",
+                                "message": "Failed to process JSON payload."
+                            })),
+                        )
+                        .into()
+                    }),
+            )
             .wrap(cors)
             .route("/api/llama-server/logs/ws", web::get().to(logs_websocket))
             .route(

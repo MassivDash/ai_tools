@@ -112,6 +112,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GitHubPublic,
             ToolType::GitHubAuthenticated,
             ToolType::Crypto,
+            ToolType::GoogleBooks,
         ],
         // Provide dummy config for ChromaDB so it attempts registration
         // It will only succeed if the code handles it, but connection check might fail it effectively.
@@ -155,14 +156,33 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
 
 /// Get model capabilities from llama server /props endpoint
 #[get("/api/agent/model-capabilities")]
-pub async fn get_model_capabilities() -> ActixResult<HttpResponse> {
+pub async fn get_model_capabilities(
+    llama_config: web::Data<Arc<Mutex<crate::api::llama_server::types::Config>>>,
+) -> ActixResult<HttpResponse> {
     let client = Client::new();
-    let llama_url = "http://localhost:8080/props";
+
+    let (mut host, port) = {
+        let config = llama_config.lock().unwrap();
+        (
+            config
+                .host
+                .clone()
+                .unwrap_or_else(|| "localhost".to_string()),
+            config.port.unwrap_or(8080),
+        )
+    };
+
+    if host == "0.0.0.0" {
+        host = "localhost".to_string();
+    }
+
+    let llama_url = format!("http://{}:{}/props", host, port);
 
     match client.get(llama_url).send().await {
         Ok(response) => {
             if response.status().is_success() {
-                match response.json::<ModelPropsResponse>().await {
+                let json_text = response.text().await.unwrap_or_default();
+                match serde_json::from_str::<ModelPropsResponse>(&json_text) {
                     Ok(props) => {
                         println!(
                             "📊 Model capabilities: vision={}, audio={}",
@@ -181,7 +201,6 @@ pub async fn get_model_capabilities() -> ActixResult<HttpResponse> {
                 }
             } else {
                 println!("⚠️ Llama server returned error: {}", response.status());
-                // Return default capabilities if server is not available
                 Ok(HttpResponse::Ok().json(ModelCapabilities {
                     vision: false,
                     audio: false,

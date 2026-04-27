@@ -131,7 +131,11 @@
 
     // Auto-detect type based on mime type to be robust
     let fileType = type
-    if (file.type.startsWith('image/')) {
+    if (
+      file.type.startsWith('image/') ||
+      file.name.toLowerCase().endsWith('.heic') ||
+      file.name.toLowerCase().endsWith('.heif')
+    ) {
       fileType = 'image'
     } else if (file.type === 'application/pdf') {
       fileType = 'pdf'
@@ -197,7 +201,33 @@
       } else if (fileType === 'image') {
         // Process image: Resize if needed and convert to JPEG for compatibility
         try {
-          const processedBase64 = await processImage(file)
+          let imageFileToProcess = file
+          const isHeic =
+            file.type === 'image/heic' ||
+            file.type === 'image/heif' ||
+            file.name.toLowerCase().endsWith('.heic') ||
+            file.name.toLowerCase().endsWith('.heif')
+
+          if (isHeic) {
+            // eslint-disable-next-line no-console
+            console.log('Converting HEIC/HEIF to JPEG...')
+            const heic2any = (await import('heic2any')).default
+            const convertedBlob = await heic2any({
+              blob: file,
+              toType: 'image/jpeg',
+              quality: 0.85
+            })
+            const blob = Array.isArray(convertedBlob)
+              ? convertedBlob[0]
+              : convertedBlob
+            imageFileToProcess = new File(
+              [blob],
+              file.name.replace(/\.(heic|heif)$/i, '.jpg'),
+              { type: 'image/jpeg' }
+            )
+          }
+
+          const processedBase64 = await processImage(imageFileToProcess)
           attachment.content = processedBase64
           // Ensure extension is jpg for consistency in naming (visual only)
           if (
@@ -474,7 +504,7 @@
     <input
       bind:this={imageInputRef}
       type="file"
-      accept="image/*"
+      accept="image/*,.heic,.heif"
       onchange={(e) => handleFileSelect(e, 'image')}
       style="display: none"
     />

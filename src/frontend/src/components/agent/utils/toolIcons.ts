@@ -134,6 +134,9 @@ export const getToolIcon = (toolName: string | undefined): string => {
   ) {
     return 'download'
   }
+  if (name.includes('book')) {
+    return 'book-open-variant'
+  }
 
   // Default icon
   return 'wrench'
