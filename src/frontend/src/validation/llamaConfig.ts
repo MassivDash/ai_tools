@@ -6,7 +6,6 @@ export const LlamaConfigRequestSchema = z.object({
   hf_model: z
     .string()
     .trim()
-    .min(1, 'HuggingFace model cannot be empty')
     .optional(),
   ctx_size: z
     .number()
@@ -58,11 +57,9 @@ export const buildLlamaConfigPayload = (values: {
 }) => {
   const payload: Record<string, any> = {}
 
-  // hf_model - required, must be non-empty after trim
+  // hf_model - can be empty if model path is provided
   const trimmedHfModel = values.hf_model.trim()
-  if (trimmedHfModel) {
-    payload.hf_model = trimmedHfModel
-  }
+  payload.hf_model = trimmedHfModel
 
   // ctx_size - must be > 0 if provided
   if (values.ctx_size > 0) {

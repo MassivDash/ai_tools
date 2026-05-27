@@ -3,6 +3,7 @@ export interface LlamaModelInfo {
   path: string
   size?: number
   hf_format?: string
+  legacy_hf_format?: string
 }
 
 export interface OllamaModelInfo {

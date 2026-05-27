@@ -7,6 +7,7 @@
   import ModelEditModal from './ModelEditModal.svelte'
   import PlatformSection from './PlatformSection.svelte'
   import PageSubHeader from '../ui/PageSubHeader.svelte'
+  import { findNoteForModel } from '../llamaServer/config/modelMatcher'
   import type {
     LlamaModelInfo,
     OllamaModelInfo,
@@ -60,7 +61,28 @@
   const getNote = (platform: string, modelName: string): ModelNote | null => {
     modelNotesKey
     const key = getModelKey(platform, modelName)
-    return modelNotesData.get(key) || null
+    const exactNote = modelNotesData.get(key)
+    if (exactNote) return exactNote
+
+    // Find the corresponding model object
+    let model: LlamaModelInfo | OllamaModelInfo | undefined
+    if (platform === 'llama') {
+      model = llamaModels.find(
+        (m) =>
+          m.name === modelName ||
+          m.hf_format === modelName ||
+          m.legacy_hf_format === modelName
+      )
+    } else {
+      model = ollamaModels.find((m) => m.name === modelName)
+    }
+
+    if (model) {
+      return findNoteForModel(model, modelNotesData)
+    }
+
+    // Fallback to searching notes by modelName
+    return findNoteForModel({ name: modelName }, modelNotesData)
   }
 
   const isFavorite = (platform: string, modelName: string): boolean => {
@@ -179,8 +201,8 @@
 
     const noteRequest: ModelNoteRequest = {
       platform,
-      model_name: modelName,
-      model_path: modelPath,
+      model_name: currentNote?.model_name || modelName,
+      model_path: currentNote?.model_path || modelPath,
       is_favorite: !isCurrentlyFavorite,
       tags: currentNote?.tags || [],
       notes: currentNote?.notes || undefined
@@ -452,66 +474,14 @@
       icon="server-network"
       models={filteredLlamaModels()}
       platform="llama"
-      getNote={(platform, modelName) => {
-        // For llama, try to find note by hf_format first, then by filename
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        if (model?.hf_format) {
-          const hfNote = getNote(platform, model.hf_format)
-          if (hfNote) return hfNote
-        }
-        return getNote(platform, modelName)
-      }}
-      isFavorite={(platform, modelName) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        if (model?.hf_format) {
-          const hfNote = getNote(platform, model.hf_format)
-          if (hfNote?.is_favorite) return true
-        }
-        return isFavorite(platform, modelName)
-      }}
-      isDefault={(platform, modelName) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        if (model?.hf_format) {
-          const hfNote = getNote(platform, model.hf_format)
-          if (hfNote?.is_default) return true
-        }
-        return isDefault(platform, modelName)
-      }}
-      getTags={(platform, modelName) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        if (model?.hf_format) {
-          const hfNote = getNote(platform, model.hf_format)
-          if (hfNote) return hfNote.tags
-        }
-        return getTags(platform, modelName)
-      }}
-      getNotes={(platform, modelName) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        if (model?.hf_format) {
-          const hfNote = getNote(platform, model.hf_format)
-          if (hfNote) return hfNote.notes || ''
-        }
-        return getNotes(platform, modelName)
-      }}
-      toggleFavorite={(platform, modelName, modelPath) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        const identifier = model?.hf_format || modelName
-        toggleFavorite(platform, identifier, modelPath)
-      }}
-      startEditing={(platform, modelName, modelPath) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        // Pass hf_format if available
-        const hfFormat = model?.hf_format
-        startEditing(platform, modelName, modelPath, hfFormat)
-      }}
-      deleteNote={(platform, modelName) => {
-        const model = filteredLlamaModels().find((m) => m.name === modelName)
-        // Try both hf_format and filename
-        if (model?.hf_format) {
-          deleteNote(platform, model.hf_format)
-        }
-        deleteNote(platform, modelName)
-      }}
+      {getNote}
+      {isFavorite}
+      {isDefault}
+      {getTags}
+      {getNotes}
+      {toggleFavorite}
+      {startEditing}
+      {deleteNote}
       {modelNotesKey}
     />
 

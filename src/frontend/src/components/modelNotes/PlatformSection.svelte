@@ -60,7 +60,7 @@
       {title} ({models.length})
     </h3>
     <div class="models-grid">
-      {#each models as model (model.name)}
+      {#each models as model, index (model.path || `${model.name}-${index}`)}
         {#key `${model.name}-${modelNotesKey}`}
           {@const note = getNote(platform, model.name)}
           {@const isFav = isFavorite(platform, model.name)}

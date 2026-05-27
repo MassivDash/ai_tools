@@ -55,6 +55,10 @@ pub async fn post_update_config(
             } else {
                 println!("✅ Saved llama default config");
             }
+        } else {
+            let mut config_guard = config.lock().unwrap();
+            config_guard.hf_model = String::new();
+            println!("📝 Cleared HF model");
         }
     }
 
@@ -240,9 +244,8 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_post_update_config_empty_hf_model_ignored() {
+    async fn test_post_update_config_empty_hf_model_cleared() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
-        let original_model = config.lock().unwrap().hf_model.clone();
         let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
@@ -274,9 +277,9 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
-        // Verify config was not updated (empty string ignored)
+        // Verify config was updated to empty string
         let config_guard = config.lock().unwrap();
-        assert_eq!(config_guard.hf_model, original_model);
+        assert_eq!(config_guard.hf_model, "");
     }
 
     #[actix_web::test]

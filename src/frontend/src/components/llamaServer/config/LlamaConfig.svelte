@@ -26,6 +26,7 @@
     path: string
     size?: number
     hf_format?: string
+    legacy_hf_format?: string
   }
 
   interface ConfigResponse {
@@ -163,7 +164,7 @@
 
   const handleModelSelect = (model: ModelInfo) => {
     newHfModel = model.hf_format || model.name
-    newHfModelBackend = model.hf_format || model.path || model.name
+    newHfModelBackend = model.hf_format || ''
     if (model.path) {
       newModel = model.path
     }
@@ -173,8 +174,8 @@
     savingConfig = true
     error = ''
 
-    if (!newHfModel.trim()) {
-      error = 'HuggingFace model is required'
+    if (!newHfModel.trim() && !newModel.trim()) {
+      error = 'HuggingFace model or Model Path is required'
       savingConfig = false
       return
     }
@@ -444,7 +445,7 @@
     <Button
       variant="primary"
       onclick={handleSave}
-      disabled={savingConfig || !newHfModel.trim()}
+      disabled={savingConfig || (!newHfModel.trim() && !newModel.trim())}
     >
       {savingConfig ? 'Saving...' : 'Save'}
     </Button>

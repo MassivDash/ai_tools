@@ -62,12 +62,20 @@ pub async fn post_start_llama_server(
     drop(config_guard);
 
     // Start the llama-server process
-    println!(
-        "🚀 Starting llama-server with model: {}, ctx_size: {}",
-        hf_model, ctx_size
-    );
     let mut cmd = Command::new("llama-server");
-    cmd.arg("-hf").arg(&hf_model);
+
+    let mut using_local_model = false;
+    if let Some(model_path) = &model {
+        if !model_path.trim().is_empty() {
+            cmd.arg("--model").arg(model_path);
+            using_local_model = true;
+        }
+    }
+
+    if !using_local_model && !hf_model.trim().is_empty() {
+        cmd.arg("-hf").arg(&hf_model);
+    }
+
     cmd.arg("--ctx-size").arg(&ctx_size);
 
     // Add optional arguments
@@ -98,11 +106,6 @@ pub async fn post_start_llama_server(
     }
     if let Some(gpu_layers_val) = gpu_layers {
         cmd.arg("--gpu-layers").arg(gpu_layers_val.to_string());
-    }
-    if let Some(model_path) = &model {
-        if !model_path.trim().is_empty() {
-            cmd.arg("--model").arg(model_path);
-        }
     }
     if let Some(host_val) = &host {
         cmd.arg("--host").arg(host_val);

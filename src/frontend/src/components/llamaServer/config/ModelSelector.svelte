@@ -2,13 +2,8 @@
   import SearchableList from '../../ui/SearchableList.svelte'
   import type { ModelNote } from '@types'
   import { formatFileSize, getDisplayValue } from './utils'
-
-  interface ModelInfo {
-    name: string
-    path: string
-    size?: number
-    hf_format?: string
-  }
+  import { findNoteForModel } from './modelMatcher'
+  import type { ModelInfo } from './modelMatcher'
 
   interface Props {
     loadingModels: boolean
@@ -52,23 +47,7 @@
 
   // Find matching note for a model
   const getModelNote = (model: ModelInfo): ModelNote | null => {
-    // Try matching by name first
-    let note = modelNotes.get(model.name)
-    if (note) return note
-
-    // Try matching by path
-    if (model.path) {
-      note = modelNotes.get(model.path)
-      if (note) return note
-    }
-
-    // Try matching by hf_format
-    if (model.hf_format) {
-      note = modelNotes.get(model.hf_format)
-      if (note) return note
-    }
-
-    return null
+    return findNoteForModel(model, modelNotes)
   }
 
   const getModelFavorite = (model: ModelInfo): boolean => {
