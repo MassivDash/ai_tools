@@ -148,8 +148,20 @@ pub async fn upload_documents(
         chunk_size, chunk_overlap
     );
 
+    // Create public/documents directory if it doesn't exist
+    let docs_dir = std::path::Path::new("./public/documents");
+    if let Err(e) = std::fs::create_dir_all(docs_dir) {
+        println!("⚠️ Failed to create documents directory: {}", e);
+    }
+
     for (filename, file_data) in files {
         println!("📄 Processing file: {}", filename);
+
+        // Save the raw file for the agent to retrieve later
+        let file_path = docs_dir.join(&filename);
+        if let Err(e) = std::fs::write(&file_path, &file_data) {
+            println!("⚠️ Failed to save document to {:?}: {}", file_path, e);
+        }
 
         // Determine file type and parse
         let (text, metadata) = if filename.ends_with(".pdf") {
@@ -541,12 +553,9 @@ fn chunk_markdown_semantic_tokens(
                 sections.push(current_section);
                 current_section = String::new();
             }
-            current_section.push_str(line);
-            current_section.push('\n');
-        } else {
-            current_section.push_str(line);
-            current_section.push('\n');
         }
+        current_section.push_str(line);
+        current_section.push('\n');
     }
 
     // Add final section
@@ -554,21 +563,50 @@ fn chunk_markdown_semantic_tokens(
         sections.push(current_section);
     }
 
-    // If we have multiple sections, chunk each section semantically
-    if sections.len() > 1 {
-        let mut all_chunks = Vec::new();
-        for section in sections {
-            let section_chunks =
-                chunk_semantic_tokens(&section, tokenizer, target_tokens, overlap_tokens);
-            all_chunks.extend(section_chunks);
-        }
-        if !all_chunks.is_empty() {
-            return all_chunks;
+    let mut all_chunks = Vec::new();
+    let mut current_group = String::new();
+
+    for section in sections {
+        let test_combined = if current_group.is_empty() {
+            section.clone()
+        } else {
+            format!("{}{}", current_group, section)
+        };
+
+        let token_count = match tokenizer.encode(test_combined.as_str(), false) {
+            Ok(e) => e.len(),
+            Err(_) => test_combined.len() / 4,
+        };
+
+        // If combining exceeds target and we already have content
+        if token_count > target_tokens && !current_group.is_empty() {
+            // Process the current_group
+            let group_chunks =
+                chunk_semantic_tokens(&current_group, tokenizer, target_tokens, overlap_tokens);
+            all_chunks.extend(group_chunks);
+
+            // Get overlap from the end of what we just processed
+            let overlap_str = get_overlap_text(&all_chunks, tokenizer, overlap_tokens);
+
+            // Start a new group with overlap + section
+            current_group = format!("{}{}", overlap_str, section);
+        } else {
+            current_group = test_combined;
         }
     }
 
-    // Fallback to regular semantic token-based chunking
-    chunk_semantic_tokens(text, tokenizer, target_tokens, overlap_tokens)
+    // Process any remaining grouped sections
+    if !current_group.trim().is_empty() {
+        let group_chunks =
+            chunk_semantic_tokens(&current_group, tokenizer, target_tokens, overlap_tokens);
+        all_chunks.extend(group_chunks);
+    }
+
+    if all_chunks.is_empty() {
+        return chunk_semantic_tokens(text, tokenizer, target_tokens, overlap_tokens);
+    }
+
+    all_chunks
 }
 
 // Semantic chunking strategy - respects sentence and paragraph boundaries (character-based fallback)
@@ -690,12 +728,9 @@ fn chunk_markdown_semantic(text: &str, target_chunk_size: usize, overlap: usize)
                 sections.push(current_section);
                 current_section = String::new();
             }
-            current_section.push_str(line);
-            current_section.push('\n');
-        } else {
-            current_section.push_str(line);
-            current_section.push('\n');
         }
+        current_section.push_str(line);
+        current_section.push('\n');
     }
 
     // Add final section
@@ -703,20 +738,51 @@ fn chunk_markdown_semantic(text: &str, target_chunk_size: usize, overlap: usize)
         sections.push(current_section);
     }
 
-    // If we have multiple sections, chunk each section semantically
-    if sections.len() > 1 {
-        let mut all_chunks = Vec::new();
-        for section in sections {
-            let section_chunks = chunk_semantic(&section, target_chunk_size, overlap);
-            all_chunks.extend(section_chunks);
-        }
-        if !all_chunks.is_empty() {
-            return all_chunks;
+    let mut all_chunks = Vec::new();
+    let mut current_group = String::new();
+
+    for section in sections {
+        let test_combined = if current_group.is_empty() {
+            section.clone()
+        } else {
+            format!("{}{}", current_group, section)
+        };
+
+        if test_combined.len() > target_chunk_size && !current_group.is_empty() {
+            let group_chunks = chunk_semantic(&current_group, target_chunk_size, overlap);
+            all_chunks.extend(group_chunks);
+
+            // Start new group with overlap
+            let overlap_str = if overlap > 0 && !all_chunks.is_empty() {
+                let last_chunk = &all_chunks[all_chunks.len() - 1];
+                let char_count = last_chunk.chars().count();
+                let chars_to_keep = overlap.min(char_count);
+                let overlap_start = last_chunk
+                    .char_indices()
+                    .nth(char_count.saturating_sub(chars_to_keep))
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(0);
+                last_chunk[overlap_start..].to_string()
+            } else {
+                String::new()
+            };
+
+            current_group = format!("{}{}", overlap_str, section);
+        } else {
+            current_group = test_combined;
         }
     }
 
-    // Fallback to regular semantic chunking if header-based splitting didn't help
-    chunk_semantic(text, target_chunk_size, overlap)
+    if !current_group.trim().is_empty() {
+        let group_chunks = chunk_semantic(&current_group, target_chunk_size, overlap);
+        all_chunks.extend(group_chunks);
+    }
+
+    if all_chunks.is_empty() {
+        return chunk_semantic(text, target_chunk_size, overlap);
+    }
+
+    all_chunks
 }
 
 // Fallback: Simple character-based chunking (original implementation)
