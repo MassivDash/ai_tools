@@ -50,7 +50,13 @@ pub fn select_next_rotation_player(state: &GameState, current_id: &str) -> Optio
     let active_ids: Vec<String> = state
         .player_queue
         .iter()
-        .filter(|id| state.contestants.get(*id).map(|c| !c.eliminated).unwrap_or(false))
+        .filter(|id| {
+            state
+                .contestants
+                .get(*id)
+                .map(|c| !c.eliminated)
+                .unwrap_or(false)
+        })
         .cloned()
         .collect();
 
@@ -70,7 +76,10 @@ pub fn select_next_rotation_player(state: &GameState, current_id: &str) -> Optio
 pub fn handle_wrong_answer(
     state: &mut GameState,
     player_id: &str,
-) -> (Vec<OutgoingMessage>, Option<crate::api::games::one_of_ten::types::AsyncAction>) {
+) -> (
+    Vec<OutgoingMessage>,
+    Option<crate::api::games::one_of_ten::types::AsyncAction>,
+) {
     // Deduct life
     deduct_life(state, player_id);
     check_elimination(state, player_id);
@@ -97,10 +106,12 @@ pub fn handle_wrong_answer(
             if let Some(next_id) = select_next_rotation_player(state, player_id) {
                 state.active_player_id = Some(next_id.clone());
                 if let Some(contestant) = state.contestants.get(&next_id) {
-                    action = Some(crate::api::games::one_of_ten::types::AsyncAction::GenerateQuestion {
-                        age: contestant.age.clone(),
-                        past_questions: state.past_questions.clone(),
-                    });
+                    action = Some(
+                        crate::api::games::one_of_ten::types::AsyncAction::GenerateQuestion {
+                            age: contestant.age.clone(),
+                            past_questions: state.past_questions.clone(),
+                        },
+                    );
                 }
             }
         }
@@ -109,10 +120,12 @@ pub fn handle_wrong_answer(
         if let Some(next_id) = select_next_rotation_player(state, player_id) {
             state.active_player_id = Some(next_id.clone());
             if let Some(contestant) = state.contestants.get(&next_id) {
-                action = Some(crate::api::games::one_of_ten::types::AsyncAction::GenerateQuestion {
-                    age: contestant.age.clone(),
-                    past_questions: state.past_questions.clone(),
-                });
+                action = Some(
+                    crate::api::games::one_of_ten::types::AsyncAction::GenerateQuestion {
+                        age: contestant.age.clone(),
+                        past_questions: state.past_questions.clone(),
+                    },
+                );
             }
         }
     }

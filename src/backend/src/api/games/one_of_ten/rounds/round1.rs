@@ -111,11 +111,13 @@ pub fn transition_to_round2(state: &mut GameState) {
     state.last_pointer_id = None;
 
     // Pick the first active player in seat order (Player 1..10) for Round 2
-    if let Some(first_id) = state
-        .player_queue
-        .iter()
-        .find(|id| state.contestants.get(*id).map(|c| !c.eliminated).unwrap_or(false))
-    {
+    if let Some(first_id) = state.player_queue.iter().find(|id| {
+        state
+            .contestants
+            .get(*id)
+            .map(|c| !c.eliminated)
+            .unwrap_or(false)
+    }) {
         state.active_player_id = Some(first_id.clone());
     }
 }

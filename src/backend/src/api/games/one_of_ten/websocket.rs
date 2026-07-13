@@ -308,7 +308,9 @@ impl OneOfTenWebSocket {
                     } else {
                         // If for some reason no active player, fallback to random (shouldn't happen in logic)
                         if let Some(random_id) =
-                            crate::api::games::one_of_ten::player_selection::select_random_active(state)
+                            crate::api::games::one_of_ten::player_selection::select_random_active(
+                                state,
+                            )
                         {
                             if let Some(player) = state.contestants.get(&random_id) {
                                 action = Some(AsyncAction::GenerateQuestion {
@@ -371,7 +373,10 @@ impl OneOfTenWebSocket {
     ) -> (Vec<OutgoingMessage>, Option<AsyncAction>) {
         state.last_answer_correct = Some(is_correct);
         if !is_correct {
-            state.last_correct_answer = state.current_question.as_ref().map(|q| q.correct_answer.clone());
+            state.last_correct_answer = state
+                .current_question
+                .as_ref()
+                .map(|q| q.correct_answer.clone());
         } else {
             state.last_correct_answer = None;
         }
@@ -430,7 +435,10 @@ impl OneOfTenWebSocket {
             }
             Round::Round2 => {
                 let (msgs, action) = if is_correct {
-                    (rounds::round2::handle_correct_answer(state, &player_id), None)
+                    (
+                        rounds::round2::handle_correct_answer(state, &player_id),
+                        None,
+                    )
                 } else {
                     rounds::round2::handle_wrong_answer(state, &player_id)
                 };
@@ -439,9 +447,7 @@ impl OneOfTenWebSocket {
                 let final_action = if state.round == Round::Round3 {
                     // Generate first question for Round 3
                     if let Some(random_id) =
-                        crate::api::games::one_of_ten::player_selection::select_random_active(
-                            state,
-                        )
+                        crate::api::games::one_of_ten::player_selection::select_random_active(state)
                     {
                         if let Some(player) = state.contestants.get(&random_id) {
                             Some(AsyncAction::GenerateQuestion {
@@ -485,7 +491,9 @@ impl OneOfTenWebSocket {
                         state.round3_exclusive = false;
                         state.decision_pending = false;
                         if let Some(random_id) =
-                            crate::api::games::one_of_ten::player_selection::select_random_active(state)
+                            crate::api::games::one_of_ten::player_selection::select_random_active(
+                                state,
+                            )
                         {
                             if let Some(player) = state.contestants.get(&random_id) {
                                 Some(AsyncAction::GenerateQuestion {
@@ -512,7 +520,10 @@ impl OneOfTenWebSocket {
         player_id: String,
     ) -> (Vec<OutgoingMessage>, Option<AsyncAction>) {
         state.last_answer_correct = Some(false);
-        state.last_correct_answer = state.current_question.as_ref().map(|q| q.correct_answer.clone());
+        state.last_correct_answer = state
+            .current_question
+            .as_ref()
+            .map(|q| q.correct_answer.clone());
 
         let round = state.round.clone();
 
@@ -561,7 +572,7 @@ impl OneOfTenWebSocket {
             // For other rounds, fall back to logic treating timeout as wrong answer if not specified
             Round::Round2 => {
                 let (msgs, action) = rounds::round2::handle_wrong_answer(state, &player_id);
-                
+
                 // Check if we transitioned to Round 3
                 let final_action = if state.round == Round::Round3 {
                     if let Some(random_id) =

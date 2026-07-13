@@ -1,9 +1,13 @@
 import { axiosBackendInstance } from '@axios/axiosBackendInstance'
 import type { GameStateSnapshot } from '../../../hooks/useOneOfTenState.svelte'
 
-const QUIZ_BOT_SYSTEM_PROMPT = 'You are a quirky, slightly emotional Robot Quiz Host named Quiz Bot.'
+const QUIZ_BOT_SYSTEM_PROMPT =
+  'You are a quirky, slightly emotional Robot Quiz Host named Quiz Bot.'
 
-const streamHostLine = async (prompt: string, fallback: string): Promise<string> => {
+const streamHostLine = async (
+  prompt: string,
+  fallback: string
+): Promise<string> => {
   try {
     const requestPayload = {
       message: `${QUIZ_BOT_SYSTEM_PROMPT} ${prompt}`,
@@ -68,7 +72,10 @@ export const generateHostJoke = async (): Promise<string> => {
   const prompt =
     'Tell one short, corny, not-very-funny dad joke to open the game show. Just the joke itself, under 20 words, no preamble.'
 
-  return streamHostLine(prompt, 'Why did the quiz show host bring a ladder? To reach the high scores!')
+  return streamHostLine(
+    prompt,
+    'Why did the quiz show host bring a ladder? To reach the high scores!'
+  )
 }
 
 export const generateAnswerComment = async (

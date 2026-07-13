@@ -38,7 +38,7 @@ pub fn handle_correct_answer_decision(
             award_points(state, player_id, 20);
             state.decision_pending = false;
             state.last_pointer_id = None; // Reset last pointer since they took it themselves
-            // Keep the same active player for next question
+                                          // Keep the same active player for next question
         }
         "point" => {
             // Point to another player - normal points (10)
