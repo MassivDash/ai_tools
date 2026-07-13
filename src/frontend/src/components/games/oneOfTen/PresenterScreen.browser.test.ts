@@ -19,7 +19,9 @@ vi.mock('../../../hooks/usePresenterSpeech.svelte', () => ({
 
 // Mock presenterService
 vi.mock('../../../api/games/oneOfTen/presenterService', () => ({
-  generateIntroSpeech: vi.fn().mockResolvedValue('Welcome humans!')
+  generateIntroSpeech: vi.fn().mockResolvedValue('Welcome humans!'),
+  generateHostJoke: vi.fn().mockResolvedValue('Ha ha ha!'),
+  generateAnswerComment: vi.fn().mockResolvedValue('Good job!')
 }))
 
 describe('PresenterScreen', () => {
@@ -50,7 +52,8 @@ describe('PresenterScreen', () => {
   const defaultProps = {
     gameState: mockGameState,
     onStartGame: vi.fn(),
-    onResetGame: vi.fn()
+    onResetGame: vi.fn(),
+    onPresenterFinishedSpeaking: vi.fn()
   }
 
   beforeEach(() => {

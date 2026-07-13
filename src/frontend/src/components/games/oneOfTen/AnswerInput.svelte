@@ -37,7 +37,13 @@
     onkeydown={handleKeydown}
     class="answer-input"
   />
-  <button onclick={handleSubmit} disabled={disabled || submitted} class="submit-btn"> Submit </button>
+  <button
+    onclick={handleSubmit}
+    disabled={disabled || submitted}
+    class="submit-btn"
+  >
+    Submit
+  </button>
 </div>
 
 <style>
