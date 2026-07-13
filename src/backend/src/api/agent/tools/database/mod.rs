@@ -1,7 +1,10 @@
 pub mod chromadb;
+pub mod read_document;
 
 use crate::api::agent::core::types::AgentConfig;
+use crate::api::agent::core::types::ToolType;
 use crate::api::agent::tools::database::chromadb::ChromaDBTool;
+use crate::api::agent::tools::database::read_document::ReadDocumentTool;
 use crate::api::agent::tools::framework::registry::ToolRegistry;
 use std::sync::Arc;
 
@@ -22,6 +25,13 @@ pub fn register(
                     println!("⚠️ Failed to create ChromaDB tool: {}", e);
                 }
             }
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::ReadDocument) {
+        let tool = ReadDocumentTool::new();
+        if let Err(e) = registry.register(Arc::new(tool)) {
+            println!("⚠️ Failed to register ReadDocument tool: {}", e);
         }
     }
 }

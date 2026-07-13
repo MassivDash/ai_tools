@@ -105,6 +105,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     let all_tools_config = AgentConfig {
         enabled_tools: vec![
             ToolType::ChromaDB,
+            ToolType::ReadDocument,
             ToolType::WebsiteCheck,
             ToolType::Weather,
             ToolType::Currency,

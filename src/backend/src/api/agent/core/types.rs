@@ -5,6 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ToolType {
     ChromaDB,
+    ReadDocument,
 
     WebsiteCheck,
     Weather,
