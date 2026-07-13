@@ -51,9 +51,10 @@ impl ChromaDBTool {
             .await
             .context("Failed to execute ChromaDB query")?;
 
-        // Format results: filter by cosine distance (distance <= 0.5 means similarity >= 0.5)
+        // Format results: filter by cosine distance
         // For cosine distance: 0.0 = identical, 1.0 = orthogonal, 2.0 = opposite
-        const MAX_COSINE_DISTANCE: f64 = 0.5; // Equivalent to similarity >= 0.5
+        // We increase this to 1.2 to accommodate models that naturally have higher base distances
+        const MAX_COSINE_DISTANCE: f64 = 1.2;
 
         let mut formatted = String::new();
         if let Some(documents) = &query_response.documents {
@@ -80,16 +81,24 @@ impl ChromaDBTool {
                             .map(|m| serde_json::to_string_pretty(m).unwrap_or_default())
                             .unwrap_or_else(|| "{}".to_string());
 
+                        let dist_str = query_response
+                            .distances
+                            .as_ref()
+                            .and_then(|dists| dists.get(i))
+                            .and_then(|batch| batch.get(j))
+                            .map(|&d| format!("{:.4}", d))
+                            .unwrap_or_else(|| "N/A".to_string());
+
                         formatted.push_str(&format!(
-                            "=== Document {} ===\nMetadata:\n{}\n\nContent:\n{}\n\n",
-                            count, metadata_str, doc
+                            "=== Document {} (Distance: {}) ===\nMetadata:\n{}\n\nContent:\n{}\n\n",
+                            count, dist_str, metadata_str, doc
                         ));
                     }
                 }
             }
 
             if count == 0 {
-                formatted.push_str("No relevant documents found (similarity threshold: 0.5).");
+                formatted.push_str("No relevant documents found (similarity threshold: 1.2).");
             }
         } else {
             formatted.push_str("No documents found in the collection.");
@@ -108,13 +117,13 @@ impl AgentTool for ChromaDBTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "search_chromadb",
-            "description": "Search a ChromaDB collection for relevant documents using semantic search. Use this tool when the user asks about: specific people, places, events, technical topics, programming frameworks/libraries (like Bevy, React, etc.), code examples, documentation, or any factual information that might be in the knowledge base. ALWAYS search for technical topics, frameworks, libraries, or code-related questions, **use this tool even if you have general knowledge** - the knowledge base may have specific, detailed, or up-to-date information. DO NOT use this for casual greetings, small talk, or general conversation. When searching, use clear, specific queries that match the user's question. For technical topics, consider using 5-10 results to get comprehensive information.",
+            "description": "Search a ChromaDB collection for relevant documents using semantic search. CRITICAL: Vector databases perform semantic matching, so do NOT pass the user's raw question (e.g., 'who is X?') as the query. Instead, formulate a 'HyDE' (Hypothetical Document Embeddings) query: use declarative sentences or exact keywords you expect to find in the target document (e.g., 'X professional summary background experience'). ALWAYS use this tool for factual info, people, or technical topics. Use specific, keyword-rich queries. For broad topics, use 5-10 results.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The search query to find relevant documents. Use a clear, factual query related to the specific information being requested."
+                        "description": "The search query. Must be a declarative sentence, exact keywords, or a hypothetical document snippet that would contain the answer. Do NOT use question formats."
                     },
                     "n_results": {
                         "type": "integer",

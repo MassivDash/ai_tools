@@ -29,12 +29,24 @@ impl ToolSelector {
         if !all_tools.is_empty() {
             prompt.push_str("AVAILABLE TOOLS:\n");
 
-            // If knowledge base (chroma db is enabled), let the llm know he should priortise the search before answering from internal knowledge
-            if all_tools
+            // If knowledge base (chromadb) or read document is enabled, let the llm know to prioritize them and list sources
+            let has_rag_tools = all_tools.iter().any(|tool| {
+                tool.metadata().tool_type == ToolType::ChromaDB
+                    || tool.metadata().tool_type == ToolType::ReadDocument
+            });
+            let has_read_doc = all_tools
                 .iter()
-                .any(|tool| tool.metadata().tool_type == ToolType::ChromaDB)
-            {
-                prompt.push_str("**USE KNOWLEDGE BASE TOOL ALWAYS:** Do a semantic search using the knowledge base tool before answering from internal knowledge \n\n")
+                .any(|t| t.metadata().tool_type == ToolType::ReadDocument);
+
+            if has_rag_tools {
+                prompt.push_str("**KNOWLEDGE BASE & RAG ALWAYS:** You have access to a semantic vector database. ALWAYS search it before answering factual questions.\n");
+                prompt.push_str("- **Multi-Query Strategy:** Never rely on just one search. Execute 2-3 different `search_chromadb` tool calls with different phrasing (e.g., one with exact keywords, one with broad concepts) to ensure you find the right information.\n");
+
+                if has_read_doc {
+                    prompt.push_str("- **Deep Dive (REQUIRED):** If your `search_chromadb` results show multiple chunks from the exact same `filename`, OR if a chunk has a very small distance score (indicating high relevance), you MUST use the `read_document` tool to read the full file. Do not rely solely on the snippets if it's highly relevant. Note: If the file is a massive book, the tool will automatically truncate it, so don't worry about context limits.\n");
+                }
+
+                prompt.push_str("- **Cite Sources:** When answering based on knowledge base results or documents, you MUST list your sources (e.g., filenames) clearly at the end of your response.\n\n");
             }
 
             prompt.push_str("**THINK FIRST BEFORE USING ANY OTHER TOOLS THAN THE KNOWLEDGE BASE:** Do you really need to use a tool? If you can answer with your internal knowledge, do NOT use a tool.\n\n");
@@ -60,7 +72,8 @@ impl ToolSelector {
             "GUIDELINES:
 - Use tools iteratively: call tools, analyze results, call again if needed, then provide final answer
 - Don't use tools for greetings or small talk
-- Respond naturally without explaining tool usage or internal processes",
+- Respond naturally without explaining tool usage or internal processes
+- CRITICAL: When you receive the results of a tool call in your next turn, you MUST use that data to answer the user's question directly. Do NOT simply say 'I have gathered the information' and wait. Synthesize the tool results into a helpful response.",
         );
 
         prompt
