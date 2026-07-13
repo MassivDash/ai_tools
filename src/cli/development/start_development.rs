@@ -6,6 +6,8 @@ use crate::cli::utils::terminal::{
 };
 use ctrlc::set_handler;
 use std::io::{BufRead, BufReader};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -83,7 +85,11 @@ pub fn start_development(config: Config) {
 
     // Start ChromaDB server using chroma run command directly
     step("Starting ChromaDB server");
-    let mut chromadb_server = Command::new(NPM)
+    let mut chromadb_cmd = Command::new(NPM);
+    #[cfg(unix)]
+    chromadb_cmd.process_group(0);
+
+    let mut chromadb_server = chromadb_cmd
         .current_dir("./src/chromadb")
         .arg("start")
         .arg("--")
@@ -144,7 +150,11 @@ pub fn start_development(config: Config) {
 
     // Start the backend development server
     step("Start the actix backend development server");
-    let mut cargo_watch = Command::new("cargo")
+    let mut cargo_cmd = Command::new("cargo");
+    #[cfg(unix)]
+    cargo_cmd.process_group(0);
+
+    let mut cargo_watch = cargo_cmd
         .current_dir("./src/backend")
         .arg("watch")
         .arg("-w")
@@ -211,7 +221,11 @@ pub fn start_development(config: Config) {
     // Start the frontend development server
     step("Starting astro frontend development server");
 
-    let mut node_watch = Command::new(NPM)
+    let mut node_cmd = Command::new(NPM);
+    #[cfg(unix)]
+    node_cmd.process_group(0);
+
+    let mut node_watch = node_cmd
         .arg("run")
         .arg("start")
         .arg("--")
@@ -284,15 +298,28 @@ pub fn start_development(config: Config) {
     }
     step("Cleaning up orphaned processes");
 
-    chromadb_server
-        .kill()
-        .expect("Failed to kill chromadb process");
-    cargo_watch
-        .kill()
-        .expect("Failed to kill cargo-watch process");
-    node_watch
-        .kill()
-        .expect("Failed to kill node-watch process");
+    #[cfg(unix)]
+    {
+        // Kill the entire process groups (including any spawned children) using negative PID
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(format!("-{}", chromadb_server.id()))
+            .status();
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(format!("-{}", cargo_watch.id()))
+            .status();
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(format!("-{}", node_watch.id()))
+            .status();
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = chromadb_server.kill();
+        let _ = cargo_watch.kill();
+        let _ = node_watch.kill();
+    }
 
     step("Exiting");
 
