@@ -471,7 +471,7 @@ pub async fn execute_agent_loop_streaming(
                                 tool_name: tool_call.function.name.clone(),
                                 display_name: Some(display_name.clone()),
                                 success: false,
-                                result: Some(format!("Error: {}", e)),
+                                result: Some(format!("Error: {:#}", e)),
                             }))
                             .await;
                         // Then send error status
@@ -488,7 +488,7 @@ pub async fn execute_agent_loop_streaming(
                             .await;
                         let error_result = ToolCallResult {
                             tool_name: tool_call.function.name.clone(),
-                            result: format!("Error: {}", e),
+                            result: format!("Error: {:#}", e),
                         };
                         logger.log_tool_result(&error_result);
                         tool_results.push(error_result);

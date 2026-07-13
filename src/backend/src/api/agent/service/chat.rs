@@ -587,7 +587,7 @@ pub async fn agent_chat_stream(
                 }
                 Err(e) => {
                     let error_event = AgentStreamEvent::Error {
-                        message: e.to_string(),
+                        message: format!("{:#}", e),
                     };
                     let json =
                         serde_json::to_string(&error_event).unwrap_or_else(|_| "{}".to_string());

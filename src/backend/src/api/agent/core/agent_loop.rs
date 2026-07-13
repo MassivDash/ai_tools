@@ -250,10 +250,10 @@ pub async fn execute_agent_loop(
                             logger.log_tool_result(&result);
                         }
                         Err(e) => {
-                            println!("   Tool execution error: {}", e);
+                            println!("   Tool execution error: {:#}", e);
                             let error_result = ToolCallResult {
                                 tool_name: tool_call.function.name.clone(),
-                                result: format!("Error: {}", e),
+                                result: format!("Error: {:#}", e),
                             };
                             iteration_tool_results.push((tool_call, error_result.clone()));
                             tool_results.push(error_result);
