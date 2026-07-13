@@ -46,6 +46,7 @@ pub fn create_state_snapshot(state: &GameState) -> GameStateSnapshot {
         decision_pending: state.decision_pending,
         last_answer_correct: state.last_answer_correct,
         last_correct_answer: state.last_correct_answer.clone(),
+        waiting_for_presenter: state.waiting_for_presenter,
     }
 }
 

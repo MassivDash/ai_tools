@@ -322,6 +322,13 @@ impl OneOfTenWebSocket {
                     }
                 }
             }
+            IncomingMessage::PresenterFinishedSpeaking => {
+                if state.presenter_id.as_ref() == Some(connection_id) {
+                    state.waiting_for_presenter = false;
+                    action = state.deferred_action.take();
+                    responses.push(rounds::common::create_state_update(state));
+                }
+            }
         }
         (responses, action)
     }
@@ -384,7 +391,7 @@ impl OneOfTenWebSocket {
         let round = state.round.clone();
 
         // Delegate to round-specific logic
-        match round {
+        let (msgs, next_action) = match round {
             Round::Round1 => {
                 let msgs = if is_correct {
                     rounds::round1::handle_correct_answer(state, &player_id)
@@ -512,6 +519,16 @@ impl OneOfTenWebSocket {
                 }
             }
             _ => (vec![rounds::common::create_state_update(state)], None),
+        };
+
+        if state.presenter_online && next_action.is_some() {
+            state.waiting_for_presenter = true;
+            state.deferred_action = next_action;
+            let mut final_msgs = msgs;
+            final_msgs.push(rounds::common::create_state_update(state));
+            (final_msgs, None)
+        } else {
+            (msgs, next_action)
         }
     }
 
@@ -527,7 +544,7 @@ impl OneOfTenWebSocket {
 
         let round = state.round.clone();
 
-        match round {
+        let (msgs, next_action) = match round {
             Round::Round1 => {
                 let msgs = rounds::round1::handle_timeout(state, &player_id);
 
@@ -622,6 +639,16 @@ impl OneOfTenWebSocket {
                 (msgs, action)
             }
             _ => (vec![rounds::common::create_state_update(state)], None),
+        };
+
+        if state.presenter_online && next_action.is_some() {
+            state.waiting_for_presenter = true;
+            state.deferred_action = next_action;
+            let mut final_msgs = msgs;
+            final_msgs.push(rounds::common::create_state_update(state));
+            (final_msgs, None)
+        } else {
+            (msgs, next_action)
         }
     }
 }

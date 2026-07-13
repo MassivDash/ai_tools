@@ -17,9 +17,15 @@
     gameState: GameStateSnapshot
     onStartGame: () => void
     onResetGame: () => void
+    onPresenterFinishedSpeaking: () => void
   }
 
-  let { gameState, onStartGame, onResetGame }: Props = $props()
+  let {
+    gameState,
+    onStartGame,
+    onResetGame,
+    onPresenterFinishedSpeaking
+  }: Props = $props()
 
   // Constants
   const QUESTION_DISPLAY_DURATION_MS = 3000
@@ -115,12 +121,18 @@
         isSpeakingFeedback = true
         robotEmotion = gameState.last_answer_correct ? 'happy' : 'sad'
 
-        const comment = await generateAnswerComment(
-          lastSpokenQuestion,
-          gameState.last_answer_correct,
-          gameState.last_correct_answer
-        )
-        await speech.speakAndWait(comment)
+        try {
+          const comment = await generateAnswerComment(
+            lastSpokenQuestion,
+            gameState.last_answer_correct,
+            gameState.last_correct_answer
+          )
+          await speech.speakAndWait(comment)
+          onPresenterFinishedSpeaking()
+        } catch (e) {
+          console.error('Answer feedback failed', e)
+          onPresenterFinishedSpeaking()
+        }
 
         robotEmotion = 'normal'
         isSpeakingFeedback = false

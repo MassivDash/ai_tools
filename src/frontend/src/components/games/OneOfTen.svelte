@@ -296,6 +296,7 @@
               gameState={game.state.gameState}
               onStartGame={game.startGame}
               onResetGame={game.resetGame}
+              onPresenterFinishedSpeaking={game.presenterFinishedSpeaking}
             />
           {:else}
             <ContestantScreen

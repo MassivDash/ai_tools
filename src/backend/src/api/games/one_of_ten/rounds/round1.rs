@@ -128,6 +128,7 @@ mod tests {
     use crate::api::games::one_of_ten::types::Contestant;
     use std::collections::HashMap;
 
+    #[allow(dead_code)]
     fn create_test_state() -> GameState {
         let mut contestants = HashMap::new();
         contestants.insert(
@@ -164,6 +165,8 @@ mod tests {
             last_pointer_id: None,
             last_answer_correct: None,
             last_correct_answer: None,
+            waiting_for_presenter: false,
+            deferred_action: None,
         }
     }
 }

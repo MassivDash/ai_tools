@@ -23,6 +23,8 @@ impl GameState {
             round3_exclusive: false,
             last_answer_correct: None,
             last_correct_answer: None,
+            waiting_for_presenter: false,
+            deferred_action: None,
         }
     }
 }

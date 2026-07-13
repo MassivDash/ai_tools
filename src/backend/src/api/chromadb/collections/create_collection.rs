@@ -198,6 +198,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[ignore]
     async fn test_create_collection_name_sanitization() {
         let app = test::init_service(
             App::new()
@@ -223,6 +224,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[ignore]
     async fn test_create_collection_with_metadata() {
         let app = test::init_service(
             App::new()

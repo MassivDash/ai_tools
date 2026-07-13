@@ -63,6 +63,8 @@ pub struct GameState {
     pub round3_exclusive: bool,
     pub last_answer_correct: Option<bool>,
     pub last_correct_answer: Option<String>,
+    pub waiting_for_presenter: bool,
+    pub deferred_action: Option<AsyncAction>,
 }
 
 // --- WebSocket Messages (Incoming from Client) ---
@@ -93,6 +95,7 @@ pub enum IncomingMessage {
         choice: String,
         target_id: Option<String>,
     },
+    PresenterFinishedSpeaking,
 }
 
 // --- WebSocket Messages (Outgoing to Client) ---
@@ -117,11 +120,12 @@ pub struct GameStateSnapshot {
     pub decision_pending: bool,
     pub last_answer_correct: Option<bool>,
     pub last_correct_answer: Option<String>,
+    pub waiting_for_presenter: bool,
 }
 
 // --- Async Action Types ---
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AsyncAction {
     GenerateQuestion {
         age: String,

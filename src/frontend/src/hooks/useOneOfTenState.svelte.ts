@@ -35,6 +35,7 @@ export interface GameStateSnapshot {
   decision_pending?: boolean
   last_answer_correct?: boolean
   last_correct_answer?: string
+  waiting_for_presenter?: boolean
 }
 
 export interface OneOfTenState {
@@ -88,7 +89,10 @@ export function useOneOfTenState() {
             active_player_id: msg.active_player_id,
             current_question: msg.current_question,
             timer_start: msg.timer_start,
-            decision_pending: msg.decision_pending
+            decision_pending: msg.decision_pending,
+            last_answer_correct: msg.last_answer_correct,
+            last_correct_answer: msg.last_correct_answer,
+            waiting_for_presenter: msg.waiting_for_presenter
           }
         } else if (msg.type === 'error') {
           state.error = msg.message
@@ -164,6 +168,10 @@ export function useOneOfTenState() {
     sendMessage({ type: 'make_decision', choice, target_id: targetId })
   }
 
+  const presenterFinishedSpeaking = () => {
+    sendMessage({ type: 'presenter_finished_speaking' })
+  }
+
   return {
     state,
     get isConnected() {
@@ -181,6 +189,7 @@ export function useOneOfTenState() {
     pointToPlayer,
     buzzIn,
     makeDecision,
+    presenterFinishedSpeaking,
     sessionId
   }
 }

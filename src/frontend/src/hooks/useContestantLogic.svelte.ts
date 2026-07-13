@@ -23,6 +23,7 @@ export const PHASE = {
   SPECTATING_DECISION: 'SPECTATING_DECISION',
   ANSWERING: 'ANSWERING',
   WAITING: 'WAITING',
+  WAITING_FOR_PRESENTER: 'WAITING_FOR_PRESENTER',
   FINISHED: 'FINISHED'
 } as const
 
@@ -71,6 +72,7 @@ export function useContestantLogic(
     if (gs.round === 'lobby') return PHASE.LOBBY
     if (isEliminated) return PHASE.ELIMINATED
     if (gs.round === 'finished') return PHASE.FINISHED
+    if (gs.waiting_for_presenter) return PHASE.WAITING_FOR_PRESENTER
 
     if (isRound2 && isPointingPhase) return PHASE.POINTING
     if (isRound3) {
@@ -106,6 +108,8 @@ export function useContestantLogic(
         return 'YOUR TURN!'
       case PHASE.WAITING:
         return `${activePlayerName} is answering...`
+      case PHASE.WAITING_FOR_PRESENTER:
+        return `Waiting for Presenter...`
       case PHASE.FINISHED:
         return 'Game Over'
       default:

@@ -93,6 +93,14 @@
         <p>{logic.deciderName} is making a decision...</p>
       </div>
     </div>
+  {:else if logic.currentPhase === PHASE.WAITING_FOR_PRESENTER}
+    <div class="spectator-view">
+      <div class="generating-message">
+        <MaterialIcon name="microphone" width="48" height="48" />
+        <h3>Host Speaking</h3>
+        <p>Listen to the presenter...</p>
+      </div>
+    </div>
   {:else if logic.currentPhase === PHASE.ANSWERING || logic.currentPhase === PHASE.WAITING}
     <QuestionPhase
       isActivePlayer={logic.isActivePlayer}
