@@ -7,7 +7,10 @@ export interface ModelInfo {
   legacy_hf_format?: string
 }
 
-export function normalizeModelName(name: string): { base: string; quant: string | null } {
+export function normalizeModelName(name: string): {
+  base: string
+  quant: string | null
+} {
   if (!name) return { base: '', quant: null }
 
   let clean = name.toLowerCase()
@@ -22,7 +25,8 @@ export function normalizeModelName(name: string): { base: string; quant: string 
 
   // 3. Extract quantization pattern
   // Check for typical quant patterns: e.g. -q4_k_m, _q4_k_m, .q8_0, :q8_0, etc.
-  const quantRegex = /[-_.:](q[0-9]_[a-z0-9_]+|iq[0-9]_[a-z0-9_]+|q[0-9]_[0-9]|[qf][0-9]+|bf16)/i
+  const quantRegex =
+    /[-_.:](q[0-9]_[a-z0-9_]+|iq[0-9]_[a-z0-9_]+|q[0-9]_[0-9]|[qf][0-9]+|bf16)/i
   const match = clean.match(quantRegex)
   let quant: string | null = null
   if (match) {
@@ -42,9 +46,26 @@ export function normalizeModelName(name: string): { base: string; quant: string 
 
   // Remove common owner prefixes from filenames
   const knownOwners = [
-    'unsloth', 'ggml-org', 'ggml', 'speakleash', 'massivdash', 'fortytwo-network', 'fortytwo',
-    'maziyarpanahi', 'mlabonne', 'second-state', 'secondstate', 'mradermacher', 'sci-fi-vy',
-    'phil2sat', 'google', 'openai', 'openai-community', 'sentence-transformers', 'mistralai', 'qwen'
+    'unsloth',
+    'ggml-org',
+    'ggml',
+    'speakleash',
+    'massivdash',
+    'fortytwo-network',
+    'fortytwo',
+    'maziyarpanahi',
+    'mlabonne',
+    'second-state',
+    'secondstate',
+    'mradermacher',
+    'sci-fi-vy',
+    'phil2sat',
+    'google',
+    'openai',
+    'openai-community',
+    'sentence-transformers',
+    'mistralai',
+    'qwen'
   ]
   for (const owner of knownOwners) {
     if (clean.startsWith(owner + '_') || clean.startsWith(owner + '-')) {
@@ -54,11 +75,30 @@ export function normalizeModelName(name: string): { base: string; quant: string 
 
   // Remove common suffix words
   const suffixesToRemove = [
-    '-gguf', '_gguf', '-instruct', '_instruct', '-it', '_it', '-chat', '_chat',
-    '-abliterated', '_abliterated', '-finetuned', '_finetuned', '-heretic', '_heretic',
-    '-v3.0', '-v3', '-v2.0', '-v2', '-v1.0', '-v1', '-ud', '_ud'
+    '-gguf',
+    '_gguf',
+    '-instruct',
+    '_instruct',
+    '-it',
+    '_it',
+    '-chat',
+    '_chat',
+    '-abliterated',
+    '_abliterated',
+    '-finetuned',
+    '_finetuned',
+    '-heretic',
+    '_heretic',
+    '-v3.0',
+    '-v3',
+    '-v2.0',
+    '-v2',
+    '-v1.0',
+    '-v1',
+    '-ud',
+    '_ud'
   ]
-  
+
   let changed = true
   while (changed) {
     changed = false
@@ -76,14 +116,19 @@ export function normalizeModelName(name: string): { base: string; quant: string 
   return { base: clean, quant }
 }
 
-export function modelsMatch(model: ModelInfo, noteModelName: string, noteModelPath?: string): boolean {
+export function modelsMatch(
+  model: ModelInfo,
+  noteModelName: string,
+  noteModelPath?: string
+): boolean {
   if (!noteModelName) return false
 
   // 1. Direct exact matches
   if (model.name === noteModelName) return true
   if (model.path && model.path === noteModelPath) return true
   if (model.hf_format && model.hf_format === noteModelName) return true
-  if (model.legacy_hf_format && model.legacy_hf_format === noteModelName) return true
+  if (model.legacy_hf_format && model.legacy_hf_format === noteModelName)
+    return true
 
   // Check filename matching for note's model path
   if (noteModelPath && model.path) {
@@ -97,14 +142,26 @@ export function modelsMatch(model: ModelInfo, noteModelName: string, noteModelPa
   // 2. Fuzzy normalized matching
   const normModelName = normalizeModelName(model.name)
   const normModelPath = model.path ? normalizeModelName(model.path) : null
-  const normModelHf = model.hf_format ? normalizeModelName(model.hf_format) : null
-  const normModelLegacy = model.legacy_hf_format ? normalizeModelName(model.legacy_hf_format) : null
+  const normModelHf = model.hf_format
+    ? normalizeModelName(model.hf_format)
+    : null
+  const normModelLegacy = model.legacy_hf_format
+    ? normalizeModelName(model.legacy_hf_format)
+    : null
 
   const normNoteName = normalizeModelName(noteModelName)
   const normNotePath = noteModelPath ? normalizeModelName(noteModelPath) : null
 
-  const normModels = [normModelName, normModelPath, normModelHf, normModelLegacy].filter(Boolean) as { base: string; quant: string | null }[]
-  const normNotes = [normNoteName, normNotePath].filter(Boolean) as { base: string; quant: string | null }[]
+  const normModels = [
+    normModelName,
+    normModelPath,
+    normModelHf,
+    normModelLegacy
+  ].filter(Boolean) as { base: string; quant: string | null }[]
+  const normNotes = [normNoteName, normNotePath].filter(Boolean) as {
+    base: string
+    quant: string | null
+  }[]
 
   for (const m of normModels) {
     for (const n of normNotes) {
@@ -126,7 +183,10 @@ export function modelsMatch(model: ModelInfo, noteModelName: string, noteModelPa
   return false
 }
 
-export function findNoteForModel(model: ModelInfo, notes: Map<string, ModelNote> | ModelNote[]): ModelNote | null {
+export function findNoteForModel(
+  model: ModelInfo,
+  notes: Map<string, ModelNote> | ModelNote[]
+): ModelNote | null {
   const notesList = notes instanceof Map ? Array.from(notes.values()) : notes
   for (const note of notesList) {
     if (modelsMatch(model, note.model_name, note.model_path)) {

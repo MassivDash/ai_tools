@@ -3,10 +3,7 @@ import { z } from 'zod'
 // Llama Server Config Request Schema
 // All fields are optional to match the backend structure
 export const LlamaConfigRequestSchema = z.object({
-  hf_model: z
-    .string()
-    .trim()
-    .optional(),
+  hf_model: z.string().trim().optional(),
   ctx_size: z
     .number()
     .int()
