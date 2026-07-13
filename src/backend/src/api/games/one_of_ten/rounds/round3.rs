@@ -1,13 +1,13 @@
-use crate::api::games::one_of_fifteen::rounds::common::*;
-use crate::api::games::one_of_fifteen::types::{GameState, OutgoingMessage, Round};
+use crate::api::games::one_of_ten::rounds::common::*;
+use crate::api::games::one_of_ten::types::{GameState, OutgoingMessage, Round};
 
 /// Handle a player buzzing in
 pub fn handle_buzz_in(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Verify player is valid
+    // Verify player is valid (not eliminated)
     let is_valid = state
         .contestants
         .get(player_id)
-        .map(|c| !c.eliminated && c.online)
+        .map(|c| !c.eliminated)
         .unwrap_or(false);
 
     if !is_valid {
@@ -34,24 +34,26 @@ pub fn handle_correct_answer_decision(
 
     match decision {
         "self" => {
-            // Double down - player gets DOUBLE POINTS and another turn!
-            award_points(state, player_id, 20); // DOUBLED from 10 to 20
+            // Double down - player gets DOUBLE POINTS (20) and another turn!
+            award_points(state, player_id, 20);
             state.decision_pending = false;
+            state.last_pointer_id = None; // Reset last pointer since they took it themselves
             // Keep the same active player for next question
         }
         "point" => {
-            // Point to another player - normal points
+            // Point to another player - normal points (10)
             award_points(state, player_id, 10);
 
             if let Some(target) = target_id {
                 let is_valid = state
                     .contestants
                     .get(&target)
-                    .map(|c| !c.eliminated && c.online && c.id != player_id)
+                    .map(|c| !c.eliminated && c.id != player_id)
                     .unwrap_or(false);
 
                 if is_valid {
                     state.active_player_id = Some(target);
+                    state.last_pointer_id = Some(player_id.to_string()); // Record who pointed
                     state.decision_pending = false;
                 } else {
                     return vec![OutgoingMessage::Error {
@@ -75,25 +77,40 @@ pub fn handle_correct_answer_decision(
     if check_winner(state).is_some() {
         end_game(state);
     }
-    // Note: Do NOT reset active_player_id here.
-    // It has been set to the target player (Self or Pointed) in the match block above.
-    // This allows the next question to be targeted specifically to them.
 
     vec![create_state_update(state)]
 }
 
-/// Handle a wrong answer in Round 3 (elimination)
+/// Handle a wrong answer in Round 3 (lose a life, return control to pointer or buzzer)
 pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Immediate elimination in Round 3
-    if let Some(contestant) = state.contestants.get_mut(player_id) {
-        contestant.eliminated = true;
-        contestant.lives = 0;
-    }
+    // Deduct life instead of immediate elimination
+    deduct_life(state, player_id);
+    check_elimination(state, player_id);
 
     // Reset question state
     reset_question_state(state);
-    state.active_player_id = None;
     state.decision_pending = false;
+
+    // Check if we should return control to the previous pointer (nominator)
+    if let Some(prev_pointer) = state.last_pointer_id.clone() {
+        let prev_active = state
+            .contestants
+            .get(&prev_pointer)
+            .map(|c| !c.eliminated)
+            .unwrap_or(false);
+
+        if prev_active {
+            // Control returns to the nominator
+            state.active_player_id = Some(prev_pointer);
+        } else {
+            // Nominator is eliminated/inactive, control goes back to buzzer
+            state.active_player_id = None;
+            state.last_pointer_id = None;
+        }
+    } else {
+        // No nominator, control goes back to buzzer
+        state.active_player_id = None;
+    }
 
     // Check for winner
     if check_winner(state).is_some() {
@@ -103,15 +120,17 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
     vec![create_state_update(state)]
 }
 
-/// Check if there's a winner (only one player left - fallback)
+/// Check if there's a winner (all players eliminated)
 pub fn check_winner(state: &GameState) -> Option<String> {
-    // Round 3 ends ONLY when there is 1 survivor left (Last Man Standing)
-    // The 30-point threshold is only for enabling the "Decision" mechanic.
-
     let active_ids = get_active_contestant_ids(state);
 
-    if active_ids.len() == 1 {
-        active_ids.first().cloned()
+    if active_ids.is_empty() {
+        // Find player with the highest score
+        state
+            .contestants
+            .values()
+            .max_by_key(|c| c.score)
+            .map(|c| c.id.clone())
     } else {
         None
     }

@@ -1,4 +1,4 @@
-use crate::api::games::one_of_fifteen::types::{GameState, GameStateSnapshot, OutgoingMessage};
+use crate::api::games::one_of_ten::types::{GameState, GameStateSnapshot, OutgoingMessage};
 
 /// Award points to a player
 pub fn award_points(state: &mut GameState, player_id: &str, amount: i32) {
@@ -44,6 +44,8 @@ pub fn create_state_snapshot(state: &GameState) -> GameStateSnapshot {
         current_question: state.current_question.clone(),
         timer_start: state.timer_start,
         decision_pending: state.decision_pending,
+        last_answer_correct: state.last_answer_correct,
+        last_correct_answer: state.last_correct_answer.clone(),
     }
 }
 
@@ -72,7 +74,7 @@ pub fn get_active_contestant_ids(state: &GameState) -> Vec<String> {
     state
         .contestants
         .values()
-        .filter(|c| !c.eliminated && c.online)
+        .filter(|c| !c.eliminated)
         .map(|c| c.id.clone())
         .collect()
 }

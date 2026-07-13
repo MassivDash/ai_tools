@@ -1,7 +1,11 @@
 <script lang="ts">
-  import type { GameStateSnapshot } from '../../../hooks/useOneOfFifteenState.svelte'
+  import type { GameStateSnapshot } from '../../../hooks/useOneOfTenState.svelte'
   import { usePresenterSpeech } from '../../../hooks/usePresenterSpeech.svelte'
-  import { generateIntroSpeech } from '../../../api/games/oneOfFifteen/presenterService'
+  import {
+    generateIntroSpeech,
+    generateHostJoke,
+    generateAnswerComment
+  } from '../../../api/games/oneOfTen/presenterService'
 
   // Refactored Components
   import PresenterLayout from './presenter/PresenterLayout.svelte'
@@ -25,6 +29,8 @@
 
   // State
   let lastSpokenQuestion = $state('')
+  let lastFeedbackQuestion = $state('')
+  let isSpeakingFeedback = false
   let robotEmotion = $state('normal')
   let isIntroPlaying = $state(false)
   let lastSpokenRound = $state('')
@@ -60,9 +66,14 @@
     // 2. Speak Intro
     robotEmotion = 'happy'
     await speech.speakAndWait(introText)
+
+    // 3. Open with a (not so funny) joke
+    const joke = await generateHostJoke()
+    robotEmotion = 'surprised'
+    await speech.speakAndWait(joke)
     robotEmotion = 'normal'
 
-    // 3. Start Game (Backend)
+    // 4. Start Game (Backend)
     isIntroPlaying = false
     onStartGame()
   }
@@ -86,22 +97,65 @@
     announceRound()
   })
 
+  // Answer Feedback Effect - comments on every submitted answer, correct or wrong,
+  // in the window after the round logic clears current_question and before the
+  // next question is generated.
+  $effect(() => {
+    if (isIntroPlaying || gameState.round === 'lobby') return
+
+    const giveFeedback = async () => {
+      if (
+        !gameState.current_question &&
+        gameState.last_answer_correct !== undefined &&
+        gameState.last_answer_correct !== null &&
+        lastSpokenQuestion &&
+        lastSpokenQuestion !== lastFeedbackQuestion
+      ) {
+        lastFeedbackQuestion = lastSpokenQuestion
+        isSpeakingFeedback = true
+        robotEmotion = gameState.last_answer_correct ? 'happy' : 'sad'
+
+        const comment = await generateAnswerComment(
+          lastSpokenQuestion,
+          gameState.last_answer_correct,
+          gameState.last_correct_answer
+        )
+        await speech.speakAndWait(comment)
+
+        robotEmotion = 'normal'
+        isSpeakingFeedback = false
+      }
+    }
+
+    giveFeedback()
+  })
+
   // Question Speech Effect
   $effect(() => {
     // Only speak question if we are in game
     if (isIntroPlaying || gameState.round === 'lobby') return
 
-    if (
-      gameState.current_question &&
-      gameState.current_question.text !== lastSpokenQuestion
-    ) {
-      lastSpokenQuestion = gameState.current_question.text
-      robotEmotion = 'happy'
-      speech.speak(gameState.current_question.text)
-      setTimeout(() => {
-        robotEmotion = 'normal'
-      }, QUESTION_DISPLAY_DURATION_MS)
+    const speakQuestionFlow = async () => {
+      if (
+        gameState.current_question &&
+        gameState.current_question.text !== lastSpokenQuestion
+      ) {
+        lastSpokenQuestion = gameState.current_question.text
+
+        // Let any in-flight answer feedback finish before talking over it
+        while (isSpeakingFeedback) {
+          await new Promise((r) => setTimeout(r, 100))
+        }
+
+        robotEmotion = 'happy'
+        speech.speak(gameState.current_question.text)
+        setTimeout(() => {
+          robotEmotion = 'normal'
+        }, QUESTION_DISPLAY_DURATION_MS)
+      }
     }
+
+    speakQuestionFlow()
   })
 </script>
 

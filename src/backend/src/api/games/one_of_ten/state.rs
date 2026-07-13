@@ -1,4 +1,4 @@
-use crate::api::games::one_of_fifteen::types::GameState;
+use crate::api::games::one_of_ten::types::GameState;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -11,7 +11,7 @@ impl GameState {
             presenter_online: false,
             contestants: HashMap::new(),
             active: true,
-            round: crate::api::games::one_of_fifteen::types::Round::Lobby,
+            round: crate::api::games::one_of_ten::types::Round::Lobby,
             active_player_id: None,
             player_queue: Vec::new(),
             current_question: None,
@@ -21,6 +21,8 @@ impl GameState {
             last_pointer_id: None,
             decision_pending: false,
             round3_exclusive: false,
+            last_answer_correct: None,
+            last_correct_answer: None,
         }
     }
 }

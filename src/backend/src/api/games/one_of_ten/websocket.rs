@@ -22,7 +22,7 @@ pub struct BroadcastingMessage(pub OutgoingMessage);
 
 // --- WebSocket Actor ---
 
-pub struct OneOfFifteenWebSocket {
+pub struct OneOfTenWebSocket {
     hb: Instant,
     state: GameStateHandle,
     id: String,
@@ -31,7 +31,7 @@ pub struct OneOfFifteenWebSocket {
     ai_api_url: String,
 }
 
-impl OneOfFifteenWebSocket {
+impl OneOfTenWebSocket {
     pub fn new(
         state: GameStateHandle,
         broadcaster: super::BroadcastHandle,
@@ -121,6 +121,20 @@ impl OneOfFifteenWebSocket {
                 }
             }
             IncomingMessage::JoinContestant { name, age } => {
+                if state.round != Round::Lobby {
+                    responses.push(OutgoingMessage::Error {
+                        message: "Game is already in progress".to_string(),
+                    });
+                    return (responses, None);
+                }
+
+                if state.contestants.len() >= 10 && !state.contestants.contains_key(connection_id) {
+                    responses.push(OutgoingMessage::Error {
+                        message: "Game is full (maximum 10 players)".to_string(),
+                    });
+                    return (responses, None);
+                }
+
                 if state.presenter_id.as_ref() == Some(connection_id) {
                     state.presenter_id = None;
                     state.presenter_online = false;
@@ -140,6 +154,9 @@ impl OneOfFifteenWebSocket {
                     round1_questions: 0,
                     eliminated: false,
                 };
+                if !state.player_queue.contains(&session_id) {
+                    state.player_queue.push(session_id.clone());
+                }
                 state.contestants.insert(session_id, contestant);
                 *connection_role = UserRole::Contestant;
                 responses.push(OutgoingMessage::Welcome {
@@ -150,8 +167,8 @@ impl OneOfFifteenWebSocket {
                 if state.presenter_id.as_ref() == Some(connection_id) && state.round == Round::Lobby
                 {
                     state.round = Round::Round1;
-                    state.player_queue = state.contestants.keys().cloned().collect();
-                    state.player_queue.sort();
+                    // player_queue already holds players in the order they joined
+                    // (Player 1 .. Player 10) - that's the seat order the host follows.
 
                     if let Some(first_id) = state.player_queue.first() {
                         state.active_player_id = Some(first_id.clone());
@@ -187,7 +204,8 @@ impl OneOfFifteenWebSocket {
                     state.past_questions = vec![];
                     state.buzzer_queue = vec![];
                     state.last_pointer_id = None;
-                    state.player_queue = vec![]; // Clear player queue
+                    // Keep player_queue as-is: contestants stay connected across a reset,
+                    // so their join order (seat order) should carry over to the next game.
                     state.active = true; // Ensure game is active
                     state.round3_exclusive = false; // Reset Exclusive Mode
                 }
@@ -290,7 +308,7 @@ impl OneOfFifteenWebSocket {
                     } else {
                         // If for some reason no active player, fallback to random (shouldn't happen in logic)
                         if let Some(random_id) =
-                            crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
+                            crate::api::games::one_of_ten::player_selection::select_random_active(state)
                         {
                             if let Some(player) = state.contestants.get(&random_id) {
                                 action = Some(AsyncAction::GenerateQuestion {
@@ -319,11 +337,13 @@ impl OneOfFifteenWebSocket {
                 generate_question_ai(&ai_api_url, &age, &past_questions).await
             })
             .map(
-                move |res, _, _ctx: &mut ws::WebsocketContext<OneOfFifteenWebSocket>| {
+                move |res, _, _ctx: &mut ws::WebsocketContext<OneOfTenWebSocket>| {
                     if let Some(q) = res {
                         let mut state = state.lock().unwrap();
                         state.past_questions.push(q.text.clone());
                         state.current_question = Some(q);
+                        state.last_answer_correct = None;
+                        state.last_correct_answer = None;
 
                         // Start timer here!
                         let start = SystemTime::now();
@@ -349,6 +369,13 @@ impl OneOfFifteenWebSocket {
         is_correct: bool,
         player_id: String,
     ) -> (Vec<OutgoingMessage>, Option<AsyncAction>) {
+        state.last_answer_correct = Some(is_correct);
+        if !is_correct {
+            state.last_correct_answer = state.current_question.as_ref().map(|q| q.correct_answer.clone());
+        } else {
+            state.last_correct_answer = None;
+        }
+
         let round = state.round.clone();
 
         // Delegate to round-specific logic
@@ -363,8 +390,8 @@ impl OneOfFifteenWebSocket {
                 // Check if there's a next player who needs a question
                 let action = if let Some(next_player_id) = &state.active_player_id {
                     // Only generate if we are still in Round 1.
-                    // If we transitioned to Round 2, the active player (random starter)
-                    // should POINT, not Answer immediately.
+                    // If we transitioned to Round 2, the active player (first in alphabetical order)
+                    // should be generated a question below.
                     if state.round == Round::Round1 {
                         if let Some(contestant) = state.contestants.get(next_player_id) {
                             Some(AsyncAction::GenerateQuestion {
@@ -381,24 +408,38 @@ impl OneOfFifteenWebSocket {
                     None
                 };
 
-                (msgs, action)
+                // Check if we transitioned to Round 2
+                let final_action = if state.round == Round::Round2 {
+                    if let Some(next_id) = &state.active_player_id {
+                        if let Some(contestant) = state.contestants.get(next_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: contestant.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    action
+                };
+
+                (msgs, final_action)
             }
             Round::Round2 => {
-                let msgs = if is_correct {
-                    rounds::round2::handle_correct_answer(state, &player_id)
+                let (msgs, action) = if is_correct {
+                    (rounds::round2::handle_correct_answer(state, &player_id), None)
                 } else {
                     rounds::round2::handle_wrong_answer(state, &player_id)
                 };
 
-                // In Round 2, we NEVER automatically generate a question after an answer.
-                // The next step is always for the active player (either the retained pointer
-                // or the new random starter) to POINT to someone.
-                // That PointToPlayer message will trigger the question generation.
                 // Check if we transitioned to Round 3
-                let action = if state.round == Round::Round3 {
+                let final_action = if state.round == Round::Round3 {
                     // Generate first question for Round 3
                     if let Some(random_id) =
-                        crate::api::games::one_of_fifteen::player_selection::select_random_active(
+                        crate::api::games::one_of_ten::player_selection::select_random_active(
                             state,
                         )
                     {
@@ -414,41 +455,37 @@ impl OneOfFifteenWebSocket {
                         None
                     }
                 } else {
-                    None
+                    action
                 };
 
-                (msgs, action)
+                (msgs, final_action)
             }
             Round::Round3 => {
                 if is_correct {
-                    // Check score or if already in exclusive mode
-                    let player_score = state
-                        .contestants
-                        .get(&player_id)
-                        .map(|c| c.score)
-                        .unwrap_or(0);
+                    // In Jeden z dziesięciu, any correct answer in Round 3 gives the player control!
+                    state.round3_exclusive = true;
+                    state.decision_pending = true;
+                    rounds::common::reset_question_state(state);
 
-                    // Entry Condition: Score >= 30
-                    // Sustain Condition: Already in Exclusive Mode
-                    if player_score >= 30 || state.round3_exclusive {
-                        // STAY IN / ENTER EXCLUSIVE MODE
+                    // STOP question generation logic here.
+                    // We must wait for the player to make a Decision (Point/Self).
+                    // Do NOT clear active_player_id. It stays with the correct answerer.
+                    (vec![rounds::common::create_state_update(state)], None)
+                } else {
+                    let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
+
+                    // Generate next question
+                    // If active_player_id is Some(next_id), then that player has control (retained or returned).
+                    // If active_player_id is None, it is a buzzer question.
+                    let action = if let Some(_next_id) = &state.active_player_id {
                         state.round3_exclusive = true;
                         state.decision_pending = true;
-                        rounds::common::reset_question_state(state);
-
-                        // STOP question generation logic here.
-                        // We must wait for the player to make a Decision (Point/Self).
-                        // Do NOT clear active_player_id. It stays with the correct answerer.
-                        (vec![rounds::common::create_state_update(state)], None)
+                        None
                     } else {
-                        // Below 30 points AND not in exclusive mode
-                        rounds::common::award_points(state, &player_id, 10);
-                        rounds::common::reset_question_state(state);
-                        state.active_player_id = None; // Wait for next buzz
-
-                        // Generate next question immediately (Group)
-                        let action = if let Some(random_id) =
-                            crate::api::games::one_of_fifteen::player_selection::select_random_active(state)
+                        state.round3_exclusive = false;
+                        state.decision_pending = false;
+                        if let Some(random_id) =
+                            crate::api::games::one_of_ten::player_selection::select_random_active(state)
                         {
                             if let Some(player) = state.contestants.get(&random_id) {
                                 Some(AsyncAction::GenerateQuestion {
@@ -460,32 +497,7 @@ impl OneOfFifteenWebSocket {
                             }
                         } else {
                             None
-                        };
-
-                        (vec![rounds::common::create_state_update(state)], action)
-                    }
-                } else {
-                    let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
-
-                    // WRONG ANSWER -> BREAK CHAIN
-                    state.round3_exclusive = false;
-                    state.decision_pending = false;
-
-                    // Generate next question immediately (Group) - Return to Buzzing
-                    let action = if let Some(random_id) =
-                        crate::api::games::one_of_fifteen::player_selection::select_random_active(
-                            state,
-                        ) {
-                        if let Some(player) = state.contestants.get(&random_id) {
-                            Some(AsyncAction::GenerateQuestion {
-                                age: player.age.clone(),
-                                past_questions: state.past_questions.clone(),
-                            })
-                        } else {
-                            None
                         }
-                    } else {
-                        None
                     };
 
                     (msgs, action)
@@ -499,6 +511,9 @@ impl OneOfFifteenWebSocket {
         state: &mut GameState,
         player_id: String,
     ) -> (Vec<OutgoingMessage>, Option<AsyncAction>) {
+        state.last_answer_correct = Some(false);
+        state.last_correct_answer = state.current_question.as_ref().map(|q| q.correct_answer.clone());
+
         let round = state.round.clone();
 
         match round {
@@ -522,23 +537,85 @@ impl OneOfFifteenWebSocket {
                 } else {
                     None
                 };
-                (msgs, action)
+
+                // Check if we transitioned to Round 2
+                let final_action = if state.round == Round::Round2 {
+                    if let Some(next_id) = &state.active_player_id {
+                        if let Some(contestant) = state.contestants.get(next_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: contestant.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    action
+                };
+
+                (msgs, final_action)
             }
             // For other rounds, fall back to logic treating timeout as wrong answer if not specified
             Round::Round2 => {
-                let msgs = rounds::round2::handle_wrong_answer(state, &player_id);
-                (msgs, None)
+                let (msgs, action) = rounds::round2::handle_wrong_answer(state, &player_id);
+                
+                // Check if we transitioned to Round 3
+                let final_action = if state.round == Round::Round3 {
+                    if let Some(random_id) =
+                        crate::api::games::one_of_ten::player_selection::select_random_active(state)
+                    {
+                        if let Some(player) = state.contestants.get(&random_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: player.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    action
+                };
+
+                (msgs, final_action)
             }
             Round::Round3 => {
                 let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
-                (msgs, None)
+                let action = if let Some(_next_id) = &state.active_player_id {
+                    state.round3_exclusive = true;
+                    state.decision_pending = true;
+                    None
+                } else {
+                    state.round3_exclusive = false;
+                    state.decision_pending = false;
+                    if let Some(random_id) =
+                        crate::api::games::one_of_ten::player_selection::select_random_active(state)
+                    {
+                        if let Some(player) = state.contestants.get(&random_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: player.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+                (msgs, action)
             }
             _ => (vec![rounds::common::create_state_update(state)], None),
         }
     }
 }
 
-impl Actor for OneOfFifteenWebSocket {
+impl Actor for OneOfTenWebSocket {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
@@ -556,23 +633,13 @@ impl Actor for OneOfFifteenWebSocket {
             UserRole::Presenter => {
                 if state.presenter_id.as_ref() == Some(&self.id) {
                     state.presenter_online = false;
-                    state.presenter_id = None;
                     update_needed = true;
                 }
             }
             UserRole::Contestant => {
-                if state.contestants.remove(&self.id).is_some() {
+                if let Some(contestant) = state.contestants.get_mut(&self.id) {
+                    contestant.online = false;
                     update_needed = true;
-                }
-                // Also remove from queue if present
-                if let Some(pos) = state.player_queue.iter().position(|x| x == &self.id) {
-                    state.player_queue.remove(pos);
-                }
-                // If active player left, clear active player
-                if state.active_player_id.as_ref() == Some(&self.id) {
-                    state.active_player_id = None;
-                    state.current_question = None; // Reset current question if active player leaves
-                    state.timer_start = None;
                 }
             }
             _ => {}
@@ -592,7 +659,7 @@ impl Actor for OneOfFifteenWebSocket {
     }
 }
 
-impl Handler<BroadcastingMessage> for OneOfFifteenWebSocket {
+impl Handler<BroadcastingMessage> for OneOfTenWebSocket {
     type Result = ();
 
     fn handle(&mut self, msg: BroadcastingMessage, ctx: &mut Self::Context) {
@@ -602,7 +669,7 @@ impl Handler<BroadcastingMessage> for OneOfFifteenWebSocket {
     }
 }
 
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSocket {
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfTenWebSocket {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
             Ok(ws::Message::Ping(msg)) => {
@@ -671,18 +738,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
                                     actix::fut::wrap_future(async move {
                                         validate_answer_ai(&api_url, &question, &correct, &answer)
                                             .await
-                                    })
+                                     })
                                     .map(
                                         move |is_correct,
                                               _,
                                               ctx: &mut ws::WebsocketContext<
-                                            OneOfFifteenWebSocket,
+                                            OneOfTenWebSocket,
                                         >| {
                                             let state_clone = state.clone();
                                             let mut state_lock = state.lock().unwrap();
 
                                             let (msgs, next_action) =
-                                                OneOfFifteenWebSocket::handle_validate_answer(
+                                                OneOfTenWebSocket::handle_validate_answer(
                                                     &mut state_lock,
                                                     is_correct,
                                                     player_id,
@@ -746,8 +813,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for OneOfFifteenWebSo
     }
 }
 
-#[get("/api/games/1-of-15/ws")]
-pub async fn one_of_fifteen_ws_route(
+#[get("/api/games/1-z-10/ws")]
+pub async fn one_of_ten_ws_route(
     req: HttpRequest,
     stream: web::Payload,
     state: web::Data<GameStateHandle>,
@@ -774,7 +841,7 @@ pub async fn one_of_fifteen_ws_route(
     let api_url = format!("http://{}:{}/v1/chat/completions", host, port);
 
     ws::start(
-        OneOfFifteenWebSocket::new(
+        OneOfTenWebSocket::new(
             state.get_ref().clone(),
             broadcaster.get_ref().clone(),
             api_url,

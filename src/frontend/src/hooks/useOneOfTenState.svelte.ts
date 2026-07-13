@@ -33,9 +33,11 @@ export interface GameStateSnapshot {
   current_question?: Question
   timer_start?: number
   decision_pending?: boolean
+  last_answer_correct?: boolean
+  last_correct_answer?: string
 }
 
-export interface OneOfFifteenState {
+export interface OneOfTenState {
   role: UserRole | null
   gameState: GameStateSnapshot
   error: string
@@ -43,10 +45,10 @@ export interface OneOfFifteenState {
 
 import { useGameSession } from './useGameSession'
 
-export function useOneOfFifteenState() {
-  const { sessionId, clearSession } = useGameSession('1-of-15')
+export function useOneOfTenState() {
+  const { sessionId, clearSession } = useGameSession('1-z-10')
 
-  let state = $state<OneOfFifteenState>({
+  let state = $state<OneOfTenState>({
     role: null,
     gameState: {
       has_presenter: false,
@@ -64,7 +66,7 @@ export function useOneOfFifteenState() {
     baseUrl = baseUrl.replace(/\/$/, '')
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
     const wsBase = baseUrl.replace(/^https?:\/\//, '')
-    return `${wsProtocol}://${wsBase}/api/games/1-of-15/ws`
+    return `${wsProtocol}://${wsBase}/api/games/1-z-10/ws`
   }
 
   const options: WebSocketOptions = {

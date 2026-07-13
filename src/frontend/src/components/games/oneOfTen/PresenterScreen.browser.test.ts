@@ -2,7 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import PresenterScreen from './PresenterScreen.svelte'
-import type { GameStateSnapshot } from '../../../hooks/useOneOfFifteenState.svelte'
+import type { GameStateSnapshot } from '../../../hooks/useOneOfTenState.svelte'
 
 // Mock dependencies
 
@@ -18,7 +18,7 @@ vi.mock('../../../hooks/usePresenterSpeech.svelte', () => ({
 }))
 
 // Mock presenterService
-vi.mock('../../../api/games/oneOfFifteen/presenterService', () => ({
+vi.mock('../../../api/games/oneOfTen/presenterService', () => ({
   generateIntroSpeech: vi.fn().mockResolvedValue('Welcome humans!')
 }))
 
@@ -32,6 +32,7 @@ describe('PresenterScreen', () => {
         score: 0,
         lives: 3,
         round1_misses: 0,
+        round1_questions: 0,
         online: true,
         eliminated: false,
         ready: true,
@@ -43,8 +44,7 @@ describe('PresenterScreen', () => {
     timer_start: null,
     has_presenter: true,
     presenter_online: true,
-    decision_pending: false,
-    buzzer_queue: []
+    decision_pending: false
   }
 
   const defaultProps = {
@@ -78,6 +78,7 @@ describe('PresenterScreen', () => {
     // The sequence is: click -> generateIntro (async) -> speakAndWait (async) -> onStartGame
 
     // We wait for the final effect
+    // Wait for the async flow to finish
     await waitFor(() => {
       expect(onStartGame).toHaveBeenCalled()
     })
@@ -90,9 +91,7 @@ describe('PresenterScreen', () => {
       current_question: {
         text: 'What is 1+1?',
         options: [],
-        correct_answer: '2',
-        category: 'Math',
-        difficulty: 'easy'
+        correct_answer: '2'
       }
     }
 
@@ -101,7 +100,7 @@ describe('PresenterScreen', () => {
     expect(screen.getByText('ROUND1')).toBeInTheDocument()
     expect(screen.getByText('Current Question:')).toBeInTheDocument()
     expect(screen.getByText('What is 1+1?')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.queryByText('2')).not.toBeInTheDocument()
     expect(
       screen.queryByText('Waiting for Game to Start...')
     ).not.toBeInTheDocument()

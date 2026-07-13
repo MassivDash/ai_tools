@@ -1,6 +1,6 @@
 <script lang="ts">
   import PlayerGrid from '../PlayerGrid.svelte'
-  import type { Contestant } from '../../../../hooks/useOneOfFifteenState.svelte'
+  import type { Contestant } from '../../../../hooks/useOneOfTenState.svelte'
 
   interface Props {
     players: Contestant[]

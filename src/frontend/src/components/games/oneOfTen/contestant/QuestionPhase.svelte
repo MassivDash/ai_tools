@@ -3,7 +3,7 @@
   import QuestionDisplay from '../QuestionDisplay.svelte'
   import AnswerInput from '../AnswerInput.svelte'
   import MaterialIcon from '../../../ui/MaterialIcon.svelte'
-  import type { Question } from '../../../../hooks/useOneOfFifteenState.svelte'
+  import type { Question } from '../../../../hooks/useOneOfTenState.svelte'
 
   interface Props {
     isActivePlayer: boolean

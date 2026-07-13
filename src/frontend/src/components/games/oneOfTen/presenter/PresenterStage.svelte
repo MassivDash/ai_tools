@@ -1,7 +1,7 @@
 <script lang="ts">
   import MaterialIcon from '../../../ui/MaterialIcon.svelte'
   import RobotPresenter from '../../robot/RobotPresenter.svelte'
-  import type { Question } from '../../../../hooks/useOneOfFifteenState.svelte'
+  import type { Question } from '../../../../hooks/useOneOfTenState.svelte'
 
   interface Props {
     round: string
@@ -41,10 +41,6 @@
       <div class="prompter-card">
         <h4>Current Question:</h4>
         <div class="question-text-lg">{currentQuestion.text}</div>
-        <div class="answer-key">
-          <strong>Answer:</strong>
-          {currentQuestion.correct_answer}
-        </div>
       </div>
     {/if}
   {:else}

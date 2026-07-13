@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameStateSnapshot } from '../../../hooks/useOneOfFifteenState.svelte'
+  import type { GameStateSnapshot } from '../../../hooks/useOneOfTenState.svelte'
   import {
     useContestantLogic,
     PHASE

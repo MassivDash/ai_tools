@@ -5,7 +5,7 @@ import ContestantScreen from './ContestantScreen.svelte'
 import type {
   GameStateSnapshot,
   Question
-} from '../../../hooks/useOneOfFifteenState.svelte'
+} from '../../../hooks/useOneOfTenState.svelte'
 import '@testing-library/jest-dom' // Fixes toBeInTheDocument
 
 // Mock dependencies

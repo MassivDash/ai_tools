@@ -9,11 +9,11 @@
   import Terminal from '../llamaServer/terminal.svelte'
   import LlamaConfig from '../llamaServer/config/LlamaConfig.svelte'
   import { useStatusWebSocket } from '../../hooks/useStatusWebSocket'
-  import { useOneOfFifteenState } from '../../hooks/useOneOfFifteenState.svelte'
+  import { useOneOfTenState } from '../../hooks/useOneOfTenState.svelte'
   import type { LlamaServerStatus, LlamaServerResponse } from '@types'
-  import PresenterScreen from './oneOfFifteen/PresenterScreen.svelte'
-  import ContestantScreen from './oneOfFifteen/ContestantScreen.svelte'
-  import { ContestantJoinSchema } from '../../validation/oneOfFifteen'
+  import PresenterScreen from './oneOfTen/PresenterScreen.svelte'
+  import ContestantScreen from './oneOfTen/ContestantScreen.svelte'
+  import { ContestantJoinSchema } from '../../validation/oneOfTen'
 
   // --- Server State ---
   let serverStatus: LlamaServerStatus = $state({ active: false, port: 8080 })
@@ -22,7 +22,7 @@
   let showTerminal = $state(false)
 
   // --- Game State (via Hook) ---
-  const game = useOneOfFifteenState()
+  const game = useOneOfTenState()
   let contestantName = $state('')
   let contestantAge = $state('')
   // We use game.state.role, game.state.gameState, game.isConnected
@@ -108,7 +108,7 @@
   }
 </script>
 
-<PageSubHeader title="1 of 15" icon="gamepad-variant">
+<PageSubHeader title="1 z 10" icon="gamepad-variant">
   {#snippet leftContent()}
     <Button variant="ghost" href="/games" size="small">
       <MaterialIcon name="arrow-left" width="20" height="20" />
@@ -183,7 +183,7 @@
             height="80"
             class="game-logo"
           />
-          <h1>1 of 15</h1>
+          <h1>1 z 10</h1>
           <p class="description">
             A general knowledge quiz game hosted by an AI personality. Start the
             server to begin.

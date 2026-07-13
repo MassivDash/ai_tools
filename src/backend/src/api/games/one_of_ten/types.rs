@@ -61,6 +61,8 @@ pub struct GameState {
     pub last_pointer_id: Option<String>,
     pub decision_pending: bool,
     pub round3_exclusive: bool,
+    pub last_answer_correct: Option<bool>,
+    pub last_correct_answer: Option<String>,
 }
 
 // --- WebSocket Messages (Incoming from Client) ---
@@ -113,6 +115,8 @@ pub struct GameStateSnapshot {
     pub current_question: Option<Question>,
     pub timer_start: Option<u64>,
     pub decision_pending: bool,
+    pub last_answer_correct: Option<bool>,
+    pub last_correct_answer: Option<String>,
 }
 
 // --- Async Action Types ---

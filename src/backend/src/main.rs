@@ -22,7 +22,7 @@ use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState
 use crate::api::agent::testing::storage::TestingStorage;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::default_configs::DefaultConfigsStorage;
-use crate::api::games::one_of_fifteen::{BroadcastHandle, GameState};
+use crate::api::games::one_of_ten::{BroadcastHandle, GameState};
 use crate::api::llama_server::types::{
     Config, LogBuffer, ProcessHandle, ServerState, ServerStateHandle,
 };
@@ -159,8 +159,8 @@ async fn main() -> std::io::Result<()> {
     let sd_model_sets_storage = Arc::new(SDModelSetsStorage::new(db_pool.clone()));
 
     // Game Session State (Shared across all workers)
-    let one_of_fifteen_state = Arc::new(Mutex::new(GameState::new()));
-    let one_of_fifteen_broadcaster: BroadcastHandle = Arc::new(Mutex::new(Vec::new()));
+    let one_of_ten_state = Arc::new(Mutex::new(GameState::new()));
+    let one_of_ten_broadcaster: BroadcastHandle = Arc::new(Mutex::new(Vec::new()));
 
     // Init table and Load Default
     let storage_clone = sd_model_sets_storage.clone();
@@ -309,8 +309,8 @@ async fn main() -> std::io::Result<()> {
     let sd_logs_data = sd_logs.clone();
     let sd_server_state_data = sd_server_state.clone();
     let sd_ws_state_data = sd_ws_state.clone();
-    let one_of_fifteen_state_data = one_of_fifteen_state.clone();
-    let one_of_fifteen_broadcaster_data = one_of_fifteen_broadcaster.clone();
+    let one_of_ten_state_data = one_of_ten_state.clone();
+    let one_of_ten_broadcaster_data = one_of_ten_broadcaster.clone();
 
     // Determine initial images path for static serving
     let images_path = std::path::Path::new("./public");
@@ -348,8 +348,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(sd_ws_state_data.clone()))
             .app_data(web::Data::new(sd_images_storage.clone()))
             .app_data(web::Data::new(sd_model_sets_storage.clone()))
-            .app_data(web::Data::new(one_of_fifteen_state_data.clone()))
-            .app_data(web::Data::new(one_of_fifteen_broadcaster_data.clone()))
+            .app_data(web::Data::new(one_of_ten_state_data.clone()))
+            .app_data(web::Data::new(one_of_ten_broadcaster_data.clone()))
             .app_data(
                 web::JsonConfig::default()
                     .limit(50 * 1024 * 1024) // 50MB

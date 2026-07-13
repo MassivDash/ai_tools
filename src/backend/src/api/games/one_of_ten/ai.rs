@@ -1,4 +1,4 @@
-use crate::api::games::one_of_fifteen::types::Question;
+use crate::api::games::one_of_ten::types::Question;
 use regex::Regex;
 
 pub async fn generate_question_ai(

@@ -1,4 +1,4 @@
-import type { GameStateSnapshot } from './useOneOfFifteenState.svelte'
+import type { GameStateSnapshot } from './useOneOfTenState.svelte'
 
 // No imports needed for runes in .svelte.ts files in Svelte 5?
 // Actually, in .svelte.ts files, runes are available globally if configured correctly,

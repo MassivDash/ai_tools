@@ -1,6 +1,6 @@
-use crate::api::games::one_of_fifteen::player_selection;
-use crate::api::games::one_of_fifteen::rounds::common::*;
-use crate::api::games::one_of_fifteen::types::{GameState, OutgoingMessage, Round};
+use crate::api::games::one_of_ten::player_selection;
+use crate::api::games::one_of_ten::rounds::common::*;
+use crate::api::games::one_of_ten::types::{GameState, OutgoingMessage, Round};
 
 /// Handle a correct answer in Round 1
 pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
@@ -31,22 +31,14 @@ pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<Outg
 
 /// Handle a wrong answer in Round 1
 pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Track miss and deduct life
+    // Track miss and deduct life. No eliminations happen in Round 1 - a player who
+    // misses both questions simply carries only 1 life into Round 2.
     if let Some(contestant) = state.contestants.get_mut(player_id) {
         contestant.round1_misses += 1;
         contestant.round1_questions += 1;
     }
 
     deduct_life(state, player_id);
-
-    // Check for elimination (2 misses in Round 1)
-    if let Some(contestant) = state.contestants.get(player_id) {
-        if contestant.round1_misses >= 2 {
-            if let Some(c) = state.contestants.get_mut(player_id) {
-                c.eliminated = true;
-            }
-        }
-    }
 
     // Reset question state
     reset_question_state(state);
@@ -68,22 +60,14 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
 
 /// Handle a timeout in Round 1
 pub fn handle_timeout(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Track miss and deduct life
+    // Track miss and deduct life. No eliminations happen in Round 1 - a player who
+    // misses both questions simply carries only 1 life into Round 2.
     if let Some(contestant) = state.contestants.get_mut(player_id) {
         contestant.round1_misses += 1;
         contestant.round1_questions += 1;
     }
 
     deduct_life(state, player_id);
-
-    // Check for elimination (2 misses in Round 1)
-    if let Some(contestant) = state.contestants.get(player_id) {
-        if contestant.round1_misses >= 2 {
-            if let Some(c) = state.contestants.get_mut(player_id) {
-                c.eliminated = true;
-            }
-        }
-    }
 
     // Reset question state
     reset_question_state(state);
@@ -124,17 +108,22 @@ pub fn transition_to_round2(state: &mut GameState) {
     state.round = Round::Round2;
     state.active_player_id = None;
     state.decision_pending = false;
+    state.last_pointer_id = None;
 
-    // Pick a random first player for Round 2
-    if let Some(first_id) = player_selection::select_random_active(state) {
-        state.active_player_id = Some(first_id);
+    // Pick the first active player in seat order (Player 1..10) for Round 2
+    if let Some(first_id) = state
+        .player_queue
+        .iter()
+        .find(|id| state.contestants.get(*id).map(|c| !c.eliminated).unwrap_or(false))
+    {
+        state.active_player_id = Some(first_id.clone());
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::games::one_of_fifteen::types::Contestant;
+    use crate::api::games::one_of_ten::types::Contestant;
     use std::collections::HashMap;
 
     fn create_test_state() -> GameState {
@@ -171,6 +160,8 @@ mod tests {
             active: true,
             buzzer_queue: vec![],
             last_pointer_id: None,
+            last_answer_correct: None,
+            last_correct_answer: None,
         }
     }
 }

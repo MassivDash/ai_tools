@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Contestant } from '../../../hooks/useOneOfFifteenState.svelte'
+  import type { Contestant } from '../../../hooks/useOneOfTenState.svelte'
 
   interface Props {
     players: Contestant[]
@@ -11,7 +11,7 @@
   let { players, onSelect, disabled = false, excludeId }: Props = $props()
 
   let eligiblePlayers = $derived(
-    players.filter((p) => !p.eliminated && p.online && p.id !== excludeId)
+    players.filter((p) => !p.eliminated && p.id !== excludeId)
   )
 </script>
 

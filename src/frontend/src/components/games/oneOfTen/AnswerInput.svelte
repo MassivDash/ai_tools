@@ -6,9 +6,17 @@
 
   let { onSubmit, disabled = false }: Props = $props()
   let answer = $state('')
+  let submitted = $state(false)
+
+  $effect(() => {
+    if (!disabled) {
+      submitted = false
+    }
+  })
 
   function handleSubmit() {
-    if (!answer.trim() || disabled) return
+    if (!answer.trim() || disabled || submitted) return
+    submitted = true
     onSubmit(answer)
     answer = ''
   }
@@ -25,11 +33,11 @@
     type="text"
     bind:value={answer}
     placeholder="Type your answer..."
-    {disabled}
+    disabled={disabled || submitted}
     onkeydown={handleKeydown}
     class="answer-input"
   />
-  <button onclick={handleSubmit} {disabled} class="submit-btn"> Submit </button>
+  <button onclick={handleSubmit} disabled={disabled || submitted} class="submit-btn"> Submit </button>
 </div>
 
 <style>

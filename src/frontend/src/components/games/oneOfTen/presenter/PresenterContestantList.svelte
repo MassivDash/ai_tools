@@ -1,6 +1,6 @@
 <script lang="ts">
   import Badge from '../../../ui/Badge.svelte'
-  import type { GameStateSnapshot } from '../../../../hooks/useOneOfFifteenState.svelte'
+  import type { GameStateSnapshot } from '../../../../hooks/useOneOfTenState.svelte'
 
   interface Props {
     contestants: GameStateSnapshot['contestants']
