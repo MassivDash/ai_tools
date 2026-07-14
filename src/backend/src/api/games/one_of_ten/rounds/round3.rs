@@ -96,25 +96,31 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
         state.winner_id = Some(player_id.to_string());
     }
 
-    // Check if we should return control to the previous pointer (nominator)
-    if let Some(prev_pointer) = state.last_pointer_id.clone() {
-        let prev_active = state
-            .contestants
-            .get(&prev_pointer)
-            .map(|c| !c.eliminated)
-            .unwrap_or(false);
-
-        if prev_active {
-            // Control returns to the nominator
-            state.active_player_id = Some(prev_pointer);
-        } else {
-            // Nominator is eliminated/inactive, control goes back to buzzer
-            state.active_player_id = None;
-            state.last_pointer_id = None;
-        }
+    // If there is only one active contestant left, they keep control
+    let active_ids = get_active_contestant_ids(state);
+    if active_ids.len() == 1 {
+        state.active_player_id = Some(active_ids[0].clone());
     } else {
-        // No nominator, control goes back to buzzer
-        state.active_player_id = None;
+        // Check if we should return control to the previous pointer (nominator)
+        if let Some(prev_pointer) = state.last_pointer_id.clone() {
+            let prev_active = state
+                .contestants
+                .get(&prev_pointer)
+                .map(|c| !c.eliminated)
+                .unwrap_or(false);
+
+            if prev_active {
+                // Control returns to the nominator
+                state.active_player_id = Some(prev_pointer);
+            } else {
+                // Nominator is eliminated/inactive, control goes back to buzzer
+                state.active_player_id = None;
+                state.last_pointer_id = None;
+            }
+        } else {
+            // No nominator, control goes back to buzzer
+            state.active_player_id = None;
+        }
     }
 
     // Check for winner
@@ -232,5 +238,18 @@ mod tests {
         assert_eq!(state.winner_id, Some("player1".to_string()));
         assert_eq!(state.round, Round::Finished);
         assert_eq!(check_winner(&state), Some("player1".to_string()));
+    }
+
+    #[test]
+    fn test_single_active_player_keeps_control() {
+        let mut state = create_test_state();
+        
+        // Give player1 more lives so they survive a wrong answer
+        state.contestants.get_mut("player1").unwrap().lives = 3;
+        
+        let _msgs = handle_wrong_answer(&mut state, "player1");
+        
+        assert_eq!(state.active_player_id, Some("player1".to_string()));
+        assert_eq!(state.decision_pending, false);
     }
 }

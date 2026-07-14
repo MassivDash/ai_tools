@@ -478,15 +478,29 @@ impl OneOfTenWebSocket {
             }
             Round::Round3 => {
                 if is_correct {
-                    // In Jeden z dziesięciu, any correct answer in Round 3 gives the player control!
-                    state.round3_exclusive = true;
-                    state.decision_pending = true;
-                    rounds::common::reset_question_state(state);
+                    // Check if they are the only player left
+                    if rounds::common::count_active_contestants(state) == 1 {
+                        rounds::common::award_points(state, &player_id, 10);
+                        state.round3_exclusive = true;
+                        state.decision_pending = false;
+                        rounds::common::reset_question_state(state);
+                        
+                        let action = Some(AsyncAction::GenerateQuestion {
+                            age: state.contestants.get(&player_id).unwrap().age.clone(),
+                            past_questions: state.past_questions.clone(),
+                        });
+                        (vec![rounds::common::create_state_update(state)], action)
+                    } else {
+                        // In Jeden z dziesięciu, any correct answer in Round 3 gives the player control!
+                        state.round3_exclusive = true;
+                        state.decision_pending = true;
+                        rounds::common::reset_question_state(state);
 
-                    // STOP question generation logic here.
-                    // We must wait for the player to make a Decision (Point/Self).
-                    // Do NOT clear active_player_id. It stays with the correct answerer.
-                    (vec![rounds::common::create_state_update(state)], None)
+                        // STOP question generation logic here.
+                        // We must wait for the player to make a Decision (Point/Self).
+                        // Do NOT clear active_player_id. It stays with the correct answerer.
+                        (vec![rounds::common::create_state_update(state)], None)
+                    }
                 } else {
                     let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
 
@@ -495,6 +509,21 @@ impl OneOfTenWebSocket {
                     // If active_player_id is None, it is a buzzer question.
                     let action = if state.round == Round::Finished {
                         None
+                    } else if rounds::common::count_active_contestants(state) == 1 {
+                        state.round3_exclusive = true;
+                        state.decision_pending = false;
+                        if let Some(active_id) = &state.active_player_id {
+                            if let Some(player) = state.contestants.get(active_id) {
+                                Some(AsyncAction::GenerateQuestion {
+                                    age: player.age.clone(),
+                                    past_questions: state.past_questions.clone(),
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     } else if let Some(_next_id) = &state.active_player_id {
                         state.round3_exclusive = true;
                         state.decision_pending = true;
@@ -621,6 +650,21 @@ impl OneOfTenWebSocket {
                 let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
                 let action = if state.round == Round::Finished {
                     None
+                } else if rounds::common::count_active_contestants(state) == 1 {
+                    state.round3_exclusive = true;
+                    state.decision_pending = false;
+                    if let Some(active_id) = &state.active_player_id {
+                        if let Some(player) = state.contestants.get(active_id) {
+                            Some(AsyncAction::GenerateQuestion {
+                                age: player.age.clone(),
+                                past_questions: state.past_questions.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 } else if let Some(_next_id) = &state.active_player_id {
                     state.round3_exclusive = true;
                     state.decision_pending = true;
