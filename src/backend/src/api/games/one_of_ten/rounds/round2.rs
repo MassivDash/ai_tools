@@ -18,6 +18,7 @@ pub fn handle_point_to_player(state: &mut GameState, target_id: &str) -> Vec<Out
 
     // Set the targeted player as active
     state.active_player_id = Some(target_id.to_string());
+    state.decision_pending = false;
     reset_question_state(state);
 
     vec![create_state_update(state)]
@@ -39,6 +40,8 @@ pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<Outg
     // Check if we should transition to Round 3
     if check_survivors(state) <= 3 {
         transition_to_round3(state);
+    } else {
+        state.decision_pending = true;
     }
 
     vec![create_state_update(state)]
@@ -156,5 +159,120 @@ pub fn transition_to_round3(state: &mut GameState) {
         if !contestant.eliminated {
             contestant.lives = 3;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::games::one_of_ten::types::{Contestant, GameState, Round};
+    use std::collections::HashMap;
+
+    fn create_test_state() -> GameState {
+        let mut contestants = HashMap::new();
+        contestants.insert(
+            "player1".to_string(),
+            Contestant {
+                id: "player1".to_string(),
+                session_id: "player1".to_string(),
+                name: "Player 1".to_string(),
+                age: "25".to_string(),
+                score: 10,
+                online: true,
+                ready: true,
+                lives: 3,
+                round1_misses: 0,
+                round1_questions: 0,
+                eliminated: false,
+            },
+        );
+        contestants.insert(
+            "player2".to_string(),
+            Contestant {
+                id: "player2".to_string(),
+                session_id: "player2".to_string(),
+                name: "Player 2".to_string(),
+                age: "25".to_string(),
+                score: 10,
+                online: true,
+                ready: true,
+                lives: 3,
+                round1_misses: 0,
+                round1_questions: 0,
+                eliminated: false,
+            },
+        );
+        contestants.insert(
+            "player3".to_string(),
+            Contestant {
+                id: "player3".to_string(),
+                session_id: "player3".to_string(),
+                name: "Player 3".to_string(),
+                age: "25".to_string(),
+                score: 10,
+                online: true,
+                ready: true,
+                lives: 3,
+                round1_misses: 0,
+                round1_questions: 0,
+                eliminated: false,
+            },
+        );
+        contestants.insert(
+            "player4".to_string(),
+            Contestant {
+                id: "player4".to_string(),
+                session_id: "player4".to_string(),
+                name: "Player 4".to_string(),
+                age: "25".to_string(),
+                score: 10,
+                online: true,
+                ready: true,
+                lives: 3,
+                round1_misses: 0,
+                round1_questions: 0,
+                eliminated: false,
+            },
+        );
+
+        GameState {
+            presenter_id: Some("presenter".to_string()),
+            presenter_online: true,
+            contestants,
+            round: Round::Round2,
+            active_player_id: Some("player1".to_string()),
+            current_question: None,
+            timer_start: None,
+            decision_pending: false,
+            round3_exclusive: false,
+            past_questions: vec![],
+            player_queue: vec!["player1".to_string(), "player2".to_string(), "player3".to_string(), "player4".to_string()],
+            active: true,
+            buzzer_queue: vec![],
+            last_pointer_id: None,
+            last_answer_correct: None,
+            last_correct_answer: None,
+            waiting_for_presenter: false,
+            deferred_action: None,
+            winner_id: None,
+        }
+    }
+
+    #[test]
+    fn test_round2_pointing_flow() {
+        let mut state = create_test_state();
+        
+        assert_eq!(state.decision_pending, false);
+
+        let _msgs = handle_correct_answer(&mut state, "player1");
+        assert_eq!(state.decision_pending, true);
+        assert_eq!(state.active_player_id, Some("player1".to_string()));
+
+        let _msgs = handle_point_to_player(&mut state, "player2");
+        assert_eq!(state.decision_pending, false);
+        assert_eq!(state.active_player_id, Some("player2".to_string()));
+
+        let (_msgs, _action) = handle_wrong_answer(&mut state, "player2");
+        assert_eq!(state.decision_pending, false);
     }
 }

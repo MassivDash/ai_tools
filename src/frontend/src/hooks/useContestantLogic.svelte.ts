@@ -48,7 +48,7 @@ export function useContestantLogic(
   const isRound3 = $derived(getGameState().round === 'round3')
 
   // Phase Logic
-  const isPointingPhase = $derived(isRound2 && !getGameState().current_question)
+  const isPointingPhase = $derived(isRound2 && getGameState().decision_pending)
   const isMyTurnToPoint = $derived(isActivePlayer && isPointingPhase)
   const isBuzzerPhase = $derived(isRound3 && !getGameState().active_player_id)
   const isDecisionPhase = $derived(
