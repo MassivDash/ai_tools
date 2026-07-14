@@ -243,12 +243,12 @@ mod tests {
     #[test]
     fn test_single_active_player_keeps_control() {
         let mut state = create_test_state();
-        
+
         // Give player1 more lives so they survive a wrong answer
         state.contestants.get_mut("player1").unwrap().lives = 3;
-        
+
         let _msgs = handle_wrong_answer(&mut state, "player1");
-        
+
         assert_eq!(state.active_player_id, Some("player1".to_string()));
         assert_eq!(state.decision_pending, false);
     }

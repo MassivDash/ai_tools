@@ -484,7 +484,7 @@ impl OneOfTenWebSocket {
                         state.round3_exclusive = true;
                         state.decision_pending = false;
                         rounds::common::reset_question_state(state);
-                        
+
                         let action = Some(AsyncAction::GenerateQuestion {
                             age: state.contestants.get(&player_id).unwrap().age.clone(),
                             past_questions: state.past_questions.clone(),
