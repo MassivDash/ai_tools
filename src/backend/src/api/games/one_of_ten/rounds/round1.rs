@@ -31,14 +31,17 @@ pub fn handle_correct_answer(state: &mut GameState, player_id: &str) -> Vec<Outg
 
 /// Handle a wrong answer in Round 1
 pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Track miss and deduct life. No eliminations happen in Round 1 - a player who
-    // misses both questions simply carries only 1 life into Round 2.
+    // Track miss and deduct life. If a player misses both questions in Round 1, they are eliminated.
     if let Some(contestant) = state.contestants.get_mut(player_id) {
         contestant.round1_misses += 1;
         contestant.round1_questions += 1;
+        if contestant.round1_misses >= 2 {
+            contestant.eliminated = true;
+            contestant.lives = 0;
+        } else if contestant.lives > 0 {
+            contestant.lives -= 1;
+        }
     }
-
-    deduct_life(state, player_id);
 
     // Reset question state
     reset_question_state(state);
@@ -60,14 +63,17 @@ pub fn handle_wrong_answer(state: &mut GameState, player_id: &str) -> Vec<Outgoi
 
 /// Handle a timeout in Round 1
 pub fn handle_timeout(state: &mut GameState, player_id: &str) -> Vec<OutgoingMessage> {
-    // Track miss and deduct life. No eliminations happen in Round 1 - a player who
-    // misses both questions simply carries only 1 life into Round 2.
+    // Track miss and deduct life. If a player misses both questions in Round 1, they are eliminated.
     if let Some(contestant) = state.contestants.get_mut(player_id) {
         contestant.round1_misses += 1;
         contestant.round1_questions += 1;
+        if contestant.round1_misses >= 2 {
+            contestant.eliminated = true;
+            contestant.lives = 0;
+        } else if contestant.lives > 0 {
+            contestant.lives -= 1;
+        }
     }
-
-    deduct_life(state, player_id);
 
     // Reset question state
     reset_question_state(state);
@@ -168,6 +174,29 @@ mod tests {
             waiting_for_presenter: false,
             deferred_action: None,
             winner_id: None,
+        }
+    }
+
+    #[test]
+    fn test_two_strikes_elimination() {
+        let mut state = create_test_state();
+        
+        handle_wrong_answer(&mut state, "player1");
+        {
+            let p = state.contestants.get("player1").unwrap();
+            assert_eq!(p.round1_misses, 1);
+            assert_eq!(p.round1_questions, 1);
+            assert_eq!(p.lives, 2);
+            assert_eq!(p.eliminated, false);
+        }
+
+        handle_wrong_answer(&mut state, "player1");
+        {
+            let p = state.contestants.get("player1").unwrap();
+            assert_eq!(p.round1_misses, 2);
+            assert_eq!(p.round1_questions, 2);
+            assert_eq!(p.lives, 0);
+            assert_eq!(p.eliminated, true);
         }
     }
 }

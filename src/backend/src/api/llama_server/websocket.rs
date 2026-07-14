@@ -50,45 +50,56 @@ impl WebSocketState {
     }
 
     pub fn add_logs_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
-        let mut clients = self.logs_clients.lock().unwrap();
-        clients.insert(id.clone(), tx);
+        let count = {
+            let mut clients = self.logs_clients.lock().unwrap_or_else(|e| e.into_inner());
+            clients.insert(id.clone(), tx);
+            clients.len()
+        };
         println!(
             "✅ Logs WebSocket client connected: {} (total: {})",
             id,
-            clients.len()
+            count
         );
     }
 
     pub fn remove_logs_client(&self, id: &str) {
-        let mut clients = self.logs_clients.lock().unwrap();
-        clients.remove(id);
-        println!(
-            "🔌 Logs WebSocket client disconnected: {} (remaining: {})",
-            id,
-            clients.len()
-        );
+        let (removed, count) = {
+            let mut clients = self.logs_clients.lock().unwrap_or_else(|e| e.into_inner());
+            let removed = clients.remove(id).is_some();
+            (removed, clients.len())
+        };
+        if removed {
+            println!(
+                "🔌 Logs WebSocket client disconnected: {} (remaining: {})",
+                id,
+                count
+            );
+        }
     }
 
     pub fn add_status_client(&self, id: String, tx: mpsc::UnboundedSender<String>) {
-        let mut clients = self.status_clients.lock().unwrap();
+        let mut clients = self.status_clients.lock().unwrap_or_else(|e| e.into_inner());
         clients.insert(id, tx);
     }
 
     pub fn remove_status_client(&self, id: &str) {
-        let mut clients = self.status_clients.lock().unwrap();
+        let mut clients = self.status_clients.lock().unwrap_or_else(|e| e.into_inner());
         clients.remove(id);
     }
 
     pub fn broadcast_log(&self, log: LogLine) {
-        let clients = self.logs_clients.lock().unwrap();
-        let client_count = clients.len();
-        let message = serde_json::to_string(&WebSocketMessage::Log { log }).unwrap();
-        let mut sent_count = 0;
-        for tx in clients.values() {
-            if tx.send(message.clone()).is_ok() {
-                sent_count += 1;
+        let (sent_count, client_count) = {
+            let clients = self.logs_clients.lock().unwrap_or_else(|e| e.into_inner());
+            let client_count = clients.len();
+            let message = serde_json::to_string(&WebSocketMessage::Log { log }).unwrap();
+            let mut sent_count = 0;
+            for tx in clients.values() {
+                if tx.send(message.clone()).is_ok() {
+                    sent_count += 1;
+                }
             }
-        }
+            (sent_count, client_count)
+        };
         if client_count > 0 {
             println!(
                 "📤 Sent log to {}/{} WebSocket clients",
@@ -98,7 +109,7 @@ impl WebSocketState {
     }
 
     pub fn broadcast_status(&self, active: bool, port: u16) {
-        let clients = self.status_clients.lock().unwrap();
+        let clients = self.status_clients.lock().unwrap_or_else(|e| e.into_inner());
         let message = serde_json::to_string(&WebSocketMessage::Status { active, port }).unwrap();
         for tx in clients.values() {
             let _ = tx.send(message.clone());
