@@ -172,7 +172,9 @@ fn process_log_line(
     // Check if server is ready - Generalize check to support any port/host
     // We check for tokens individually to handle potential ANSI color codes in the output
     let is_ready_msg =
-        (line.contains("main") && line.contains("listening") && line.contains("http"))
+        ((line.contains("main") || line.contains("llama_server") || line.contains("srv"))
+            && line.contains("listening")
+            && line.contains("http"))
             || line.contains("HTTP server listening");
 
     if is_ready_msg {
@@ -245,6 +247,32 @@ mod tests {
 
         let state = server_state.lock().unwrap();
         assert!(state.is_ready, "Server should be ready with plain log line");
+    }
+
+    #[test]
+    fn test_process_log_line_readiness_new_format() {
+        let log_buffer: LogBuffer = Arc::new(std::sync::Mutex::new(VecDeque::new()));
+        let server_state: ServerStateHandle = Arc::new(std::sync::Mutex::new(ServerState {
+            is_ready: false,
+            generation: 1,
+        }));
+        let line = "0.01.411.337 I srv  llama_server: listening on http://0.0.0.0:8099".to_string();
+
+        process_log_line(
+            line,
+            log_buffer,
+            server_state.clone(),
+            LogSource::Stdout,
+            None,
+            1,
+            Some(8099),
+        );
+
+        let state = server_state.lock().unwrap();
+        assert!(
+            state.is_ready,
+            "Server should be ready with new log line format"
+        );
     }
 
     #[test]

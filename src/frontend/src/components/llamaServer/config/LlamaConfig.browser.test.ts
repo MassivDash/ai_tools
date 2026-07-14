@@ -147,7 +147,7 @@ test('displays local models in searchable list', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -176,7 +176,7 @@ test('shows loading state when loading models', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -205,7 +205,7 @@ test('shows empty state when no models found', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -246,7 +246,7 @@ test('allows selecting model from list', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -297,7 +297,7 @@ test('saves config successfully', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -312,7 +312,7 @@ test('saves config successfully', async () => {
 
   // Mock the second get call after save
   mockedAxios.get.mockResolvedValueOnce({
-    data: { hf_model: 'test-model', ctx_size: 10240 }
+    data: { hf_model: 'test-model', ctx_size: 0 }
   })
 
   const onClose = vi.fn()
@@ -377,7 +377,7 @@ test('shows error when save fails', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -434,7 +434,7 @@ test('disables save button when model name is empty', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: '', ctx_size: 10240 }
+        data: { hf_model: '', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -464,7 +464,7 @@ test('allows changing context size', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: 'test-model', ctx_size: 10240 }
+        data: { hf_model: 'test-model', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {
@@ -484,7 +484,7 @@ test('allows changing context size', async () => {
   await waitFor(
     () => {
       const ctxInput = screen.getByLabelText(/Context Size/) as HTMLInputElement
-      expect(ctxInput.value).toBe('10240')
+      expect(ctxInput.value).toBe('0')
     },
     { timeout: 2000 }
   )
@@ -499,7 +499,7 @@ test('allows toggling advanced options accordion', async () => {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === 'llama-server/config') {
       return Promise.resolve({
-        data: { hf_model: 'test-model', ctx_size: 10240 }
+        data: { hf_model: 'test-model', ctx_size: 0 }
       })
     }
     if (url === 'llama-server/models') {

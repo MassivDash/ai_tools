@@ -7,7 +7,7 @@ export const LlamaConfigRequestSchema = z.object({
   ctx_size: z
     .number()
     .int()
-    .positive('Context size must be greater than 0')
+    .nonnegative('Context size must be 0 or greater')
     .optional(),
   threads: z.number().int().nullable().optional(),
   threads_batch: z.number().int().nullable().optional(),
@@ -58,8 +58,8 @@ export const buildLlamaConfigPayload = (values: {
   const trimmedHfModel = values.hf_model.trim()
   payload.hf_model = trimmedHfModel
 
-  // ctx_size - must be > 0 if provided
-  if (values.ctx_size > 0) {
+  // ctx_size - must be >= 0 if provided
+  if (values.ctx_size >= 0) {
     payload.ctx_size = values.ctx_size
   }
 
