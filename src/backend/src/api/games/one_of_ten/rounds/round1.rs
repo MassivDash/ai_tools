@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn test_two_strikes_elimination() {
         let mut state = create_test_state();
-        
+
         handle_wrong_answer(&mut state, "player1");
         {
             let p = state.contestants.get("player1").unwrap();
