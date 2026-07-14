@@ -9,11 +9,11 @@
 
   const games = [
     {
-      id: '1-of-15',
-      name: '1 of 15',
+      id: '1-z-10',
+      name: '1 z 10',
       description: 'A dedicated quiz game hosted by an AI personality.',
       icon: 'gamepad-variant',
-      href: '/games/1-of-15'
+      href: '/games/1-z-10'
     }
   ]
 

@@ -5,6 +5,8 @@ use crate::cli::pre_run::npm::checks::NPM;
 use crate::cli::utils::terminal::{do_chromadb_log, step, success, warning};
 use ctrlc::set_handler;
 use std::io::{BufRead, BufReader};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -70,7 +72,11 @@ pub fn start_production(config: Config) {
 
     // Start ChromaDB server using chroma run command directly
     step("Starting ChromaDB server");
-    let mut chromadb_server = Command::new(NPM)
+    let mut chromadb_cmd = Command::new(NPM);
+    #[cfg(unix)]
+    chromadb_cmd.process_group(0);
+
+    let mut chromadb_server = chromadb_cmd
         .current_dir("./src/chromadb")
         .arg("start")
         .arg("--")
@@ -152,6 +158,9 @@ pub fn start_production(config: Config) {
 
     let mut cargo_server = {
         let mut cargo_command = Command::new("cargo");
+        #[cfg(unix)]
+        cargo_command.process_group(0);
+
         cargo_command
             .current_dir("./src/backend")
             .arg("run")
@@ -201,6 +210,9 @@ pub fn start_production(config: Config) {
                 step("Backend production server exited, restarting...");
 
                 let mut cargo_command = Command::new("cargo");
+                #[cfg(unix)]
+                cargo_command.process_group(0);
+
                 cargo_command
                     .current_dir("./src/backend")
                     .arg("run")
@@ -238,11 +250,23 @@ pub fn start_production(config: Config) {
     }
     step("Cleaning up orphaned processes");
 
-    chromadb_server
-        .kill()
-        .expect("Failed to kill chromadb process");
-
-    let _ = cargo_server.kill();
+    #[cfg(unix)]
+    {
+        // Kill the entire process groups (including any spawned children) using negative PID
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(format!("-{}", chromadb_server.id()))
+            .status();
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(format!("-{}", cargo_server.id()))
+            .status();
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = chromadb_server.kill();
+        let _ = cargo_server.kill();
+    }
 
     step("Exiting");
 

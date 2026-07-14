@@ -16,6 +16,7 @@
   "cSpell.words": [
     "nesseccery"
   ],
+  "peacock.color": "#ac7dfc",
   "workbench.colorCustomizations": {
     "activityBar.activeBackground": "#ccaffd",
     "activityBar.background": "#ccaffd",
@@ -35,5 +36,4 @@
     "titleBar.inactiveBackground": "#ac7dfc99",
     "titleBar.inactiveForeground": "#15202b99"
   },
-  "peacock.color": "#ac7dfc",
 }

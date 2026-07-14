@@ -1,4 +1,4 @@
-import type { GameStateSnapshot } from './useOneOfFifteenState.svelte'
+import type { GameStateSnapshot } from './useOneOfTenState.svelte'
 
 // No imports needed for runes in .svelte.ts files in Svelte 5?
 // Actually, in .svelte.ts files, runes are available globally if configured correctly,
@@ -23,6 +23,7 @@ export const PHASE = {
   SPECTATING_DECISION: 'SPECTATING_DECISION',
   ANSWERING: 'ANSWERING',
   WAITING: 'WAITING',
+  WAITING_FOR_PRESENTER: 'WAITING_FOR_PRESENTER',
   FINISHED: 'FINISHED'
 } as const
 
@@ -47,7 +48,7 @@ export function useContestantLogic(
   const isRound3 = $derived(getGameState().round === 'round3')
 
   // Phase Logic
-  const isPointingPhase = $derived(isRound2 && !getGameState().current_question)
+  const isPointingPhase = $derived(isRound2 && getGameState().decision_pending)
   const isMyTurnToPoint = $derived(isActivePlayer && isPointingPhase)
   const isBuzzerPhase = $derived(isRound3 && !getGameState().active_player_id)
   const isDecisionPhase = $derived(
@@ -69,8 +70,9 @@ export function useContestantLogic(
   const currentPhase = $derived.by(() => {
     const gs = getGameState()
     if (gs.round === 'lobby') return PHASE.LOBBY
-    if (isEliminated) return PHASE.ELIMINATED
     if (gs.round === 'finished') return PHASE.FINISHED
+    if (isEliminated) return PHASE.ELIMINATED
+    if (gs.waiting_for_presenter) return PHASE.WAITING_FOR_PRESENTER
 
     if (isRound2 && isPointingPhase) return PHASE.POINTING
     if (isRound3) {
@@ -106,6 +108,8 @@ export function useContestantLogic(
         return 'YOUR TURN!'
       case PHASE.WAITING:
         return `${activePlayerName} is answering...`
+      case PHASE.WAITING_FOR_PRESENTER:
+        return `Waiting for Presenter...`
       case PHASE.FINISHED:
         return 'Game Over'
       default:
