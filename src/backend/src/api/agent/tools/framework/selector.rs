@@ -73,7 +73,18 @@ impl ToolSelector {
 - Use tools iteratively: call tools, analyze results, call again if needed, then provide final answer
 - Don't use tools for greetings or small talk
 - Respond naturally without explaining tool usage or internal processes
-- CRITICAL: When you receive the results of a tool call in your next turn, you MUST use that data to answer the user's question directly. Do NOT simply say 'I have gathered the information' and wait. Synthesize the tool results into a helpful response.",
+- CRITICAL: When you receive the results of a tool call in your next turn, you MUST use that data to answer the user's question directly. Do NOT simply say 'I have gathered the information' and wait. Synthesize the tool results into a helpful response.
+- CHART CREATION: If the user asks for a chart or graph (e.g., timeline, bar chart) to visualize data (like weather forecasts, stock prices, etc.), output the data in a `json-chart` code block strictly following this schema:
+```json-chart
+{
+  \"type\": \"line\", // or \"bar\"
+  \"title\": \"Chart Title\",
+  \"xAxis\": { \"label\": \"X Axis Label\", \"data\": [\"Label 1\", \"Label 2\"] },
+  \"series\": [
+    { \"name\": \"Series Name\", \"data\": [10.5, 20.3] }
+  ]
+}
+```",
         );
 
         prompt

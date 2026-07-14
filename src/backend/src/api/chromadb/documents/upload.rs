@@ -282,47 +282,15 @@ pub async fn upload_documents(
     }
 }
 
-// PDF parser using pdftotext (external tool)
-// This is much more robust than Rust crates which can panic on malformed PDFs
+// PDF parser using pdf-extract crate
+// Replaces external pdftotext command dependency
 fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, String>), String> {
-    use std::io::Write;
-    use std::process::Command;
-    use tempfile::NamedTempFile;
-
-    // Create a temporary file to write the PDF data to
-    let mut temp_file =
-        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
-    temp_file
-        .write_all(data)
-        .map_err(|e| format!("Failed to write PDF data: {}", e))?;
-
-    // Get the path before we persist (though keep ensures it stays, we just want valid path)
-    let temp_path = temp_file.path().to_owned();
-
-    // Call pdftotext
-    let output = Command::new("pdftotext")
-        .arg("-layout") // Maintain layout
-        .arg("-enc")
-        .arg("UTF-8")
-        .arg(&temp_path)
-        .arg("-") // Output to stdout
-        .output()
-        .map_err(|e| format!("Failed to execute pdftotext: {}", e))?;
-
-    // Clean up is handled by NamedTempFile when it goes out of scope?
-    // Actually NamedTempFile deletes on drop. So we are good.
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("pdftotext failed: {}", stderr));
-    }
-
-    let text = String::from_utf8(output.stdout)
-        .map_err(|e| format!("Invalid UTF-8 output from pdftotext: {}", e))?;
+    let text = pdf_extract::extract_text_from_mem(data)
+        .map_err(|e| format!("Failed to extract text from PDF: {:?}", e))?;
 
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("file_type".to_string(), "pdf".to_string());
-    metadata.insert("parser".to_string(), "pdftotext".to_string());
+    metadata.insert("parser".to_string(), "pdf-extract".to_string());
 
     Ok((text, metadata))
 }

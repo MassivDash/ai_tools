@@ -117,7 +117,7 @@ impl AgentTool for ChromaDBTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "search_chromadb",
-            "description": "Search a ChromaDB collection for relevant documents using semantic search. CRITICAL: Vector databases perform semantic matching, so do NOT pass the user's raw question (e.g., 'who is X?') as the query. Instead, formulate a 'HyDE' (Hypothetical Document Embeddings) query: use declarative sentences or exact keywords you expect to find in the target document (e.g., 'X professional summary background experience'). ALWAYS use this tool for factual info, people, or technical topics. Use specific, keyword-rich queries. For broad topics, use 5-10 results.",
+            "description": "Search the knowledge base for documents using semantic similarity. CRITICAL: Vector databases perform semantic matching, so do NOT pass the user's raw question. INSTEAD, formulate a 'HyDE' (Hypothetical Document Embeddings) query: write a declarative sentence or a hypothetical document snippet that would contain the answer. Alternatively, use a dense list of exact keywords. If no results are found, try again with different keywords.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -127,7 +127,7 @@ impl AgentTool for ChromaDBTool {
                     },
                     "n_results": {
                         "type": "integer",
-                        "description": "Number of results to return (default: 5 for technical queries, 3 for general queries, max: 10). Use more results (8-10) for technical topics, frameworks, libraries, or when you need comprehensive information. Use fewer (3-5) for simple factual questions.",
+                        "description": "Number of results to return (default: 5). Use more results (8-10) for technical topics or when you need comprehensive information. Use fewer (3-5) for simple factual questions.",
                         "minimum": 1,
                         "maximum": 10
                     }

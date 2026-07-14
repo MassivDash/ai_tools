@@ -187,20 +187,6 @@ impl StockTool {
                     entries.len() - display_count
                 ));
             }
-
-            // Add instruction for charts if the user might be interested
-            result.push_str("\n💡 **To display a chart:**\n");
-            result.push_str("If the user asked for a chart, output the data in a `json-chart` code block strictly following this schema:\n");
-            result.push_str("```json-chart\n");
-            result.push_str("{\n");
-            result.push_str("  \"type\": \"line\", // or \"bar\"\n");
-            result.push_str("  \"title\": \"Stock Price History\",\n");
-            result.push_str("  \"xAxis\": { \"label\": \"Date\", \"data\": [\"2023-01-01\", \"2023-01-02\"] },\n");
-            result.push_str("  \"series\": [\n");
-            result.push_str("    { \"name\": \"Close Price\", \"data\": [150.5, 152.3] }\n");
-            result.push_str("  ]\n");
-            result.push_str("}\n");
-            result.push_str("```\n");
         } else {
             result.push_str("No time series data found in response.\n");
         }
