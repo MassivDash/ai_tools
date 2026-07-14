@@ -246,7 +246,12 @@ mod tests {
             decision_pending: false,
             round3_exclusive: false,
             past_questions: vec![],
-            player_queue: vec!["player1".to_string(), "player2".to_string(), "player3".to_string(), "player4".to_string()],
+            player_queue: vec![
+                "player1".to_string(),
+                "player2".to_string(),
+                "player3".to_string(),
+                "player4".to_string(),
+            ],
             active: true,
             buzzer_queue: vec![],
             last_pointer_id: None,
@@ -261,7 +266,7 @@ mod tests {
     #[test]
     fn test_round2_pointing_flow() {
         let mut state = create_test_state();
-        
+
         assert_eq!(state.decision_pending, false);
 
         let _msgs = handle_correct_answer(&mut state, "player1");
