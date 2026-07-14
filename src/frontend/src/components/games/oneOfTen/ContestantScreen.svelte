@@ -114,6 +114,39 @@
       onTimeout={handleTimeout}
       {onSubmitAnswer}
     />
+  {:else if logic.currentPhase === PHASE.FINISHED}
+    <div class="finished-screen">
+      <div class="trophy-container">🏆</div>
+      <h2>Game Over</h2>
+      {#if gameState.winner_id === sessionId}
+        <div class="winner-message victory">
+          <h3>Congratulations! 🎉</h3>
+          <p>You are the winner of 1 z 10!</p>
+          <div class="final-score">
+            Your Score: <strong>{logic.myContestant?.score || 0}</strong> points
+          </div>
+        </div>
+      {:else}
+        <div class="winner-message">
+          <h3>Winner Announcement</h3>
+          <p class="winner-name">
+            Winner: <strong
+              >{gameState.contestants.find((c) => c.id === gameState.winner_id)
+                ?.name || 'Unknown'}</strong
+            >
+          </p>
+          <p class="winner-points">
+            Score: {gameState.contestants.find(
+              (c) => c.id === gameState.winner_id
+            )?.score || 0} points
+          </p>
+        </div>
+      {/if}
+      <div class="stats-summary">
+        <p>Thank you for playing!</p>
+        <p>Your Final Score: {logic.myContestant?.score || 0} pts</p>
+      </div>
+    </div>
   {:else}
     <div class="waiting-screen">
       <h3>Game Ended.</h3>
@@ -136,5 +169,79 @@
     gap: 1rem;
     padding: 3rem;
     opacity: 0.7;
+  }
+
+  .finished-screen {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-primary);
+  }
+
+  .trophy-container {
+    font-size: 5rem;
+    animation: bounce 2s infinite;
+  }
+
+  .winner-message {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 16px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .winner-message.victory {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 215, 0, 0.15),
+      rgba(255, 165, 0, 0.1)
+    );
+    border: 1px solid #ffd700;
+    box-shadow: 0 4px 25px rgba(255, 215, 0, 0.2);
+  }
+
+  .winner-message h3 {
+    margin-top: 0;
+    font-size: 1.6rem;
+    color: var(--primary);
+  }
+
+  .winner-message.victory h3 {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+
+  .final-score {
+    margin-top: 1rem;
+    font-size: 1.2rem;
+  }
+
+  .winner-name {
+    font-size: 1.3rem;
+    margin: 0.5rem 0;
+  }
+
+  .stats-summary {
+    margin-top: 1rem;
+    opacity: 0.8;
+    font-size: 0.95rem;
+  }
+
+  @keyframes bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-15px);
+    }
   }
 </style>

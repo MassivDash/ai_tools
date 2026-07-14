@@ -167,6 +167,7 @@ mod tests {
             last_correct_answer: None,
             waiting_for_presenter: false,
             deferred_action: None,
+            winner_id: None,
         }
     }
 }

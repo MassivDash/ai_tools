@@ -4,7 +4,8 @@
   import {
     generateIntroSpeech,
     generateHostJoke,
-    generateAnswerComment
+    generateAnswerComment,
+    generateWinnerSpeech
   } from '../../../api/games/oneOfTen/presenterService'
 
   // Refactored Components
@@ -97,6 +98,24 @@
         } else if (gameState.round === 'round3') {
           lastSpokenRound = 'round3'
           await speech.speakAndWait('Final Round 3')
+        } else if (gameState.round === 'finished') {
+          lastSpokenRound = 'finished'
+          const winner = gameState.contestants.find(
+            (c) => c.id === gameState.winner_id
+          )
+          if (winner) {
+            robotEmotion = 'happy'
+            const winnerComment = await generateWinnerSpeech(
+              winner.name,
+              winner.score
+            )
+            await speech.speakAndWait(winnerComment)
+            robotEmotion = 'normal'
+          } else {
+            await speech.speakAndWait(
+              'The game is finished! Thank you all for playing.'
+            )
+          }
         }
       }
     }
@@ -180,6 +199,12 @@
       robotTalking={speech.robotTalking}
       {timeLeft}
       {isIntroPlaying}
+      winnerName={gameState.contestants.find(
+        (c) => c.id === gameState.winner_id
+      )?.name}
+      winnerScore={gameState.contestants.find(
+        (c) => c.id === gameState.winner_id
+      )?.score}
     />
   {/snippet}
 

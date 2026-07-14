@@ -65,6 +65,7 @@ pub struct GameState {
     pub last_correct_answer: Option<String>,
     pub waiting_for_presenter: bool,
     pub deferred_action: Option<AsyncAction>,
+    pub winner_id: Option<String>,
 }
 
 // --- WebSocket Messages (Incoming from Client) ---
@@ -121,6 +122,7 @@ pub struct GameStateSnapshot {
     pub last_answer_correct: Option<bool>,
     pub last_correct_answer: Option<String>,
     pub waiting_for_presenter: bool,
+    pub winner_id: Option<String>,
 }
 
 // --- Async Action Types ---

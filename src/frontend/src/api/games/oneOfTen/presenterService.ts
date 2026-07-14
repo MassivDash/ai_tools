@@ -93,3 +93,13 @@ export const generateAnswerComment = async (
 
   return streamHostLine(prompt, fallback)
 }
+
+export const generateWinnerSpeech = async (
+  winnerName: string,
+  winnerScore: number
+): Promise<string> => {
+  const prompt = `The game has ended, and the winner is ${winnerName} with a score of ${winnerScore} points. Announce the winner in your quirky, robot host persona and say a little congratulations comment. Keep it under 40 words.`
+  const fallback = `Congratulations to ${winnerName}! You are the winner with ${winnerScore} points!`
+
+  return streamHostLine(prompt, fallback)
+}

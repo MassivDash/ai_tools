@@ -21,7 +21,8 @@ vi.mock('../../../hooks/usePresenterSpeech.svelte', () => ({
 vi.mock('../../../api/games/oneOfTen/presenterService', () => ({
   generateIntroSpeech: vi.fn().mockResolvedValue('Welcome humans!'),
   generateHostJoke: vi.fn().mockResolvedValue('Ha ha ha!'),
-  generateAnswerComment: vi.fn().mockResolvedValue('Good job!')
+  generateAnswerComment: vi.fn().mockResolvedValue('Good job!'),
+  generateWinnerSpeech: vi.fn().mockResolvedValue('Congratulations!')
 }))
 
 describe('PresenterScreen', () => {
@@ -119,5 +120,22 @@ describe('PresenterScreen', () => {
 
     expect(screen.getByText('Reset Game')).toBeInTheDocument()
     expect(screen.queryByText('Start Game')).not.toBeInTheDocument()
+  })
+
+  it('handles game finished state and announces winner', async () => {
+    const { generateWinnerSpeech } =
+      await import('../../../api/games/oneOfTen/presenterService')
+
+    const finishedState: GameStateSnapshot = {
+      ...mockGameState,
+      round: 'finished',
+      winner_id: 'c1'
+    }
+
+    render(PresenterScreen, { ...defaultProps, gameState: finishedState })
+
+    await waitFor(() => {
+      expect(generateWinnerSpeech).toHaveBeenCalledWith('Alice', 0)
+    })
   })
 })

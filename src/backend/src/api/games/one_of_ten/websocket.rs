@@ -208,6 +208,7 @@ impl OneOfTenWebSocket {
                     // so their join order (seat order) should carry over to the next game.
                     state.active = true; // Ensure game is active
                     state.round3_exclusive = false; // Reset Exclusive Mode
+                    state.winner_id = None;
                 }
             }
             IncomingMessage::GetState => {
@@ -298,7 +299,9 @@ impl OneOfTenWebSocket {
                     // Use the ACTIVE PLAYER (who was set in handle_correct_answer_decision) for context
                     // If it was "Self", active_player_id is current player.
                     // If it was "Point", active_player_id is target.
-                    if let Some(target_player_id) = &state.active_player_id {
+                    if state.round == Round::Finished {
+                        action = None;
+                    } else if let Some(target_player_id) = &state.active_player_id {
                         if let Some(player) = state.contestants.get(target_player_id) {
                             action = Some(AsyncAction::GenerateQuestion {
                                 age: player.age.clone(),
@@ -490,7 +493,9 @@ impl OneOfTenWebSocket {
                     // Generate next question
                     // If active_player_id is Some(next_id), then that player has control (retained or returned).
                     // If active_player_id is None, it is a buzzer question.
-                    let action = if let Some(_next_id) = &state.active_player_id {
+                    let action = if state.round == Round::Finished {
+                        None
+                    } else if let Some(_next_id) = &state.active_player_id {
                         state.round3_exclusive = true;
                         state.decision_pending = true;
                         None
@@ -614,7 +619,9 @@ impl OneOfTenWebSocket {
             }
             Round::Round3 => {
                 let msgs = rounds::round3::handle_wrong_answer(state, &player_id);
-                let action = if let Some(_next_id) = &state.active_player_id {
+                let action = if state.round == Round::Finished {
+                    None
+                } else if let Some(_next_id) = &state.active_player_id {
                     state.round3_exclusive = true;
                     state.decision_pending = true;
                     None

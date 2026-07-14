@@ -36,6 +36,7 @@ export interface GameStateSnapshot {
   last_answer_correct?: boolean
   last_correct_answer?: string
   waiting_for_presenter?: boolean
+  winner_id?: string
 }
 
 export interface OneOfTenState {
@@ -92,7 +93,8 @@ export function useOneOfTenState() {
             decision_pending: msg.decision_pending,
             last_answer_correct: msg.last_answer_correct,
             last_correct_answer: msg.last_correct_answer,
-            waiting_for_presenter: msg.waiting_for_presenter
+            waiting_for_presenter: msg.waiting_for_presenter,
+            winner_id: msg.winner_id
           }
         } else if (msg.type === 'error') {
           state.error = msg.message

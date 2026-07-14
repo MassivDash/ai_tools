@@ -70,8 +70,8 @@ export function useContestantLogic(
   const currentPhase = $derived.by(() => {
     const gs = getGameState()
     if (gs.round === 'lobby') return PHASE.LOBBY
-    if (isEliminated) return PHASE.ELIMINATED
     if (gs.round === 'finished') return PHASE.FINISHED
+    if (isEliminated) return PHASE.ELIMINATED
     if (gs.waiting_for_presenter) return PHASE.WAITING_FOR_PRESENTER
 
     if (isRound2 && isPointingPhase) return PHASE.POINTING

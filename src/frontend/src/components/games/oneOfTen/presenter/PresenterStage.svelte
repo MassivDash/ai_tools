@@ -10,6 +10,8 @@
     robotTalking: boolean
     timeLeft: number
     isIntroPlaying: boolean
+    winnerName?: string
+    winnerScore?: number
   }
 
   let {
@@ -18,7 +20,9 @@
     robotEmotion,
     robotTalking,
     timeLeft,
-    isIntroPlaying
+    isIntroPlaying,
+    winnerName = '',
+    winnerScore = 0
   }: Props = $props()
 </script>
 
@@ -37,7 +41,14 @@
       </div>
     </div>
 
-    {#if currentQuestion}
+    {#if round === 'finished'}
+      <div class="winner-card">
+        <div class="trophy">🏆</div>
+        <h3>We Have a Winner!</h3>
+        <div class="winner-name">{winnerName || 'No Winner'}</div>
+        <div class="winner-score">{winnerScore} Points</div>
+      </div>
+    {:else if currentQuestion}
       <div class="prompter-card">
         <h4>Current Question:</h4>
         <div class="question-text-lg">{currentQuestion.text}</div>
@@ -128,6 +139,67 @@
     font-weight: 800;
     margin: 1rem 0;
     color: inherit;
+  }
+
+  .winner-card {
+    background: linear-gradient(135deg, var(--bg-highlight, #fff8e1), #ffe082);
+    border: 2px solid #ffb300;
+    padding: 2rem;
+    border-radius: 16px;
+    width: 80%;
+    text-align: center;
+    margin-top: 1rem;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    color: #5d4037;
+    animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .trophy {
+    font-size: 3.5rem;
+    margin-bottom: 0.5rem;
+    animation: pulseTrophy 1.5s infinite ease-in-out;
+  }
+
+  .winner-name {
+    font-size: 2.2rem;
+    font-weight: 850;
+    margin: 0.5rem 0;
+    color: #ff8f00;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .winner-score {
+    font-size: 1.4rem;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  @keyframes bounceIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.1);
+    }
+    80% {
+      transform: scale(0.9);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pulseTrophy {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15) rotate(5deg);
+    }
   }
 
   .waiting-placeholder {
