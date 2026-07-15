@@ -397,87 +397,101 @@
 
   .status {
     margin-top: 1rem;
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease;
+    padding: 1.25rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary, #ffffff);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
+  /* Make status states pop with subtle backgrounds and border colors */
   .status.processing {
-    background: rgba(33, 150, 243, 0.1);
+    background: linear-gradient(145deg, rgba(33, 150, 243, 0.05), rgba(33, 150, 243, 0.02));
     border-color: rgba(33, 150, 243, 0.3);
   }
 
   .status.completed {
-    background: rgba(76, 175, 80, 0.1);
+    background: linear-gradient(145deg, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02));
     border-color: rgba(76, 175, 80, 0.3);
   }
 
   .status.error {
-    background: rgba(244, 67, 54, 0.1);
+    background: linear-gradient(145deg, rgba(244, 67, 54, 0.05), rgba(244, 67, 54, 0.02));
     border-color: rgba(244, 67, 54, 0.3);
   }
 
   .status-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    gap: 0.75rem;
   }
 
   .status-icon {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .status-message {
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.95rem;
     color: var(--text-primary);
-    transition: color 0.3s ease;
+    letter-spacing: -0.01em;
   }
 
   .progress-bar {
     width: 100%;
-    height: 8px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
+    height: 6px;
+    background: var(--bg-secondary, #f0f0f0);
+    border-radius: 999px;
     overflow: hidden;
-    margin: 0.5rem 0;
-    transition: background-color 0.3s ease;
   }
 
   .progress-fill {
     height: 100%;
     background: var(--accent-color, #4a90e2);
-    transition:
-      width 0.3s ease,
-      background-color 0.3s ease;
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .progress-text {
     text-align: right;
     font-size: 0.85rem;
+    font-weight: 500;
     color: var(--text-secondary);
   }
 
   .logs-container {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    border-radius: 6px;
-    font-family: 'Fira Code', 'Courier New', Courier, monospace;
-    font-size: 0.8rem;
-    max-height: 200px;
+    margin-top: 0.5rem;
+    padding: 1rem;
+    background-color: var(--bg-secondary, #f8f9fa);
+    border: 1px solid var(--border-color, #e0e0e0);
+    color: var(--text-secondary, #666);
+    border-radius: 8px;
+    font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', Courier, monospace;
+    font-size: 0.8125rem;
+    max-height: 240px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.35rem;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  /* Target dark mode contexts specifically if the global theme uses dark by default */
+  :global(.dark) .logs-container {
+    background-color: #121212;
+    border-color: #333;
+    color: #a0a0a0;
   }
 
   .log-line {
-    word-break: break-all;
+    word-break: break-word;
     white-space: pre-wrap;
     line-height: 1.4;
   }
