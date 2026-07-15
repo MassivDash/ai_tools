@@ -410,17 +410,29 @@
 
   /* Make status states pop with subtle backgrounds and border colors */
   .status.processing {
-    background: linear-gradient(145deg, rgba(33, 150, 243, 0.05), rgba(33, 150, 243, 0.02));
+    background: linear-gradient(
+      145deg,
+      rgba(33, 150, 243, 0.05),
+      rgba(33, 150, 243, 0.02)
+    );
     border-color: rgba(33, 150, 243, 0.3);
   }
 
   .status.completed {
-    background: linear-gradient(145deg, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02));
+    background: linear-gradient(
+      145deg,
+      rgba(76, 175, 80, 0.05),
+      rgba(76, 175, 80, 0.02)
+    );
     border-color: rgba(76, 175, 80, 0.3);
   }
 
   .status.error {
-    background: linear-gradient(145deg, rgba(244, 67, 54, 0.05), rgba(244, 67, 54, 0.02));
+    background: linear-gradient(
+      145deg,
+      rgba(244, 67, 54, 0.05),
+      rgba(244, 67, 54, 0.02)
+    );
     border-color: rgba(244, 67, 54, 0.3);
   }
 
@@ -473,7 +485,8 @@
     border: 1px solid var(--border-color, #e0e0e0);
     color: var(--text-secondary, #666);
     border-radius: 8px;
-    font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', Courier, monospace;
+    font-family:
+      'Fira Code', 'JetBrains Mono', 'Courier New', Courier, monospace;
     font-size: 0.8125rem;
     max-height: 240px;
     overflow-y: auto;
