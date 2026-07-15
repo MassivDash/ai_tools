@@ -20,6 +20,7 @@
 
   let _error = ''
   let status: ProcessingStatus | null = null
+  let logs: string[] = []
 
   // Reset upload area when collection changes
   $: if (selectedCollection) {
@@ -27,6 +28,7 @@
     uploading = false
     _error = ''
     status = null
+    logs = []
   }
 
   const handleFiles = (newFiles: File[]) => {
@@ -64,6 +66,7 @@
   const uploadDocuments = async () => {
     uploading = true
     _error = ''
+    logs = []
 
     try {
       // Validate collection name with Zod
@@ -132,90 +135,82 @@
       const baseURL = getBackendUrl()
       const uploadUrl = `${baseURL.replace(/\/$/, '')}/chromadb/documents/upload`
 
-      const response = await window.fetch(uploadUrl, {
-        method: 'POST',
-        body: formData
-      })
+      const wsProtocol = baseURL.startsWith('https') ? 'wss' : 'ws'
+      const wsBase = baseURL.replace(/^https?:\/\//, '').replace(/\/$/, '')
+      const wsUrl = `${wsProtocol}://${wsBase}/chromadb/logs/ws`
+      let ws = new WebSocket(wsUrl)
+
+      ws.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data)
+          if (parsed.status === 'log') {
+            logs = [...logs, parsed.message]
+            setTimeout(() => {
+              const container = document.querySelector('.logs-container')
+              if (container) {
+                container.scrollTop = container.scrollHeight
+              }
+            }, 0)
+          } else if (status) {
+            status.message = parsed.message
+            if (parsed.processed_files !== undefined) {
+              status.processed_files = parsed.processed_files
+            }
+            if (parsed.total_files !== undefined) {
+              status.total_files = parsed.total_files
+            }
+            if (parsed.status === 'processing') {
+              status.progress = 100
+            }
+
+            if (parsed.status === 'completed') {
+              status.status = 'completed'
+              status.progress = 100
+              status.processed_files = files.length
+              status.total_files = files.length
+              dispatch('uploaded', {
+                collection: selectedCollection,
+                files: files.length
+              })
+              files = []
+              ws.close()
+            } else if (parsed.status === 'error' && parsed.success === false) {
+              _error = parsed.message
+              status.status = 'error'
+              status.progress = 0
+              ws.close()
+            }
+            status = { ...status }
+          }
+        } catch (e) {
+          console.error('Error parsing WS json', e)
+        }
+      }
+
+      const response = await new Promise<globalThis.Response>(
+        (resolve, reject) => {
+          ws.onopen = async () => {
+            try {
+              const res = await window.fetch(uploadUrl, {
+                method: 'POST',
+                body: formData
+              })
+              resolve(res)
+            } catch (err) {
+              reject(err)
+            }
+          }
+          ws.onerror = () => {
+            reject(new Error('WebSocket connection failed'))
+          }
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      if (!response.body) {
-        throw new Error('ReadableStream not yet supported in this browser.')
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new window.TextDecoder('utf-8')
-      let done = false
-      let buffer = ''
-      let successStatus = false
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read()
-        done = readerDone
-        if (value) {
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.replace('data: ', '').trim()
-              if (!dataStr) continue
-              try {
-                const parsed = JSON.parse(dataStr)
-                if (status) {
-                  status.message = parsed.message
-                  if (parsed.processed_files !== undefined) {
-                    status.processed_files = parsed.processed_files
-                  }
-                  if (parsed.total_files !== undefined) {
-                    status.total_files = parsed.total_files
-                  }
-                  if (parsed.status === 'processing') {
-                    // Estimate progress for fun or keep it at 100 for processing phase
-                    status.progress = 100
-                  }
-                  if (parsed.success === true) {
-                    successStatus = true
-                  } else if (parsed.success === false) {
-                    successStatus = false
-                  }
-                  // Force Svelte reactivity
-                  status = { ...status }
-                }
-              } catch (e) {
-                console.error('Error parsing SSE json', e)
-              }
-            }
-          }
-        }
-      }
-
-      if (successStatus) {
-        if (status) {
-          status.status = 'completed'
-          status.progress = 100
-          status.processed_files = files.length
-          status.total_files = files.length
-        }
-        dispatch('uploaded', {
-          collection: selectedCollection,
-          files: files.length
-        })
-        // Clear files after successful upload
-        files = []
-      } else {
-        _error = ''
-        status = {
-          status: 'error',
-          progress: 0,
-          message: status?.message || 'Failed to upload documents',
-          processed_files: 0,
-          total_files: files.length
-        }
-      }
+      // We no longer await successStatus here because the completion is handled asynchronously by the WebSocket message 'completed'
     } catch (err: any) {
       console.error('Error uploading documents:', err)
       _error = ''
@@ -320,6 +315,13 @@
           <div class="progress-text">
             {status.processed_files} / {status.total_files} files processed
           </div>
+          {#if logs.length > 0}
+            <div class="logs-container">
+              {#each logs as logMsg}
+                <div class="log-line">{logMsg}</div>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -454,9 +456,29 @@
   }
 
   .progress-text {
-    font-size: 0.9rem;
+    text-align: right;
+    font-size: 0.85rem;
     color: var(--text-secondary);
-    text-align: center;
-    transition: color 0.3s ease;
+  }
+
+  .logs-container {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 6px;
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .log-line {
+    word-break: break-all;
+    white-space: pre-wrap;
+    line-height: 1.4;
   }
 </style>

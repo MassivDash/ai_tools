@@ -3,12 +3,10 @@ use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::chromadb::types::AddDocumentsRequest;
 use actix_multipart::Multipart;
 use actix_web::{post, web, HttpResponse};
-use bytes::Bytes;
 use futures_util::TryStreamExt;
 use std::sync::Once;
 use tokenizers::tokenizer::{Result as TokenizerResult, Tokenizer};
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 
 // Global tokenizer instance - initialized once and reused
 // Using GPT-2 style BPE tokenizer which is compatible with nomic-embed-text
@@ -51,11 +49,14 @@ fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
     }
 }
 
+use crate::api::chromadb::websocket::ChromaWebSocketState;
+
 #[post("/api/chromadb/documents/upload")]
 pub async fn upload_documents(
     mut payload: Multipart,
     chroma_address: web::Data<String>,
     chromadb_config: web::Data<std::sync::Arc<std::sync::Mutex<ChromaDBConfig>>>,
+    chromadb_ws_state: web::Data<ChromaWebSocketState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut collection_name: Option<String> = None;
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
@@ -91,16 +92,23 @@ pub async fn upload_documents(
             }
         }
     }
-
-    let (tx, rx) = mpsc::channel::<Bytes>(100);
+    let (tx, mut rx) = mpsc::channel::<serde_json::Value>(100);
     let tx_clone = tx.clone();
 
-    // Helper to send SSE messages
-    let send_sse = |status: &str,
-                    message: &str,
-                    success: Option<bool>,
-                    processed: Option<usize>,
-                    total: Option<usize>| {
+    // Spawn a task to forward channel messages to the WebSocket broadcast
+    let ws_state = chromadb_ws_state.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            ws_state.broadcast(msg);
+        }
+    });
+
+    // Helper to send WS messages
+    let send_ws = |status: &str,
+                   message: &str,
+                   success: Option<bool>,
+                   processed: Option<usize>,
+                   total: Option<usize>| {
         let mut val = serde_json::json!({
             "status": status,
             "message": message
@@ -114,8 +122,7 @@ pub async fn upload_documents(
         if let Some(t) = total {
             val["total_files"] = serde_json::json!(t);
         }
-        let sse_str = format!("data: {}\n\n", val);
-        Bytes::from(sse_str)
+        val
     };
 
     // Validate inputs
@@ -155,7 +162,7 @@ pub async fn upload_documents(
             Err(e) => {
                 let err_msg = format!("Failed to connect to ChromaDB: {}", e);
                 let _ = tx_clone
-                    .send(send_sse("error", &err_msg, Some(false), None, None))
+                    .send(send_ws("error", &err_msg, Some(false), None, None))
                     .await;
                 return;
             }
@@ -174,7 +181,7 @@ pub async fn upload_documents(
         // Send initial status immediately so connection opens
 
         let _ = tx_clone
-            .send(send_sse("info", "Starting processing...", None, None, None))
+            .send(send_ws("info", "Starting processing...", None, None, None))
             .await;
 
         let msg = format!(
@@ -182,9 +189,7 @@ pub async fn upload_documents(
             chunk_size, chunk_overlap
         );
         println!("{}", msg);
-        let _ = tx_clone
-            .send(send_sse("info", &msg, None, None, None))
-            .await;
+        let _ = tx_clone.send(send_ws("info", &msg, None, None, None)).await;
 
         let mut successful_files = 0;
         let mut failed_files = Vec::new();
@@ -202,7 +207,7 @@ pub async fn upload_documents(
             let msg = format!("📄 Processing file: {}", filename);
             println!("{}", msg);
             let _ = tx_clone
-                .send(send_sse(
+                .send(send_ws(
                     "processing",
                     &msg,
                     None,
@@ -231,7 +236,7 @@ pub async fn upload_documents(
                         let err_msg = format!("Error parsing PDF {}: {}", filename, e);
                         println!("{}", err_msg);
                         let _ = tx_clone
-                            .send(send_sse("error", &err_msg, None, None, None))
+                            .send(send_ws("error", &err_msg, None, None, None))
                             .await;
                         failed_files.push(filename.clone());
                         continue;
@@ -247,7 +252,7 @@ pub async fn upload_documents(
                         let err_msg = format!("Error parsing text file {}: {}", filename, e);
                         println!("{}", err_msg);
                         let _ = tx_clone
-                            .send(send_sse("error", &err_msg, None, None, None))
+                            .send(send_ws("error", &err_msg, None, None, None))
                             .await;
                         failed_files.push(filename.clone());
                         continue;
@@ -257,7 +262,7 @@ pub async fn upload_documents(
                 let err_msg = format!("⚠️ Unsupported file type: {}", filename);
                 println!("{}", err_msg);
                 let _ = tx_clone
-                    .send(send_sse("error", &err_msg, None, None, None))
+                    .send(send_ws("error", &err_msg, None, None, None))
                     .await;
                 failed_files.push(filename.clone());
                 continue;
@@ -268,7 +273,7 @@ pub async fn upload_documents(
             let chunks = match get_tokenizer() {
                 Ok(tokenizer) => {
                     let _ = tx_clone
-                        .send(send_sse(
+                        .send(send_ws(
                             "info",
                             "✅ Loaded GPT-2 tokenizer for token-based chunking",
                             None,
@@ -289,7 +294,7 @@ pub async fn upload_documents(
                     );
                     println!("{}", err_msg);
                     let _ = tx_clone
-                        .send(send_sse("warning", &err_msg, None, None, None))
+                        .send(send_ws("warning", &err_msg, None, None, None))
                         .await;
                     let char_chunk_size = chunk_size * 3;
                     let char_overlap = chunk_overlap * 3;
@@ -319,7 +324,7 @@ pub async fn upload_documents(
 
         if all_documents.is_empty() {
             let _ = tx_clone
-                .send(send_sse(
+                .send(send_ws(
                     "error",
                     "No valid documents were extracted from the files",
                     Some(false),
@@ -339,28 +344,26 @@ pub async fn upload_documents(
         };
 
         let msg = format!("Pushing {} chunks to ChromaDB...", document_count);
-        let _ = tx_clone
-            .send(send_sse("info", &msg, None, None, None))
-            .await;
+        let _ = tx_clone.send(send_ws("info", &msg, None, None, None)).await;
 
-        let tx_ping = tx_clone.clone();
-        let ping_task = tokio::spawn(async move {
-            let mut seconds = 0;
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                seconds += 5;
-                let ping_msg = format!(
-                    "Generating embeddings for {} chunks... Elapsed: {}s",
-                    document_count, seconds
-                );
-                let _ = tx_ping
-                    .send(send_sse("processing", &ping_msg, None, None, None))
+        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel::<String>(100);
+        let tx_log_relay = tx_clone.clone();
+
+        // Spawn a task to relay raw log messages from Ollama to the SSE stream as 'log' events
+        let _relay_task = tokio::spawn(async move {
+            while let Some(log_msg) = log_rx.recv().await {
+                let _ = tx_log_relay
+                    .send(send_ws("log", &log_msg, None, None, None))
                     .await;
             }
         });
 
-        let add_result = client.add_documents(request, &embedding_model).await;
-        ping_task.abort();
+        let add_result = client
+            .add_documents(request, &embedding_model, Some(log_tx))
+            .await;
+
+        // The log_tx will be dropped when add_documents completes,
+        // which will close the channel and naturally terminate the relay_task.
 
         match add_result {
             Ok(_) => {
@@ -375,27 +378,21 @@ pub async fn upload_documents(
                 }
 
                 let _ = tx_clone
-                    .send(send_sse("completed", &result_msg, Some(true), None, None))
+                    .send(send_ws("completed", &result_msg, Some(true), None, None))
                     .await;
             }
             Err(e) => {
                 let err_msg = format!("Failed to add documents to ChromaDB: {}", e);
                 println!("{}", err_msg);
                 let _ = tx_clone
-                    .send(send_sse("error", &err_msg, Some(false), None, None))
+                    .send(send_ws("error", &err_msg, Some(false), None, None))
                     .await;
             }
         }
     });
 
-    Ok(HttpResponse::Ok()
-        .content_type("text/event-stream")
-        .append_header(("Cache-Control", "no-cache"))
-        .append_header(("Connection", "keep-alive"))
-        .streaming(futures_util::StreamExt::map(
-            ReceiverStream::new(rx),
-            Ok::<_, actix_web::Error>,
-        )))
+    Ok(HttpResponse::Accepted()
+        .json(serde_json::json!({"success": true, "message": "Upload process started"})))
 }
 
 // PDF parser using pdftotext (external tool)

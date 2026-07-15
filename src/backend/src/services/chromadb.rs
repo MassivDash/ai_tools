@@ -11,6 +11,8 @@ use crate::api::chromadb::documents::upload::upload_documents;
 use crate::api::chromadb::health::get_chromadb_health;
 use crate::api::chromadb::query::search_collection;
 
+use crate::api::chromadb::websocket::ws_handler;
+
 /// Configures all ChromaDB related endpoints
 pub fn configure_chromadb_services(cfg: &mut ServiceConfig) {
     cfg.service(get_chromadb_health)
@@ -22,7 +24,11 @@ pub fn configure_chromadb_services(cfg: &mut ServiceConfig) {
         .service(upload_documents)
         .service(get_ollama_models)
         .service(get_chromadb_config)
-        .service(post_chromadb_config);
+        .service(post_chromadb_config)
+        .route(
+            "/api/chromadb/logs/ws",
+            actix_web::web::get().to(ws_handler),
+        );
 }
 
 #[cfg(test)]

@@ -110,8 +110,9 @@ impl ChromaDBClient {
         &self,
         request: AddDocumentsRequest,
         embedding_model: &str,
+        log_tx: Option<tokio::sync::mpsc::Sender<String>>,
     ) -> Result<()> {
-        add_documents(&self.client, request, embedding_model).await
+        add_documents(&self.client, request, embedding_model, log_tx).await
     }
 
     /// Query a collection with embedding-based search

@@ -9,38 +9,35 @@ import DocumentUpload from './DocumentUpload.svelte'
 
 // Mock axiosBackendInstance
 
-const mockFetchResponse = (success: boolean, message: string) => {
-  const encoder = new window.TextEncoder()
-  const data = JSON.stringify({
-    status: success ? 'completed' : 'error',
-    message,
-    success
-  })
-  const sseChunk = encoder.encode(`data: ${data}\n\n`)
-
-  let isDone = false
-  return {
-    ok: true,
-    status: 200,
-    body: {
-      getReader: () => ({
-        read: vi.fn().mockImplementation(async () => {
-          if (!isDone) {
-            isDone = true
-            return { done: false, value: sseChunk }
-          }
-          return { done: true, value: undefined }
-        })
-      })
+const mockWebSocket = (success: boolean, message: string) => {
+  return class MockWebSocket {
+    onmessage: any
+    onopen: any
+    constructor(url: string) {
+      setTimeout(() => {
+        if (this.onopen) {
+          this.onopen()
+        }
+        if (this.onmessage) {
+          const data = JSON.stringify({
+            status: success ? 'completed' : 'error',
+            message,
+            success
+          })
+          this.onmessage({ data })
+        }
+      }, 50)
     }
+    close() {}
   }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  global.fetch = vi.fn()
+  global.fetch = vi.fn().mockResolvedValue({ ok: true })
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
   global.URL.revokeObjectURL = vi.fn()
+  global.WebSocket = mockWebSocket(true, 'Success') as any
 })
 
 test('renders document upload component', () => {
@@ -128,9 +125,7 @@ test('removes file from list', async () => {
 })
 
 test('uploads documents successfully', async () => {
-  ;(global.fetch as any).mockResolvedValueOnce(
-    mockFetchResponse(true, 'Upload successful')
-  )
+  global.WebSocket = mockWebSocket(true, 'Upload successful') as any
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {
@@ -179,9 +174,7 @@ test('uploads documents successfully', async () => {
 })
 
 test('shows error when upload fails', async () => {
-  ;(global.fetch as any).mockResolvedValueOnce(
-    mockFetchResponse(false, 'Upload failed')
-  )
+  global.WebSocket = mockWebSocket(false, 'Upload failed') as any
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {

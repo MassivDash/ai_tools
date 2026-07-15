@@ -29,6 +29,7 @@ pub async fn add_documents(
     client: &ChromaHttpClient,
     request: AddDocumentsRequest,
     embedding_model: &str,
+    log_tx: Option<tokio::sync::mpsc::Sender<String>>,
 ) -> Result<()> {
     let collection = client
         .get_collection(&request.collection)
@@ -52,7 +53,7 @@ pub async fn add_documents(
     let ollama_manager = OllamaManager::new(config);
     let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
     let mut embeddings = ollama_manager
-        .generate_embeddings_with_server(&document_refs)
+        .generate_embeddings_with_server(&document_refs, log_tx)
         .await
         .with_context(|| {
             format!(

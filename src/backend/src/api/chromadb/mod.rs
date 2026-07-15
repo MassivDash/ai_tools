@@ -5,3 +5,4 @@ pub mod documents;
 pub mod health;
 pub mod query;
 pub mod types;
+pub mod websocket;
