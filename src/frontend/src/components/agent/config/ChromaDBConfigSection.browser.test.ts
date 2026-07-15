@@ -35,14 +35,10 @@ afterEach(() => {
 const defaultProps = {
   chromadbEnabled: false,
   collections: [],
-  models: [],
   selectedCollection: '',
-  selectedEmbeddingModel: '',
   loadingCollections: false,
-  loadingModels: false,
   onToggle: vi.fn(),
-  onCollectionSelect: vi.fn(),
-  onModelSelect: vi.fn()
+  onCollectionSelect: vi.fn()
 }
 
 test('renders disabled state correctly', () => {
@@ -58,33 +54,23 @@ test('renders enabled state with empty lists', async () => {
     props: { ...defaultProps, chromadbEnabled: true }
   })
 
-  // Wait for model notes load
-  await waitFor(() => {
-    expect(mockedAxios.get).toHaveBeenCalledWith('model-notes')
-  })
-
   expect(screen.getByText('Collection')).toBeTruthy()
-  expect(screen.getByText('Embedding Model')).toBeTruthy()
   expect(screen.getByText('No collections found')).toBeTruthy()
-  expect(screen.getByText('No Ollama models found')).toBeTruthy()
 })
 
-test('renders collections and models', async () => {
+test('renders collections', async () => {
   const collections = [{ id: 'c1', name: 'My Collection', count: 10 }]
-  const models = [{ name: 'nomic-embed-text', size: '2GB' }]
 
   render(ChromaDBConfigSection as Component, {
     props: {
       ...defaultProps,
       chromadbEnabled: true,
-      collections,
-      models
+      collections
     }
   })
 
   expect(screen.getByText('My Collection')).toBeTruthy()
   expect(screen.getByText('10 documents')).toBeTruthy()
-  expect(screen.getByText('nomic-embed-text')).toBeTruthy()
 })
 
 test('handles toggling', async () => {

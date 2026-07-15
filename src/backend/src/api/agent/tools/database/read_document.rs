@@ -43,7 +43,18 @@ impl ReadDocumentTool {
         }
 
         if filename.ends_with(".pdf") {
-            // Use pdftotext for PDFs
+            // First check if a converted markdown version exists
+            let md_filename = format!("{}.md", filename);
+            let md_file_path = Path::new("./public/documents").join(&md_filename);
+
+            if md_file_path.exists() {
+                let text = tokio::fs::read_to_string(&md_file_path)
+                    .await
+                    .context(format!("Failed to read markdown file: {:?}", md_file_path))?;
+                return Ok(text);
+            }
+
+            // Use pdftotext to extract text from PDF
             let output = Command::new("pdftotext")
                 .arg("-layout")
                 .arg("-enc")

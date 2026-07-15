@@ -63,7 +63,6 @@ export interface AgentConfig {
   enabled_tools: string[]
   chromadb?: {
     collection: string
-    embedding_model: string
   }
   debug_logging?: boolean
 }

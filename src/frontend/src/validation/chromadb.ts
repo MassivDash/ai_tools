@@ -25,7 +25,8 @@ export const CreateCollectionRequestSchema = z.object({
       }
     ),
   metadata: z.record(z.string(), z.string()).optional(),
-  distance_metric: DistanceMetricSchema.optional()
+  distance_metric: DistanceMetricSchema.optional(),
+  embedding_model: z.string().optional()
 })
 
 // Query Request Schema

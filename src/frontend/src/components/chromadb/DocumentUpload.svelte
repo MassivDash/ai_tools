@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type { ChromaDBResponse, ProcessingStatus } from '../../types'
+  import { getBackendUrl } from '@axios/axiosBackendInstance.ts'
+  import type { ProcessingStatus } from '../../types'
   import {
     DocumentUploadSchema,
     validateFileType
@@ -17,7 +17,7 @@
 
   let files: File[] = []
   let uploading = false
-  let progress = 0
+
   let _error = ''
   let status: ProcessingStatus | null = null
 
@@ -25,7 +25,6 @@
   $: if (selectedCollection) {
     files = []
     uploading = false
-    progress = 0
     _error = ''
     status = null
   }
@@ -65,7 +64,6 @@
   const uploadDocuments = async () => {
     uploading = true
     _error = ''
-    progress = 0
 
     try {
       // Validate collection name with Zod
@@ -131,34 +129,76 @@
         formData.append('files', file)
       })
 
-      const response = await axiosBackendInstance.post<ChromaDBResponse<void>>(
-        'chromadb/documents/upload',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              progress = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-              )
-              if (status) {
-                status.progress = progress
-                status.message = `Uploading... ${progress}%`
+      const baseURL = getBackendUrl()
+      const uploadUrl = `${baseURL.replace(/\/$/, '')}/chromadb/documents/upload`
+
+      const response = await window.fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      if (!response.body) {
+        throw new Error('ReadableStream not yet supported in this browser.')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new window.TextDecoder('utf-8')
+      let done = false
+      let buffer = ''
+      let successStatus = false
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read()
+        done = readerDone
+        if (value) {
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.replace('data: ', '').trim()
+              if (!dataStr) continue
+              try {
+                const parsed = JSON.parse(dataStr)
+                if (status) {
+                  status.message = parsed.message
+                  if (parsed.processed_files !== undefined) {
+                    status.processed_files = parsed.processed_files
+                  }
+                  if (parsed.total_files !== undefined) {
+                    status.total_files = parsed.total_files
+                  }
+                  if (parsed.status === 'processing') {
+                    // Estimate progress for fun or keep it at 100 for processing phase
+                    status.progress = 100
+                  }
+                  if (parsed.success === true) {
+                    successStatus = true
+                  } else if (parsed.success === false) {
+                    successStatus = false
+                  }
+                  // Force Svelte reactivity
+                  status = { ...status }
+                }
+              } catch (e) {
+                console.error('Error parsing SSE json', e)
               }
             }
           }
         }
-      )
+      }
 
-      if (response.data.success) {
-        status = {
-          status: 'completed',
-          progress: 100,
-          message: response.data.message || 'Documents uploaded successfully',
-          processed_files: files.length,
-          total_files: files.length
+      if (successStatus) {
+        if (status) {
+          status.status = 'completed'
+          status.progress = 100
+          status.processed_files = files.length
+          status.total_files = files.length
         }
         dispatch('uploaded', {
           collection: selectedCollection,
@@ -171,7 +211,7 @@
         status = {
           status: 'error',
           progress: 0,
-          message: response.data.error || 'Failed to upload documents',
+          message: status?.message || 'Failed to upload documents',
           processed_files: 0,
           total_files: files.length
         }

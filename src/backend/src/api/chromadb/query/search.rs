@@ -25,52 +25,41 @@ pub async fn search_collection(
         }
     };
 
-    // Get embedding model from config (use same model as uploads to ensure dimension match)
-    // Always use embedding_model for queries to prevent dimension mismatches
-    let query_model = {
-        let config_guard = chromadb_config.lock().unwrap();
-
-        // Log current config state for debugging
-        println!(
-            "📋 Current config - Embedding: '{}', Query: '{}'",
-            config_guard.embedding_model, config_guard.query_model
-        );
-
-        // ALWAYS use embedding_model for queries to ensure dimension consistency
-        // This prevents the common issue where query_model is set to a different model
-        let model = config_guard.embedding_model.clone();
-
-        if model.trim().is_empty() {
-            return Ok(HttpResponse::BadRequest().json(ChromaDBResponse::<QueryResponse> {
-                success: false,
-                data: None,
-                error: Some("Embedding model is not configured. Please configure it in ChromaDB settings.".to_string()),
-                message: None,
-            }));
-        }
-
-        // Warn if query_model is set but different (user might expect it to be used)
-        if !config_guard.query_model.trim().is_empty()
-            && config_guard.query_model != config_guard.embedding_model
-        {
-            println!(
-                "⚠️  WARNING: Query model '{}' is set but will be ignored. Using embedding model '{}' instead to ensure dimension consistency.",
-                config_guard.query_model, model
-            );
-        }
-
-        println!(
-            "✅ Query will use embedding model '{}' (must match upload model)",
-            model
-        );
-        println!("🔍 IMPORTANT: If you get dimension mismatch errors, verify that:");
-        println!("   1. Your config has embedding_model set to: '{}'", model);
-        println!("   2. You uploaded documents using this same model");
-        println!("   3. The model name matches exactly (including :latest tag if present)");
-        model
-    };
-
     let query_request = req.into_inner();
+
+    // Fetch the collection to see if it has an embedding_model attached to its metadata
+    let mut query_model_opt = None;
+    if let Ok(collection) = client.get_collection(&query_request.collection).await {
+        if let Some(metadata) = collection.metadata {
+            if let Some(model_value) = metadata.get("embedding_model") {
+                let model_str = model_value.as_str();
+                println!(
+                    "📋 Found embedding_model in collection metadata: {}",
+                    model_str
+                );
+                query_model_opt = Some(model_str.to_string());
+            }
+        }
+    }
+
+    let query_model = match query_model_opt {
+        Some(m) => m,
+        None => {
+            let config_guard = chromadb_config.lock().unwrap();
+
+            let model = config_guard.embedding_model.clone();
+
+            if model.trim().is_empty() {
+                return Ok(HttpResponse::BadRequest().json(ChromaDBResponse::<QueryResponse> {
+                    success: false,
+                    data: None,
+                    error: Some("Embedding model is not configured. Please configure it in ChromaDB settings.".to_string()),
+                    message: None,
+                }));
+            }
+            model
+        }
+    };
 
     // Validate query request
     if query_request.query_texts.is_empty() {

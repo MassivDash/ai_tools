@@ -35,8 +35,6 @@ pub struct AgentConfig {
 pub struct ChromaDBToolConfig {
     /// Collection name to use for searches
     pub collection: String,
-    /// Embedding model to use for queries
-    pub embedding_model: String,
 }
 
 /// Chat message role

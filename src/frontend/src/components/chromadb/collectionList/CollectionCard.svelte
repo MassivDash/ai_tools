@@ -60,11 +60,18 @@
       </div>
     {/if}
 
-    {#if collection.metadata && Object.keys(collection.metadata).length > 0}
+    {#if collection.metadata?.embedding_model}
+      <div class="info-item">
+        <span class="label">Model:</span>
+        <span class="value">{collection.metadata.embedding_model}</span>
+      </div>
+    {/if}
+
+    {#if collection.metadata && Object.keys(collection.metadata).filter((k) => k !== 'embedding_model').length > 0}
       <div class="metadata">
         <span class="label">Metadata:</span>
         <div class="metadata-items">
-          {#each Object.entries(collection.metadata) as [key, value]}
+          {#each Object.entries(collection.metadata).filter(([k]) => k !== 'embedding_model') as [key, value]}
             <div class="metadata-item">
               <strong>{key}:</strong>
               {value}

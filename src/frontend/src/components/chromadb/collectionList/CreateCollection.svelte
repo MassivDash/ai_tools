@@ -3,7 +3,8 @@
   import type {
     ChromaDBResponse,
     ChromaDBCollection,
-    CreateCollectionRequest
+    CreateCollectionRequest,
+    ModelInfo
   } from '@types'
   import { collections, selectedCollection } from '@stores/chromadb.ts'
   import { CreateCollectionRequestSchema } from '@validation/chromadb.ts'
@@ -16,8 +17,29 @@
   let collectionName = ''
   let metadata: Record<string, string> = {}
   let distanceMetric: 'cosine' | 'l2' | 'ip' | undefined = 'cosine'
+  let embeddingModel = ''
+  let models: ModelInfo[] = []
+  let loadingModels = false
   let loading = false
   let error = ''
+
+  const loadModels = async () => {
+    if (models.length > 0) return
+    loadingModels = true
+    try {
+      const response = await axiosBackendInstance.get<{
+        models: ModelInfo[]
+      }>('chromadb/models')
+      models = response.data.models
+      if (models.length > 0 && !embeddingModel) {
+        embeddingModel = models[0].name
+      }
+    } catch (err: any) {
+      console.error('Failed to load models:', err)
+    } finally {
+      loadingModels = false
+    }
+  }
 
   const toggleForm = () => {
     showForm = !showForm
@@ -26,7 +48,10 @@
       collectionName = ''
       metadata = {}
       distanceMetric = 'cosine'
+      embeddingModel = models.length > 0 ? models[0].name : ''
       error = ''
+    } else {
+      loadModels().catch(console.error)
     }
   }
 
@@ -49,7 +74,8 @@
       const validationResult = CreateCollectionRequestSchema.safeParse({
         name: collectionName.trim(),
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-        distance_metric: distanceMetric
+        distance_metric: distanceMetric,
+        embedding_model: embeddingModel || undefined
       })
 
       if (!validationResult.success) {
@@ -74,6 +100,7 @@
         collectionName = ''
         metadata = {}
         distanceMetric = 'cosine'
+        embeddingModel = models.length > 0 ? models[0].name : ''
         showForm = false
       } else {
         error = response.data.error || 'Failed to create collection'
@@ -138,6 +165,29 @@
         <p class="hint">
           Cosine is recommended for semantic search with normalized embeddings
           (like nomic-embed-text).
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="embedding-model">Embedding Model *</label>
+        <select
+          id="embedding-model"
+          bind:value={embeddingModel}
+          disabled={loading || loadingModels}
+          class="select-input"
+        >
+          {#if loadingModels}
+            <option value="">Loading models...</option>
+          {:else if models.length === 0}
+            <option value="">No models found</option>
+          {:else}
+            {#each models as model}
+              <option value={model.name}>{model.name}</option>
+            {/each}
+          {/if}
+        </select>
+        <p class="hint">
+          The model used to generate embeddings for this collection.
         </p>
       </div>
 

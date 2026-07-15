@@ -44,10 +44,28 @@ impl ChromaDBTool {
             where_clause: None,
         };
 
-        // Use the configured embedding model
+        let collection_info = self
+            .client
+            .get_collection(&self.config.collection)
+            .await
+            .context("Failed to get collection metadata")?;
+
+        let embedding_model = collection_info
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("embedding_model"))
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Collection '{}' does not have an 'embedding_model' attached to its metadata. The agent cannot determine which model to use for queries.",
+                    self.config.collection
+                )
+            })?;
+
+        // Use the dynamically determined embedding model
         let query_response = self
             .client
-            .query(query_request, &self.config.embedding_model)
+            .query(query_request, &embedding_model)
             .await
             .context("Failed to execute ChromaDB query")?;
 
@@ -169,7 +187,6 @@ mod tests {
     fn test_chromadb_metadata() {
         let config = ChromaDBToolConfig {
             collection: "test_collection".to_string(),
-            embedding_model: "all-MiniLM-L6-v2".to_string(),
         };
         // Use a dummy address, the client creation might fail if it tries to connect immediately
         // But ChromaDBClient::new usually just stores the base URL.
@@ -193,7 +210,6 @@ mod tests {
     fn test_chromadb_function_definition() {
         let config = ChromaDBToolConfig {
             collection: "test_collection".to_string(),
-            embedding_model: "test-model".to_string(),
         };
         if let Ok(tool) = ChromaDBTool::new("http://localhost:8000", config) {
             let def = tool.get_function_definition();

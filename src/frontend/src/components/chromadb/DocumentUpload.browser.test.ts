@@ -6,21 +6,39 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
 import DocumentUpload from './DocumentUpload.svelte'
-import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 
 // Mock axiosBackendInstance
-vi.mock('@axios/axiosBackendInstance.ts', () => ({
-  axiosBackendInstance: {
-    post: vi.fn()
-  }
-}))
 
-const mockedAxios = axiosBackendInstance as unknown as {
-  post: ReturnType<typeof vi.fn>
+const mockFetchResponse = (success: boolean, message: string) => {
+  const encoder = new window.TextEncoder()
+  const data = JSON.stringify({
+    status: success ? 'completed' : 'error',
+    message,
+    success
+  })
+  const sseChunk = encoder.encode(`data: ${data}\n\n`)
+
+  let isDone = false
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader: () => ({
+        read: vi.fn().mockImplementation(async () => {
+          if (!isDone) {
+            isDone = true
+            return { done: false, value: sseChunk }
+          }
+          return { done: true, value: undefined }
+        })
+      })
+    }
+  }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  global.fetch = vi.fn()
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
   global.URL.revokeObjectURL = vi.fn()
 })
@@ -110,12 +128,9 @@ test('removes file from list', async () => {
 })
 
 test('uploads documents successfully', async () => {
-  mockedAxios.post.mockResolvedValueOnce({
-    data: {
-      success: true,
-      message: 'Upload successful'
-    }
-  })
+  ;(global.fetch as any).mockResolvedValueOnce(
+    mockFetchResponse(true, 'Upload successful')
+  )
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {
@@ -149,13 +164,11 @@ test('uploads documents successfully', async () => {
   fireEvent.click(uploadButton)
 
   await waitFor(() => {
-    expect(mockedAxios.post).toHaveBeenCalledWith(
-      'chromadb/documents/upload',
-      expect.any(FormData),
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('chromadb/documents/upload'),
       expect.objectContaining({
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        method: 'POST',
+        body: expect.any(FormData)
       })
     )
   })
@@ -166,12 +179,9 @@ test('uploads documents successfully', async () => {
 })
 
 test('shows error when upload fails', async () => {
-  mockedAxios.post.mockResolvedValueOnce({
-    data: {
-      success: false,
-      error: 'Upload failed'
-    }
-  })
+  ;(global.fetch as any).mockResolvedValueOnce(
+    mockFetchResponse(false, 'Upload failed')
+  )
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {

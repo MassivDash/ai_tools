@@ -41,13 +41,10 @@ pub async fn post_agent_config(
 
     // Validate ChromaDB config if provided
     if let Some(ref chromadb_config) = req.chromadb {
-        if chromadb_config.collection.trim().is_empty()
-            || chromadb_config.embedding_model.trim().is_empty()
-        {
+        if chromadb_config.collection.trim().is_empty() {
             return Ok(HttpResponse::BadRequest().json(AgentConfigResponse {
                 success: false,
-                message: "ChromaDB configuration requires both collection and embedding_model"
-                    .to_string(),
+                message: "ChromaDB configuration requires a collection".to_string(),
             }));
         }
     }
@@ -119,7 +116,6 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
         // It will only succeed if the code handles it, but connection check might fail it effectively.
         chromadb: Some(ChromaDBToolConfig {
             collection: "metadata_check".to_string(),
-            embedding_model: "metadata_check".to_string(),
         }),
         debug_logging: false,
     };

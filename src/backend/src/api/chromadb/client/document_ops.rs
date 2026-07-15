@@ -6,6 +6,7 @@ use crate::api::chromadb::types::AddDocumentsRequest;
 use anyhow::{Context, Result};
 use chroma::types::Metadata;
 use chroma::ChromaHttpClient;
+pub const CHROMA_BATCH_SIZE: usize = 100;
 
 use super::metadata::vec_to_chromadb_metadata;
 use super::ollama::{OllamaConfig, OllamaManager};
@@ -87,7 +88,6 @@ pub async fn add_documents(
 
     // Use ChromaDB's standard add method with generated embeddings
     // We must batch this to avoid hitting request size limits (e.g. 14k vectors is too big)
-    const CHROMA_BATCH_SIZE: usize = 2000;
     let total_docs = request.ids.len();
     let num_batches = total_docs.div_ceil(CHROMA_BATCH_SIZE);
 
@@ -171,8 +171,18 @@ pub async fn add_documents(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_function_exists() {
         // Verify the function is defined
+    }
+
+    #[test]
+    fn test_batch_size_is_safe() {
+        assert!(
+            CHROMA_BATCH_SIZE <= 100,
+            "Batch size must be small enough to avoid 413 Payload Too Large on large embeddings"
+        );
     }
 }

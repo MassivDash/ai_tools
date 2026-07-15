@@ -10,6 +10,8 @@ pub struct CreateCollectionRequest {
     pub metadata: Option<HashMap<String, String>>,
     #[serde(default)]
     pub distance_metric: Option<DistanceMetric>,
+    #[serde(default)]
+    pub embedding_model: Option<String>,
 }
 
 #[post("/api/chromadb/collections")]
@@ -18,8 +20,8 @@ pub async fn create_collection(
     chroma_address: web::Data<String>,
 ) -> ActixResult<HttpResponse> {
     println!(
-        "📝 Creating collection request: name={}, metadata={:?}, distance_metric={:?}",
-        req.name, req.metadata, req.distance_metric
+        "📝 Creating collection request: name={}, metadata={:?}, distance_metric={:?}, embedding_model={:?}",
+        req.name, req.metadata, req.distance_metric, req.embedding_model
     );
 
     // Validate collection name
@@ -117,6 +119,11 @@ pub async fn create_collection(
         println!("🔧 Setting distance metric to: {}", metric_str);
     }
 
+    if let Some(model) = &req.embedding_model {
+        metadata.insert("embedding_model".to_string(), model.clone());
+        println!("🔧 Setting embedding model to: {}", model);
+    }
+
     match client
         .create_collection(sanitized_name, Some(metadata))
         .await
@@ -166,6 +173,7 @@ mod tests {
                 name: "   ".to_string(), // Empty after trim
                 metadata: None,
                 distance_metric: None,
+                embedding_model: None,
             })
             .to_request();
 
@@ -190,6 +198,7 @@ mod tests {
                 name: long_name,
                 metadata: None,
                 distance_metric: None,
+                embedding_model: None,
             })
             .to_request();
 
@@ -214,6 +223,7 @@ mod tests {
                 name: "test collection name".to_string(),
                 metadata: None,
                 distance_metric: None,
+                embedding_model: None,
             })
             .to_request();
 
@@ -242,6 +252,7 @@ mod tests {
                 name: "test_collection".to_string(),
                 metadata: Some(metadata),
                 distance_metric: None,
+                embedding_model: None,
             })
             .to_request();
 

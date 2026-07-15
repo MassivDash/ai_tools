@@ -5,7 +5,6 @@
     AgentConfig,
     AgentConfigResponse,
     Collection,
-    ModelInfo,
     ChromaDBResponse
   } from '@types'
   import ChromaDBConfigSection from './ChromaDBConfigSection.svelte'
@@ -17,14 +16,11 @@
   export let onSave: () => void
 
   let collections: Collection[] = []
-  let models: ModelInfo[] = []
   let enabledTools: string[] = []
   let chromadbEnabled = false
   let selectedCollection = ''
-  let selectedEmbeddingModel = ''
   let debugLogging = false
   let loadingCollections = false
-  let loadingModels = false
   let savingConfig = false
   let error = ''
 
@@ -40,11 +36,9 @@
       if (response.data.chromadb) {
         chromadbEnabled = true
         selectedCollection = response.data.chromadb.collection
-        selectedEmbeddingModel = response.data.chromadb.embedding_model
       } else {
         chromadbEnabled = false
         selectedCollection = ''
-        selectedEmbeddingModel = ''
       }
     } catch (err: any) {
       console.error('Failed to load agent config:', err)
@@ -71,33 +65,15 @@
     }
   }
 
-  const loadModels = async () => {
-    loadingModels = true
-    try {
-      const response = await axiosBackendInstance.get<{
-        models: ModelInfo[]
-      }>('chromadb/models')
-      models = response.data.models
-    } catch (err: any) {
-      console.error('Failed to load models:', err)
-      error =
-        err.response?.data?.error || err.message || 'Failed to load models'
-    } finally {
-      loadingModels = false
-    }
-  }
-
   $: if (isOpen) {
     loadConfig().catch(console.error)
     loadCollections().catch(console.error)
-    loadModels().catch(console.error)
   }
 
   const handleChromaDBToggle = () => {
     chromadbEnabled = !chromadbEnabled
     if (!chromadbEnabled) {
       selectedCollection = ''
-      selectedEmbeddingModel = ''
     }
   }
 
@@ -113,10 +89,6 @@
     selectedCollection = collection.name
   }
 
-  const handleModelSelect = (model: ModelInfo) => {
-    selectedEmbeddingModel = model.name
-  }
-
   const handleSave = async () => {
     savingConfig = true
     error = ''
@@ -125,11 +97,6 @@
     if (chromadbEnabled) {
       if (!selectedCollection.trim()) {
         error = 'Please select a ChromaDB collection'
-        savingConfig = false
-        return
-      }
-      if (!selectedEmbeddingModel.trim()) {
-        error = 'Please select an embedding model'
         savingConfig = false
         return
       }
@@ -143,8 +110,7 @@
         debug_logging: debugLogging,
         chromadb: chromadbEnabled
           ? {
-              collection: selectedCollection,
-              embedding_model: selectedEmbeddingModel
+              collection: selectedCollection
             }
           : undefined
       }
@@ -193,14 +159,10 @@
     <ChromaDBConfigSection
       {chromadbEnabled}
       {collections}
-      {models}
       {selectedCollection}
-      {selectedEmbeddingModel}
       {loadingCollections}
-      {loadingModels}
       onToggle={handleChromaDBToggle}
       onCollectionSelect={handleCollectionSelect}
-      onModelSelect={handleModelSelect}
     />
 
     <div style="margin-bottom: 2rem;">
@@ -218,8 +180,7 @@
     <Button
       variant="primary"
       onclick={handleSave}
-      disabled={savingConfig ||
-        (chromadbEnabled && (!selectedCollection || !selectedEmbeddingModel))}
+      disabled={savingConfig || (chromadbEnabled && !selectedCollection)}
     >
       {savingConfig ? 'Saving...' : 'Save'}
     </Button>
