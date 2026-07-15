@@ -42,12 +42,8 @@ test('loads initial config state', async () => {
   mockedAxios.get.mockImplementation((url) => {
     if (url === 'agent/config')
       return Promise.resolve({
-        data: { enabled_tools: ['calculator'], chromadb: null }
+        data: { enabled_tools: ['calculator'] }
       })
-    if (url === 'chromadb/collections')
-      return Promise.resolve({ data: { success: true, data: [] } })
-    if (url === 'chromadb/models')
-      return Promise.resolve({ data: { models: [] } })
     if (url === 'agent/tools') return Promise.resolve({ data: [] }) // Return empty array for tools
     return Promise.resolve({ data: {} })
   })
@@ -61,38 +57,10 @@ test('loads initial config state', async () => {
   expect(mockedAxios.get).toHaveBeenCalledWith('agent/config')
 })
 
-test('validates chromadb selection when enabled', async () => {
-  mockedAxios.get.mockImplementation((url) => {
-    if (url === 'agent/config')
-      return Promise.resolve({ data: { enabled_tools: [], chromadb: null } })
-    if (url === 'agent/tools') return Promise.resolve({ data: [] })
-    return Promise.resolve({ data: {} })
-  })
-
-  render(AgentConfig as Component, { props: defaultProps })
-
-  // Enable ChromaDB
-  const _toggle = screen.getAllByRole('checkbox')[0] // Assuming first toggle is ChromaDB or we can find by label if easier
-  // Actually ChromaDBConfigSection renders a toggle. Let's find by text/label if possible or just use a more specific selector.
-  // Ideally we should use user-visible text.
-
-  // Since ChromaDBConfigSection has "Enable Memory (ChromaDB)"
-  // Let's look for that if possible, but the component might be using a label.
-  // The Toggle component usually has a hidden checkbox.
-
-  // For now, let's verify save is disabled if we enable it but don't select collection.
-  // But testing implementation details of child components is brittle.
-  // Let's assume the component integration works and just check the save button logic in AgentConfig.
-  // Ideally AgentConfig's save button checks `chromadbEnabled` state which is local.
-
-  // We can trigger the toggle via prop callback if we were testing the child, but here we are testing parent.
-  // Let's try to find the "Enable Memory" text and click the adjacent toggle.
-})
-
 test('calls onSave when save is successful', async () => {
   mockedAxios.get.mockImplementation((url) => {
     if (url === 'agent/config')
-      return Promise.resolve({ data: { enabled_tools: [], chromadb: null } })
+      return Promise.resolve({ data: { enabled_tools: [] } })
     if (url === 'agent/tools') return Promise.resolve({ data: [] })
     return Promise.resolve({ data: {} })
   })

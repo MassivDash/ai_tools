@@ -37,11 +37,6 @@
       const category = tool.category || 'other'
       const type = tool.tool_type
 
-      // Skip ChromaDB as it has its own configuration section
-      if (type === 'chroma_d_b') {
-        return acc
-      }
-
       if (!acc[category]) {
         acc[category] = {}
       }

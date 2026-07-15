@@ -11,6 +11,7 @@ use crate::api::agent::tools::framework::registry::ToolRegistry;
 /// Context for tool registration containing dependencies that aren't in AgentConfig
 pub struct RegisterContext<'a> {
     pub chroma_address: Option<&'a str>,
+    pub available_collections: &'a [crate::api::chromadb::types::Collection],
 }
 
 /// Register all enabled tools given the configuration
@@ -37,6 +38,7 @@ mod tests {
 
         let context = RegisterContext {
             chroma_address: None,
+            available_collections: &[],
         };
 
         register_all(&mut registry, &config, &context);

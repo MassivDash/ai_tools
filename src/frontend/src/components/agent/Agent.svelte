@@ -124,16 +124,12 @@
       const response =
         await axiosBackendInstance.get<AgentConfigType>('agent/config')
       const enabledToolsList = response.data.enabled_tools || []
-      const chromadbEnabled = !!response.data.chromadb
 
       // Update enabled tools store with tools from config
       const toolsToAdd = new Set<string>()
       enabledToolsList.forEach((tool) => {
         toolsToAdd.add(tool)
       })
-      if (chromadbEnabled) {
-        toolsToAdd.add('chromadb')
-      }
       enabledToolsStore.set(toolsToAdd)
     } catch (err: any) {
       console.error('Failed to load agent config:', err)

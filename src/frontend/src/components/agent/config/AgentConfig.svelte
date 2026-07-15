@@ -1,13 +1,7 @@
 <script lang="ts">
   import Button from '@ui/Button.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    AgentConfig,
-    AgentConfigResponse,
-    Collection,
-    ChromaDBResponse
-  } from '@types'
-  import ChromaDBConfigSection from './ChromaDBConfigSection.svelte'
+  import type { AgentConfig, AgentConfigResponse } from '@types'
   import ToolsConfigSection from './ToolsConfigSection.svelte'
   import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   import MaterialIcon from '@ui/MaterialIcon.svelte'
@@ -15,12 +9,8 @@
   export let onClose: () => void
   export let onSave: () => void
 
-  let collections: Collection[] = []
   let enabledTools: string[] = []
-  let chromadbEnabled = false
-  let selectedCollection = ''
   let debugLogging = false
-  let loadingCollections = false
   let savingConfig = false
   let error = ''
 
@@ -31,50 +21,13 @@
       // Backend returns enabled_tools as string[] (ToolType enum serialized to snake_case)
       enabledTools = response.data.enabled_tools || []
       debugLogging = !!response.data.debug_logging
-
-      // ChromaDB is now separate from enabled_tools
-      if (response.data.chromadb) {
-        chromadbEnabled = true
-        selectedCollection = response.data.chromadb.collection
-      } else {
-        chromadbEnabled = false
-        selectedCollection = ''
-      }
     } catch (err: any) {
       console.error('Failed to load agent config:', err)
     }
   }
 
-  const loadCollections = async () => {
-    loadingCollections = true
-    try {
-      const response = await axiosBackendInstance.get<
-        ChromaDBResponse<Collection[]>
-      >('chromadb/collections')
-      if (response.data.success && response.data.data) {
-        collections = response.data.data
-      } else {
-        error = response.data.error || 'Failed to load collections'
-      }
-    } catch (err: any) {
-      console.error('Failed to load collections:', err)
-      error =
-        err.response?.data?.error || err.message || 'Failed to load collections'
-    } finally {
-      loadingCollections = false
-    }
-  }
-
   $: if (isOpen) {
     loadConfig().catch(console.error)
-    loadCollections().catch(console.error)
-  }
-
-  const handleChromaDBToggle = () => {
-    chromadbEnabled = !chromadbEnabled
-    if (!chromadbEnabled) {
-      selectedCollection = ''
-    }
   }
 
   const handleToolToggle = (tool: string) => {
@@ -85,34 +38,16 @@
     }
   }
 
-  const handleCollectionSelect = (collection: Collection) => {
-    selectedCollection = collection.name
-  }
-
   const handleSave = async () => {
     savingConfig = true
     error = ''
 
-    // Validate ChromaDB config if enabled
-    if (chromadbEnabled) {
-      if (!selectedCollection.trim()) {
-        error = 'Please select a ChromaDB collection'
-        savingConfig = false
-        return
-      }
-    }
-
     try {
       // Ensure enabled_tools are in the correct format (snake_case matching ToolType enum)
-      // Backend expects: ['financial_data', 'website_check'] etc.
+      // Backend expects: ['financial_data', 'website_check', 'chromadb'] etc.
       const payload = {
         enabled_tools: enabledTools, // Already in correct format from tool.tool_type
-        debug_logging: debugLogging,
-        chromadb: chromadbEnabled
-          ? {
-              collection: selectedCollection
-            }
-          : undefined
+        debug_logging: debugLogging
       }
 
       const response = await axiosBackendInstance.post<AgentConfigResponse>(
@@ -156,15 +91,6 @@
       <div class="error">{error}</div>
     {/if}
 
-    <ChromaDBConfigSection
-      {chromadbEnabled}
-      {collections}
-      {selectedCollection}
-      {loadingCollections}
-      onToggle={handleChromaDBToggle}
-      onCollectionSelect={handleCollectionSelect}
-    />
-
     <div style="margin-bottom: 2rem;">
       <CheckboxWithHelp
         bind:checked={debugLogging}
@@ -177,11 +103,7 @@
   </div>
   <div class="config-footer">
     <Button variant="secondary" onclick={onClose}>Cancel</Button>
-    <Button
-      variant="primary"
-      onclick={handleSave}
-      disabled={savingConfig || (chromadbEnabled && !selectedCollection)}
-    >
+    <Button variant="primary" onclick={handleSave} disabled={savingConfig}>
       {savingConfig ? 'Saving...' : 'Save'}
     </Button>
   </div>

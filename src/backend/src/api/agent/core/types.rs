@@ -5,8 +5,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ToolType {
     ChromaDB,
-    ReadDocument,
-
     WebsiteCheck,
     Weather,
     Currency,
@@ -23,18 +21,9 @@ pub enum ToolType {
 pub struct AgentConfig {
     /// List of enabled tools
     pub enabled_tools: Vec<ToolType>,
-    /// ChromaDB configuration (only used if ChromaDB tool is enabled)
-    pub chromadb: Option<ChromaDBToolConfig>,
     /// Whether to enable debug logging for agent conversations
     #[serde(default)]
     pub debug_logging: bool,
-}
-
-/// ChromaDB tool configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChromaDBToolConfig {
-    /// Collection name to use for searches
-    pub collection: String,
 }
 
 /// Chat message role
@@ -242,8 +231,6 @@ pub type ActiveGenerations = std::sync::Arc<
 pub struct AgentConfigRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled_tools: Option<Vec<ToolType>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub chromadb: Option<ChromaDBToolConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debug_logging: Option<bool>,
 }

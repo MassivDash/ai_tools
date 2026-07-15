@@ -71,9 +71,22 @@ pub async fn agent_chat(
     let mut tool_registry = ToolRegistry::new();
 
     // Register ChromaDB tool if configured
-    // Register all enabled tools
+    // Fetch available collections from ChromaDB
+    let available_collections = if config.enabled_tools.contains(&crate::api::agent::core::types::ToolType::ChromaDB) {
+        if let Ok(client) =
+            crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
+        {
+            client.list_collections().await.unwrap_or_default()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
+        available_collections: &available_collections,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
@@ -413,9 +426,22 @@ pub async fn agent_chat_stream(
     // Build tool registry (same as non-streaming endpoint)
     let mut tool_registry = ToolRegistry::new();
 
-    // Register all enabled tools
+    // Fetch available collections from ChromaDB
+    let available_collections = if config.enabled_tools.contains(&crate::api::agent::core::types::ToolType::ChromaDB) {
+        if let Ok(client) =
+            crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
+        {
+            client.list_collections().await.unwrap_or_default()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
+        available_collections: &available_collections,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
