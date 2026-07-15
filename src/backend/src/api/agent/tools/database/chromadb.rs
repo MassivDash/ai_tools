@@ -55,7 +55,12 @@ impl ChromaDBTool {
             .available_collections
             .iter()
             .find(|c| c.name == collection_name)
-            .ok_or_else(|| anyhow::anyhow!("Collection '{}' not found in available collections", collection_name))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Collection '{}' not found in available collections",
+                    collection_name
+                )
+            })?;
 
         let embedding_model = collection_info
             .metadata

@@ -72,7 +72,10 @@ pub async fn agent_chat(
 
     // Register ChromaDB tool if configured
     // Fetch available collections from ChromaDB
-    let available_collections = if config.enabled_tools.contains(&crate::api::agent::core::types::ToolType::ChromaDB) {
+    let available_collections = if config
+        .enabled_tools
+        .contains(&crate::api::agent::core::types::ToolType::ChromaDB)
+    {
         if let Ok(client) =
             crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
         {
@@ -427,7 +430,10 @@ pub async fn agent_chat_stream(
     let mut tool_registry = ToolRegistry::new();
 
     // Fetch available collections from ChromaDB
-    let available_collections = if config.enabled_tools.contains(&crate::api::agent::core::types::ToolType::ChromaDB) {
+    let available_collections = if config
+        .enabled_tools
+        .contains(&crate::api::agent::core::types::ToolType::ChromaDB)
+    {
         if let Ok(client) =
             crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
         {
