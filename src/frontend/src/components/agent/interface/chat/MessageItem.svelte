@@ -27,8 +27,11 @@
         options: Array.isArray(parsed.options) ? parsed.options : []
       }
     } catch {
-      // Expected during streaming when JSON is incomplete. Suppress error.
-      return null
+      // Return raw string as fallback if JSON is incomplete or invalid
+      return {
+        question: str,
+        options: []
+      }
     }
   }
 

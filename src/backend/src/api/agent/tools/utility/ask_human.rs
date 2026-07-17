@@ -31,7 +31,7 @@ impl AgentTool for AskHumanTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "ask_human",
-            "description": "Ask the user a multiple-choice question and pause execution until they select an option. Use this when you need explicit approval, selection, or input from the user before proceeding. You must ALWAYS include an 'Other' option so the user can provide custom input.",
+            "description": "Ask the user a multiple-choice question and pause execution until they select an option. Use this when you need explicit approval, selection, or input from the user before proceeding. IMPORTANT: You must output valid JSON. Do not include trailing commas. Ensure all strings are properly escaped. You must ALWAYS include an option named exactly 'Other' as the final choice in the options array.",
             "parameters": {
                 "type": "object",
                 "properties": {

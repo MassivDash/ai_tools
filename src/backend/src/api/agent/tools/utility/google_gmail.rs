@@ -53,6 +53,14 @@ impl AgentTool for GoogleGmailTool {
                     "body": {
                         "type": "string",
                         "description": "The HTML content of the email body."
+                    },
+                    "thread_id": {
+                        "type": "string",
+                        "description": "Optional Thread-ID to reply to an existing email thread. Must be used with message_id."
+                    },
+                    "message_id": {
+                        "type": "string",
+                        "description": "Optional Message-ID to reply to an existing email thread. Must be used with thread_id."
                     }
                 },
                 "required": ["to", "subject", "body"]
@@ -76,35 +84,51 @@ impl AgentTool for GoogleGmailTool {
             .get("body")
             .and_then(|v| v.as_str())
             .context("Missing 'body'")?;
+        
+        let thread_id = args.get("thread_id").and_then(|v| v.as_str());
+        let message_id = args.get("message_id").and_then(|v| v.as_str());
 
         println!("\x1b[36m📧 Sending Gmail to: {}\x1b[0m", to);
 
         // Fetch access token
         let access_token = self.oauth_provider.get_access_token().await?;
 
-        // Try to get user email address from token info, but for `users/me`, 'me' is automatically inferred.
-        // Lettre builder requires a "from" address, but Gmail API will overwrite it with the authenticated user if missing or matching.
-        // We'll put a placeholder or just build it without a From header, but lettre `Message::builder()` strictly requires a valid email.
-        // We can just use a dummy "me@localhost" because the Gmail API uses the authenticated context.
-        let email = Message::builder()
+        let mut email_builder = Message::builder()
             .from("me@localhost".parse().unwrap())
             .to(to.parse().context("Invalid recipient email address")?)
             .subject(subject)
-            .header(ContentType::TEXT_HTML)
+            .header(ContentType::TEXT_HTML);
+
+        if let Some(msg_id) = message_id {
+            use lettre::message::header::{Header, InReplyTo, References};
+            if let Ok(in_reply_to) = InReplyTo::parse(msg_id) {
+                email_builder = email_builder.header(in_reply_to);
+            }
+            if let Ok(references) = References::parse(msg_id) {
+                email_builder = email_builder.header(references);
+            }
+        }
+
+        let email = email_builder
             .body(String::from(body))
             .context("Failed to build email message")?;
 
         let raw_email = email.formatted();
         let encoded_email = URL_SAFE.encode(raw_email);
 
+        let mut payload = serde_json::Map::new();
+        payload.insert("raw".to_string(), json!(encoded_email));
+
+        if let Some(tid) = thread_id {
+            payload.insert("threadId".to_string(), json!(tid));
+        }
+
         let res = self
             .oauth_provider
             .http_client
             .post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
             .bearer_auth(access_token)
-            .json(&json!({
-                "raw": encoded_email
-            }))
+            .json(&payload)
             .send()
             .await
             .context("Failed to send request to Gmail API")?;

@@ -120,7 +120,7 @@ impl AgentTool for GoogleGmailReadTool {
 
                 let handle = tokio::spawn(async move {
                     let msg_res = client_clone
-                        .get(format!("https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date", id_string))
+                        .get(format!("https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date&metadataHeaders=Message-ID", id_string))
                         .bearer_auth(&access_token_clone)
                         .send()
                         .await;
@@ -133,6 +133,10 @@ impl AgentTool for GoogleGmailReadTool {
                                 .get("snippet")
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("");
+                            let thread_id = msg_data
+                                .get("threadId")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
                             let payload = msg_data.get("payload");
                             let headers = payload
                                 .and_then(|p| p.get("headers"))
@@ -141,6 +145,7 @@ impl AgentTool for GoogleGmailReadTool {
                             let mut subject = "No Subject";
                             let mut from = "Unknown Sender";
                             let mut date = "Unknown Date";
+                            let mut message_id = "";
 
                             if let Some(hdrs) = headers {
                                 for h in hdrs {
@@ -155,12 +160,15 @@ impl AgentTool for GoogleGmailReadTool {
                                     if name.eq_ignore_ascii_case("Date") {
                                         date = val;
                                     }
+                                    if name.eq_ignore_ascii_case("Message-ID") {
+                                        message_id = val;
+                                    }
                                 }
                             }
 
                             return Some(format!(
-                                "---\nFrom: {}\nDate: {}\nSubject: {}\nSnippet: {}\n",
-                                from, date, subject, snippet
+                                "---\nFrom: {}\nDate: {}\nSubject: {}\nThread-ID: {}\nMessage-ID: {}\nSnippet: {}\n",
+                                from, date, subject, thread_id, message_id, snippet
                             ));
                         }
                     }
