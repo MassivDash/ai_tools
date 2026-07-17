@@ -128,9 +128,14 @@ impl AgentTool for GoogleGmailReadTool {
                         if res.status().is_success() {
                             let msg_data: serde_json::Value = res.json().await.unwrap_or_default();
 
-                            let snippet = msg_data.get("snippet").and_then(|v| v.as_str()).unwrap_or("");
+                            let snippet = msg_data
+                                .get("snippet")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
                             let payload = msg_data.get("payload");
-                            let headers = payload.and_then(|p| p.get("headers")).and_then(|h| h.as_array());
+                            let headers = payload
+                                .and_then(|p| p.get("headers"))
+                                .and_then(|h| h.as_array());
 
                             let mut subject = "No Subject";
                             let mut from = "Unknown Sender";
@@ -140,13 +145,22 @@ impl AgentTool for GoogleGmailReadTool {
                                 for h in hdrs {
                                     let name = h.get("name").and_then(|v| v.as_str()).unwrap_or("");
                                     let val = h.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                                    if name.eq_ignore_ascii_case("Subject") { subject = val; }
-                                    if name.eq_ignore_ascii_case("From") { from = val; }
-                                    if name.eq_ignore_ascii_case("Date") { date = val; }
+                                    if name.eq_ignore_ascii_case("Subject") {
+                                        subject = val;
+                                    }
+                                    if name.eq_ignore_ascii_case("From") {
+                                        from = val;
+                                    }
+                                    if name.eq_ignore_ascii_case("Date") {
+                                        date = val;
+                                    }
                                 }
                             }
 
-                            return Some(format!("---\nFrom: {}\nDate: {}\nSubject: {}\nSnippet: {}\n", from, date, subject, snippet));
+                            return Some(format!(
+                                "---\nFrom: {}\nDate: {}\nSubject: {}\nSnippet: {}\n",
+                                from, date, subject, snippet
+                            ));
                         }
                     }
                     None

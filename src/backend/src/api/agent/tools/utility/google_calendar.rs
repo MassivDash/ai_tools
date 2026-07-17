@@ -132,7 +132,9 @@ impl AgentTool for GoogleCalendarTool {
             payload.insert("recurrence".to_string(), serde_json::Value::Array(r));
         }
 
-        let res = self.oauth_provider.http_client
+        let res = self
+            .oauth_provider
+            .http_client
             .post("https://www.googleapis.com/calendar/v3/calendars/primary/events")
             .bearer_auth(access_token)
             .json(&payload)

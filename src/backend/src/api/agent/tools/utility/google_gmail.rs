@@ -97,7 +97,9 @@ impl AgentTool for GoogleGmailTool {
         let raw_email = email.formatted();
         let encoded_email = URL_SAFE.encode(raw_email);
 
-        let res = self.oauth_provider.http_client
+        let res = self
+            .oauth_provider
+            .http_client
             .post("https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send")
             .bearer_auth(access_token)
             .json(&json!({

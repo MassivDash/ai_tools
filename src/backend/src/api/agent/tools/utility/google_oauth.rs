@@ -52,7 +52,8 @@ impl GoogleOAuthProvider {
         }
 
         // Fetch new token
-        let res = self.http_client
+        let res = self
+            .http_client
             .post("https://oauth2.googleapis.com/token")
             .form(&[
                 ("client_id", self.client_id.as_str()),
