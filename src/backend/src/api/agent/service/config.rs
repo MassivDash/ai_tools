@@ -93,6 +93,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GitHubAuthenticated,
             ToolType::Crypto,
             ToolType::GoogleBooks,
+            ToolType::Email,
         ],
         debug_logging: false,
     };

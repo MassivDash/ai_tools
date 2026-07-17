@@ -13,6 +13,7 @@ pub enum ToolType {
     GitHubAuthenticated,
     Crypto,
     GoogleBooks,
+    Email,
     // Future tools can be added here
 }
 
