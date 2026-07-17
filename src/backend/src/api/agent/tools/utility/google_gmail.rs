@@ -21,7 +21,7 @@ impl GoogleGmailTool {
                 id: "send_gmail_oauth".to_string(),
                 name: "Send Email (Gmail)".to_string(),
                 description: "Send an HTML-formatted email using the user's Gmail account via Google Workspace APIs.".to_string(),
-                category: ToolCategory::Utility,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleGmail,
             },
             oauth_provider,
@@ -100,7 +100,7 @@ impl AgentTool for GoogleGmailTool {
         let res = self
             .oauth_provider
             .http_client
-            .post("https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send")
+            .post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
             .bearer_auth(access_token)
             .json(&json!({
                 "raw": encoded_email
@@ -122,6 +122,7 @@ impl AgentTool for GoogleGmailTool {
         println!("\x1b[32m✅ Gmail sent successfully\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "send_gmail_oauth".to_string(),
             result: format!("Successfully sent email to {} via Gmail API", to),
         })

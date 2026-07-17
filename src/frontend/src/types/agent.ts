@@ -45,6 +45,9 @@ export interface ChatMessage {
   content: string | any[]
   timestamp: number
   toolName?: string
+  toolCallId?: string
+  toolArguments?: string
+  toolCalls?: any[]
   statusType?: string
   attachments?: FileAttachment[]
 }

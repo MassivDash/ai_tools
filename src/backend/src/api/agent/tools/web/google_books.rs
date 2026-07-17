@@ -179,6 +179,7 @@ impl AgentTool for GoogleBooksTool {
         println!("✅ Google Books search completed for: {}", query);
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "search_google_books".to_string(),
             result,
         })

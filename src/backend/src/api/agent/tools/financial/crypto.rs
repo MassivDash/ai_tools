@@ -392,6 +392,7 @@ impl AgentTool for CryptoTool {
         let result = self.format_response(&data, function, &from_currency, &to_currency, limit)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "crypto_data".to_string(),
             result,
         })

@@ -13,7 +13,7 @@ const mockWebSocket = (success: boolean, message: string) => {
   return class MockWebSocket {
     onmessage: any
     onopen: any
-    constructor(url: string) {
+    constructor(_url: string) {
       setTimeout(() => {
         if (this.onopen) {
           this.onopen()

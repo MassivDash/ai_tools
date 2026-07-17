@@ -271,6 +271,7 @@ impl AgentTool for CurrencyTool {
         let result = self.format_currency_response(&data, table)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "currency_check".to_string(),
             result,
         })

@@ -277,6 +277,7 @@ impl AgentTool for StockTool {
         let result = self.format_stock_response(&data, function, limit)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "stock_data".to_string(),
             result,
         })

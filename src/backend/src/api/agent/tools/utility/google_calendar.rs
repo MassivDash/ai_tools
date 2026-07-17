@@ -18,7 +18,7 @@ impl GoogleCalendarTool {
                 id: "create_calendar_event".to_string(),
                 name: "Create Calendar Event".to_string(),
                 description: "Create an event on the user's primary Google Calendar.".to_string(),
-                category: ToolCategory::Utility,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleCalendar,
             },
             oauth_provider,
@@ -161,6 +161,7 @@ impl AgentTool for GoogleCalendarTool {
         println!("\x1b[32m✅ Calendar event created successfully\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "create_calendar_event".to_string(),
             result: format!(
                 "Successfully created event '{}'. Link: {}",

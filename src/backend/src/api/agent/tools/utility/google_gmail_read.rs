@@ -18,7 +18,7 @@ impl GoogleGmailReadTool {
                 id: "read_gmail_oauth".to_string(),
                 name: "Read Emails (Gmail)".to_string(),
                 description: "Read recent emails from the user's Gmail account.".to_string(),
-                category: ToolCategory::Utility,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleGmailRead,
             },
             oauth_provider,
@@ -102,6 +102,7 @@ impl AgentTool for GoogleGmailReadTool {
             Some(arr) if !arr.is_empty() => arr,
             _ => {
                 return Ok(ToolCallResult {
+                    tool_call_id: None,
                     tool_name: "read_gmail_oauth".to_string(),
                     result: "No emails found matching the criteria.".to_string(),
                 });
@@ -182,6 +183,7 @@ impl AgentTool for GoogleGmailReadTool {
         println!("\x1b[32m✅ Successfully read Gmail messages\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "read_gmail_oauth".to_string(),
             result: format!(
                 "Retrieved {} emails:\n\n{}",

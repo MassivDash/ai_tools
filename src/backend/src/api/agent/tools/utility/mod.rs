@@ -1,3 +1,4 @@
+pub mod ask_human;
 pub mod email;
 pub mod google_calendar;
 pub mod google_calendar_read;
@@ -8,6 +9,7 @@ pub mod weather;
 
 use crate::api::agent::core::types::{AgentConfig, ToolType};
 use crate::api::agent::tools::framework::registry::ToolRegistry;
+use crate::api::agent::tools::utility::ask_human::AskHumanTool;
 use crate::api::agent::tools::utility::email::EmailTool;
 use crate::api::agent::tools::utility::google_calendar::GoogleCalendarTool;
 use crate::api::agent::tools::utility::google_calendar_read::GoogleCalendarReadTool;
@@ -18,6 +20,13 @@ use crate::api::agent::tools::utility::weather::{ForecastTool, WeatherTool};
 use std::sync::Arc;
 
 pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
+    if config.enabled_tools.contains(&ToolType::AskHuman) {
+        let ask_human_tool = AskHumanTool::new();
+        if let Err(e) = registry.register(Arc::new(ask_human_tool)) {
+            println!("⚠️ Failed to register Ask Human tool: {}", e);
+        }
+    }
+
     if config.enabled_tools.contains(&ToolType::Weather) {
         let weather_tool = WeatherTool::new();
         if let Err(e) = registry.register(Arc::new(weather_tool)) {

@@ -83,8 +83,8 @@ impl EmailTool {
             metadata: ToolMetadata {
                 id: "send_email".to_string(),
                 name: "Send Email".to_string(),
-                description: "Send an email. Supports HTML format. Use this to send notifications, summaries, or any information via email to a user.".to_string(),
-                category: ToolCategory::Communication,
+                description: "Send an HTML-formatted email to a specified recipient. You must use standard HTML formatting. For example if sending a code snippet, format it with <pre><code>".to_string(),
+                category: ToolCategory::Utility,
                 tool_type: ToolType::Email,
             },
             mailer,
@@ -169,6 +169,7 @@ impl AgentTool for EmailTool {
             Ok(_) => {
                 println!("\x1b[32m✅ Email sent successfully\x1b[0m");
                 Ok(ToolCallResult {
+                    tool_call_id: None,
                     tool_name: "send_email".to_string(),
                     result: format!("Successfully sent email to {}", to),
                 })

@@ -20,7 +20,7 @@ impl GoogleCalendarReadTool {
                 name: "Read Calendar Events".to_string(),
                 description: "Read upcoming events from the user's primary Google Calendar."
                     .to_string(),
-                category: ToolCategory::Utility,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleCalendarRead,
             },
             oauth_provider,
@@ -106,6 +106,7 @@ impl AgentTool for GoogleCalendarReadTool {
             Some(arr) if !arr.is_empty() => arr,
             _ => {
                 return Ok(ToolCallResult {
+                    tool_call_id: None,
                     tool_name: "read_calendar_events".to_string(),
                     result: format!("No upcoming events found in the next {} days.", days_ahead),
                 });
@@ -149,6 +150,7 @@ impl AgentTool for GoogleCalendarReadTool {
         println!("\x1b[32m✅ Successfully read Calendar events\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "read_calendar_events".to_string(),
             result: format!(
                 "Retrieved {} upcoming events:\n\n{}",

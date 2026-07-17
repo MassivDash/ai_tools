@@ -348,6 +348,7 @@ impl AgentTool for WeatherTool {
         println!("\x1b[32m✅ Weather data retrieved successfully\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "weather_current".to_string(),
             result,
         })
@@ -731,6 +732,7 @@ impl AgentTool for ForecastTool {
             self.format_forecast_response(&forecast_data, target_date.as_deref(), units)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "weather_forecast".to_string(),
             result,
         })

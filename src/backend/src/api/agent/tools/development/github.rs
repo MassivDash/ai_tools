@@ -249,6 +249,7 @@ impl AgentTool for GitHubPublicTool {
         };
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "github_public".to_string(),
             result,
         })
@@ -686,6 +687,7 @@ impl AgentTool for GitHubAuthenticatedTool {
 
         if self.token.is_empty() {
             return Ok(ToolCallResult {
+                tool_call_id: None,
                 tool_name: "github_authenticated".to_string(),
                 result: "GITHUB_TOKEN is not set. This tool requires authentication.".to_string(),
             });
@@ -839,6 +841,7 @@ impl AgentTool for GitHubAuthenticatedTool {
         };
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "github_authenticated".to_string(),
             result,
         })

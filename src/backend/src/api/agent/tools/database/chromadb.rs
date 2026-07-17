@@ -322,6 +322,7 @@ impl AgentTool for ChromaDBTool {
         };
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "chromadb_tool".to_string(),
             result,
         })

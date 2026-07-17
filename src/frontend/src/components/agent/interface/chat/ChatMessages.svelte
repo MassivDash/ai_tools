@@ -9,6 +9,11 @@
     chatContainer?: HTMLDivElement
     bottomAnchor?: HTMLDivElement
     onQuote?: (_text: string) => void
+    onSubmitToolResult?: (
+      _toolName: string,
+      _toolCallId: string,
+      _result: string
+    ) => void
   }
 
   let {
@@ -16,7 +21,8 @@
     loading = $bindable(false),
     chatContainer = $bindable(),
     bottomAnchor = $bindable(),
-    onQuote
+    onQuote,
+    onSubmitToolResult
   }: Props = $props()
 
   const hasStreamingMessage = $derived(
@@ -35,7 +41,7 @@
     </div>
   {:else}
     {#each messages as message (message.id)}
-      <MessageItem {message} {onQuote} />
+      <MessageItem {message} {onQuote} {onSubmitToolResult} />
     {/each}
     {#if shouldShowLoading}
       <div class="message assistant">

@@ -98,6 +98,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GoogleCalendar,
             ToolType::GoogleGmailRead,
             ToolType::GoogleCalendarRead,
+            ToolType::AskHuman,
         ],
         debug_logging: false,
     };

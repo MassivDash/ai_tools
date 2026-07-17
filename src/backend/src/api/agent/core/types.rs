@@ -18,6 +18,7 @@ pub enum ToolType {
     GoogleCalendar,
     GoogleGmailRead,
     GoogleCalendarRead,
+    AskHuman,
     // Future tools can be added here
 }
 
@@ -207,6 +208,8 @@ pub struct AgentChatRequest {
     pub message: MessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_result: Option<ToolCallResult>,
 }
 
 /// Agent chat response
@@ -225,6 +228,8 @@ pub struct AgentChatResponse {
 pub struct ToolCallResult {
     pub tool_name: String,
     pub result: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 pub type ActiveGenerations = std::sync::Arc<
@@ -288,6 +293,7 @@ pub enum AgentStreamEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         display_name: Option<String>,
         arguments: String,
+        tool_call_id: String,
     },
     #[serde(rename = "tool_result")]
     ToolResult {

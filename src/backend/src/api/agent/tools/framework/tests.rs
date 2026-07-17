@@ -45,6 +45,7 @@ impl AgentTool for MockTool {
 
     async fn execute(&self, _tool_call: &ToolCall) -> anyhow::Result<ToolCallResult> {
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "mock_tool".to_string(),
             result: "Executed".to_string(),
         })

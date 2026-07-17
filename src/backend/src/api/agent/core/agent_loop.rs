@@ -252,6 +252,7 @@ pub async fn execute_agent_loop(
                         Err(e) => {
                             println!("   Tool execution error: {:#}", e);
                             let error_result = ToolCallResult {
+                                tool_call_id: None,
                                 tool_name: tool_call.function.name.clone(),
                                 result: format!("Error: {:#}", e),
                             };
