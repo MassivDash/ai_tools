@@ -14,6 +14,10 @@ pub enum ToolType {
     Crypto,
     GoogleBooks,
     Email,
+    GoogleGmail,
+    GoogleCalendar,
+    GoogleGmailRead,
+    GoogleCalendarRead,
     // Future tools can be added here
 }
 

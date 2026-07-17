@@ -94,6 +94,10 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::Crypto,
             ToolType::GoogleBooks,
             ToolType::Email,
+            ToolType::GoogleGmail,
+            ToolType::GoogleCalendar,
+            ToolType::GoogleGmailRead,
+            ToolType::GoogleCalendarRead,
         ],
         debug_logging: false,
     };

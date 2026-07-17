@@ -19,7 +19,7 @@ impl ToolSelector {
     pub fn build_system_prompt(&self) -> String {
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
         let mut prompt = format!(
-            "Current Date/Time: {}\nYou are a helpful AI assistant with access to tools.\n\n",
+            "Current Date/Time: {}\nUser Default Timezone: Europe/Warsaw\nYou are a helpful AI assistant with access to tools.\n\n",
             now
         );
 
