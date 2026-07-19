@@ -25,7 +25,7 @@ impl BlueskyPostTool {
             metadata: ToolMetadata {
                 id: "bluesky_post".to_string(),
                 name: "Bluesky Post".to_string(),
-                description: "Post a message to the user's Bluesky account".to_string(),
+                description: "Post a message to the user's Bluesky account (Max 300 characters)".to_string(),
                 category: ToolCategory::Web, // Treating social as web category for now, or you can add Social category
                 tool_type: ToolType::BlueskyPost,
             },
@@ -113,13 +113,13 @@ impl AgentTool for BlueskyPostTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "bluesky_post",
-            "description": "Post a text message to Bluesky. Use this to share updates, information, or announcements on the user's Bluesky timeline.",
+            "description": "Post a text message to Bluesky. IMPORTANT: The text MUST be 300 characters or less. Do not exceed this limit.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {
                         "type": "string",
-                        "description": "The text content of the post to create. Maximum 300 characters."
+                        "description": "The text content of the post to create. STRICT LIMIT: Maximum 300 characters."
                     }
                 },
                 "required": ["text"]
