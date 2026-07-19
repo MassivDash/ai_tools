@@ -284,10 +284,14 @@ pub fn start_development(config: Config) {
     loop {
         sleep(Duration::from_millis(100));
 
+        if !running.load(Ordering::SeqCst) {
+            break;
+        }
+
         // Check if all processes have exited
-        if chromadb_server.try_wait().is_ok()
-            && cargo_watch.try_wait().is_ok()
-            && node_watch.try_wait().is_ok()
+        if chromadb_server.try_wait().unwrap_or(None).is_some()
+            && cargo_watch.try_wait().unwrap_or(None).is_some()
+            && node_watch.try_wait().unwrap_or(None).is_some()
         {
             break;
         }
@@ -297,11 +301,6 @@ pub fn start_development(config: Config) {
         {
             break;
         }
-    }
-
-    // Clean up section for orphaned processes, otherwise cargo watch and node watch will continue to run blocking the ports
-    while running.load(Ordering::SeqCst) {
-        sleep(Duration::from_millis(100));
     }
     step("Cleaning up orphaned processes");
 
@@ -323,12 +322,26 @@ pub fn start_development(config: Config) {
             .arg("--")
             .arg(format!("-{}", node_watch.id()))
             .status();
+        let _ = Command::new("pkill").arg("-9").arg("llama-server").status();
+
+        let _ = chromadb_server.wait();
+        let _ = cargo_watch.wait();
+        let _ = node_watch.wait();
     }
     #[cfg(not(unix))]
     {
         let _ = chromadb_server.kill();
         let _ = cargo_watch.kill();
         let _ = node_watch.kill();
+        let _ = Command::new("taskkill")
+            .arg("/F")
+            .arg("/IM")
+            .arg("llama-server.exe")
+            .status();
+
+        let _ = chromadb_server.wait();
+        let _ = cargo_watch.wait();
+        let _ = node_watch.wait();
     }
 
     step("Exiting");

@@ -196,6 +196,10 @@ pub fn start_production(config: Config) {
     loop {
         sleep(Duration::from_millis(100));
 
+        if !running.load(Ordering::SeqCst) {
+            break;
+        }
+
         // Check if ChromaDB exited (critical, exit if it does)
         if let Ok(Some(_)) = chromadb_server.try_wait() {
             step("ChromaDB server has exited");
@@ -247,10 +251,6 @@ pub fn start_production(config: Config) {
         }
     }
 
-    // Clean up section for orphaned processes, otherwise cargo and chromadb will continue to run blocking the ports
-    while running.load(Ordering::SeqCst) {
-        sleep(Duration::from_millis(100));
-    }
     step("Cleaning up orphaned processes");
 
     #[cfg(unix)]
@@ -266,11 +266,22 @@ pub fn start_production(config: Config) {
             .arg("--")
             .arg(format!("-{}", cargo_server.id()))
             .status();
+        let _ = Command::new("pkill").arg("-9").arg("llama-server").status();
+        let _ = chromadb_server.wait();
+        let _ = cargo_server.wait();
     }
     #[cfg(not(unix))]
     {
         let _ = chromadb_server.kill();
         let _ = cargo_server.kill();
+        let _ = Command::new("taskkill")
+            .arg("/F")
+            .arg("/IM")
+            .arg("llama-server.exe")
+            .status();
+
+        let _ = chromadb_server.wait();
+        let _ = cargo_server.wait();
     }
 
     step("Exiting");
