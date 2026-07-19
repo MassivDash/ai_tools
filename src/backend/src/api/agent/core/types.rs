@@ -19,6 +19,17 @@ pub enum ToolType {
     GoogleGmailRead,
     GoogleCalendarRead,
     AskHuman,
+    GoogleDriveSearch,
+    GoogleDriveRead,
+    GoogleDocsRead,
+    GoogleDocsWrite,
+    GoogleSheetsRead,
+    GoogleSheetsWrite,
+    GoogleTasksRead,
+    GoogleTasksWrite,
+    GoogleContactsRead,
+    GoogleYouTubeRead,
+    GooglePlacesSearch,
     // Future tools can be added here
 }
 

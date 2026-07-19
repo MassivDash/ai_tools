@@ -145,6 +145,32 @@ pub async fn post_start_llama_server(
                 );
             }
 
+            if !using_local_model && !hf_model.trim().is_empty() {
+                use crate::api::llama_server::types::{LogEntry, LogSource};
+                use std::time::{SystemTime, UNIX_EPOCH};
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                let line = format!("⏳ Starting or downloading HuggingFace model: {}. Note: llama.cpp hides download progress when running in the background. Please wait, this may take several minutes if the model is not cached...", hf_model.trim());
+
+                {
+                    let mut buffer = log_buffer.lock().unwrap();
+                    buffer.push_back(LogEntry {
+                        timestamp,
+                        line: line.clone(),
+                        source: LogSource::Stdout,
+                    });
+                }
+
+                use crate::api::llama_server::websocket::LogLine;
+                ws_state.broadcast_log(LogLine {
+                    timestamp,
+                    line,
+                    source: "stdout".to_string(),
+                });
+            }
+
             *process_guard = Some(child);
             println!("✅ Llama server started successfully");
             Ok(HttpResponse::Ok().json(LlamaServerResponse {

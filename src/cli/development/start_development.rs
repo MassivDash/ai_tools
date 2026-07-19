@@ -112,26 +112,29 @@ pub fn start_development(config: Config) {
 
     // Spawn thread to read ChromaDB logs continuously
     let chromadb_handle = thread::spawn(move || {
-        let reader = BufReader::new(stdout_chromadb);
-        for line_result in reader.lines() {
-            match line_result {
-                Ok(line) => {
-                    if !line.trim().is_empty() {
-                        do_chromadb_log(&format!("{}\n", line));
+        let mut reader = BufReader::new(stdout_chromadb);
+        let mut buf = Vec::new();
+        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
+            if bytes_read == 0 {
+                break;
+            }
+            let line = String::from_utf8_lossy(&buf)
+                .trim_end_matches(&['\r', '\n'][..])
+                .to_string();
+            buf.clear();
+            if !line.trim().is_empty() {
+                do_chromadb_log(&format!("{}\n", line));
 
-                        // Check if ChromaDB is ready
-                        if !chromadb_ready_clone.load(Ordering::SeqCst)
-                            && (line.contains("Running Chroma")
-                                || line.contains("Chroma is running")
-                                || line.contains("Uvicorn running")
-                                || line.contains(format!(":{}", chromadb_port_clone).as_str()))
-                        {
-                            chromadb_ready_clone.store(true, Ordering::SeqCst);
-                            success("ChromaDB server is ready");
-                        }
-                    }
+                // Check if ChromaDB is ready
+                if !chromadb_ready_clone.load(Ordering::SeqCst)
+                    && (line.contains("Running Chroma")
+                        || line.contains("Chroma is running")
+                        || line.contains("Uvicorn running")
+                        || line.contains(format!(":{}", chromadb_port_clone).as_str()))
+                {
+                    chromadb_ready_clone.store(true, Ordering::SeqCst);
+                    success("ChromaDB server is ready");
                 }
-                Err(_) => break,
             }
         }
     });
@@ -189,26 +192,27 @@ pub fn start_development(config: Config) {
 
     // Spawn thread to read Rust backend logs continuously
     let rust_handle = thread::spawn(move || {
-        let reader = BufReader::new(stdout_rust);
-        for line_result in reader.lines() {
-            match line_result {
-                Ok(line) => {
-                    if !line.trim().is_empty() {
-                        do_server_log(&format!("{}\n", line));
+        let mut reader = BufReader::new(stdout_rust);
+        let mut buf = Vec::new();
+        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
+            if bytes_read == 0 {
+                break;
+            }
+            let line = String::from_utf8_lossy(&buf)
+                .trim_end_matches(&['\r', '\n'][..])
+                .to_string();
+            buf.clear();
+            if !line.trim().is_empty() {
+                do_server_log(&format!("{}\n", line));
 
-                        // Check if Actix server is ready
-                        if !rust_ready_clone.load(Ordering::SeqCst)
-                            && line.contains("Actix server has started 🚀")
-                        {
-                            rust_ready_clone.store(true, Ordering::SeqCst);
-                            dev_info(&host_clone, &port_clone);
-                            success(
-                                "Actix server is running, starting the frontend development server",
-                            );
-                        }
-                    }
+                // Check if Actix server is ready
+                if !rust_ready_clone.load(Ordering::SeqCst)
+                    && line.contains("Actix server has started 🚀")
+                {
+                    rust_ready_clone.store(true, Ordering::SeqCst);
+                    dev_info(&host_clone, &port_clone);
+                    success("Actix server is running, starting the frontend development server");
                 }
-                Err(_) => break,
             }
         }
     });
@@ -244,30 +248,33 @@ pub fn start_development(config: Config) {
 
     // Spawn thread to read Astro frontend logs continuously
     let astro_handle = thread::spawn(move || {
-        let reader = BufReader::new(stdout_node);
-        for line_result in reader.lines() {
-            match line_result {
-                Ok(line) => {
-                    if !line.trim().is_empty() {
-                        do_front_log(&format!("{}\n", line));
+        let mut reader = BufReader::new(stdout_node);
+        let mut buf = Vec::new();
+        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
+            if bytes_read == 0 {
+                break;
+            }
+            let line = String::from_utf8_lossy(&buf)
+                .trim_end_matches(&['\r', '\n'][..])
+                .to_string();
+            buf.clear();
+            if !line.trim().is_empty() {
+                do_front_log(&format!("{}\n", line));
 
-                        // Check if Astro is ready and open browser
-                        if !astro_ready_clone.load(Ordering::SeqCst) && line.contains("ready") {
-                            astro_ready_clone.store(true, Ordering::SeqCst);
-                            success("Astro is ready, opening the browser");
+                // Check if Astro is ready and open browser
+                if !astro_ready_clone.load(Ordering::SeqCst) && line.contains("ready") {
+                    astro_ready_clone.store(true, Ordering::SeqCst);
+                    success("Astro is ready, opening the browser");
 
-                            let browser = Command::new("open")
-                                .arg(format!("http://localhost:{}", astro_port_clone))
-                                .spawn();
+                    let browser = Command::new("open")
+                        .arg(format!("http://localhost:{}", astro_port_clone))
+                        .spawn();
 
-                            if let Err(err) = browser {
-                                println!("Failed to execute command: {}", err);
-                                println!("Are You a Ci Secret Agent ?");
-                            }
-                        }
+                    if let Err(err) = browser {
+                        println!("Failed to execute command: {}", err);
+                        println!("Are You a Ci Secret Agent ?");
                     }
                 }
-                Err(_) => break,
             }
         }
     });
@@ -303,14 +310,17 @@ pub fn start_development(config: Config) {
         // Kill the entire process groups (including any spawned children) using negative PID
         let _ = Command::new("kill")
             .arg("-9")
+            .arg("--")
             .arg(format!("-{}", chromadb_server.id()))
             .status();
         let _ = Command::new("kill")
             .arg("-9")
+            .arg("--")
             .arg(format!("-{}", cargo_watch.id()))
             .status();
         let _ = Command::new("kill")
             .arg("-9")
+            .arg("--")
             .arg(format!("-{}", node_watch.id()))
             .status();
     }

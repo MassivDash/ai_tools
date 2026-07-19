@@ -851,9 +851,16 @@
     font-size: 0.9rem;
   }
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: 1024px) {
     .chat-interface {
-      padding: 0.5rem;
+      padding: 0;
+      height: 100% !important;
+      width: 100% !important;
+      max-height: none;
+      flex: 1;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
     }
   }
 

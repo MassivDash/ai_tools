@@ -84,7 +84,7 @@ impl AgentTool for GoogleGmailTool {
             .get("body")
             .and_then(|v| v.as_str())
             .context("Missing 'body'")?;
-        
+
         let thread_id = args.get("thread_id").and_then(|v| v.as_str());
         let message_id = args.get("message_id").and_then(|v| v.as_str());
 

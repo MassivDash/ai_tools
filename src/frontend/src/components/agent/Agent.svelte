@@ -325,6 +325,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
+    flex: 1;
     background-color: var(--bg-primary, #fff);
     transition: background-color 0.3s ease;
     box-sizing: border-box;
@@ -350,10 +351,8 @@
     flex: 1;
     display: flex;
     flex-direction: row;
-    /* Allow growing */
-    min-height: 100%;
     position: relative;
-    /* overflow: hidden;  <-- checking this, we might need to remove hidden if we want to scroll page */
+    overflow-x: hidden;
     width: 100%;
   }
 
@@ -395,7 +394,6 @@
     padding: 0;
     /* Ensure it fills parent */
     flex: 1;
-    margin-bottom: 300px;
   }
 
   .main-content.with-terminal {
@@ -423,13 +421,12 @@
 
   @media screen and (max-width: 768px) {
     .ai-chat {
-      height: 80vh;
-      padding: 1rem;
+      padding: 0.5rem;
     }
 
     .main-content {
       max-width: 100%;
-      border-radius: 8px;
+      border-radius: 0;
     }
 
     .terminal-sidebar {
@@ -438,16 +435,27 @@
       max-width: 100%;
     }
 
-    .main-content.with-terminal {
-      margin-left: 0;
-    }
-
-    .main-content.with-history {
-      margin-left: 0; /* Overlay on mobile */
-    }
-
+    .main-content.with-terminal,
+    .main-content.with-history,
     .main-content.with-testing {
       margin-left: 0;
+    }
+
+    .main-content.with-config,
+    .main-content.with-llama-config {
+      margin-right: 0;
+    }
+
+    .main-content.with-terminal.with-config,
+    .main-content.with-terminal.with-llama-config {
+      margin-left: 0;
+      margin-right: 0;
+    }
+  }
+
+  @media screen and (max-width: 1024px) {
+    .main-content {
+      margin-bottom: 0;
     }
   }
 </style>
