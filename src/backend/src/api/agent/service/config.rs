@@ -109,6 +109,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GoogleContactsRead,
             ToolType::GoogleYouTubeRead,
             ToolType::GooglePlacesSearch,
+            ToolType::BlueskyPost,
             ToolType::AskHuman,
         ],
         debug_logging: false,

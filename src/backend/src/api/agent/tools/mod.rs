@@ -2,6 +2,7 @@ pub mod database;
 pub mod development;
 pub mod financial;
 pub mod framework;
+pub mod social;
 pub mod utility;
 pub mod web;
 
@@ -19,6 +20,7 @@ pub fn register_all(registry: &mut ToolRegistry, config: &AgentConfig, context: 
     database::register(registry, config, context);
     development::register(registry, config);
     financial::register(registry, config);
+    social::register(registry, config);
     utility::register(registry, config);
     web::register(registry, config);
 }

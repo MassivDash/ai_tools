@@ -30,6 +30,7 @@ pub enum ToolType {
     GoogleContactsRead,
     GoogleYouTubeRead,
     GooglePlacesSearch,
+    BlueskyPost,
     // Future tools can be added here
 }
 
