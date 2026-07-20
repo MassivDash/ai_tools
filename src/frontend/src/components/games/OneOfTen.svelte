@@ -329,6 +329,14 @@
     background-color: var(--bg-primary, #fff);
   }
 
+  @media screen and (max-width: 768px) {
+    .game-container {
+      /* Match Agent Chat's mobile spacing between the config buttons row
+         and the content below it. */
+      margin-top: 1rem;
+    }
+  }
+
   .server-controls-wrapper {
     margin-right: 1rem;
     display: flex;

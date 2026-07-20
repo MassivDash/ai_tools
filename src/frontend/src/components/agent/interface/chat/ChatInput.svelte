@@ -756,6 +756,7 @@
   .file-buttons {
     display: flex;
     flex-direction: row;
+    flex-shrink: 0;
     gap: 0.5rem;
     align-items: center;
     justify-content: flex-start;
@@ -765,7 +766,16 @@
     margin-left: auto; /* Push to right, but before send button */
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
     margin-right: 1rem;
+  }
+
+  :global(.token-info-wrapper .token-display .usage-text) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Override internal TokenUsageDisplay styles to fit better */
@@ -779,18 +789,32 @@
 
   .send-button-wrapper {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 0.5rem;
   }
 
   @media screen and (max-width: 768px) {
     .chat-input-container {
-      padding: 1rem;
+      /* Outer frame padding + inner border/padding stacked up to a lot of
+         dead space around a small phone's textarea; slim both down. */
+      padding: 0.2rem;
     }
 
     .input-wrapper {
-      padding: 0.75rem;
-      min-height: 50px;
+      /* A visible border reads as heavy at this size; the background
+         already contrasts against .chat-input-container, so drop the
+         hard edge for a soft shadow instead. */
+      border: none;
+      box-shadow: 0 1px 3px var(--shadow, rgba(0, 0, 0, 0.08));
+      border-radius: 6px;
+      padding: 0.5rem;
+      gap: 0.25rem;
+      min-height: 44px;
+    }
+
+    .input-wrapper:focus-within {
+      box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
     }
 
     .file-buttons {
@@ -798,13 +822,57 @@
     }
 
     .chat-input {
-      font-size: 0.9rem;
-      padding: 0.5rem;
+      /* iOS Safari auto-zooms the page on focus whenever a form field's
+         font-size is under 16px; keep it at 16px so tapping in doesn't
+         force a pinch-back-out. */
+      font-size: 16px;
+      padding: 0.375rem;
       max-height: 120px;
     }
 
     .attachment-name {
       max-width: 100px;
+    }
+
+    /* Token usage text competes with file buttons and the send button for
+       space; let it shrink/hide instead of pushing the send button out of
+       the viewport. */
+    .token-info-wrapper {
+      margin-right: 0.5rem;
+      flex: 0 1 auto;
+    }
+
+    :global(.token-info-wrapper .token-display .usage-text) {
+      max-width: 30vw;
+    }
+
+    .voice-input-container {
+      flex-wrap: wrap;
+    }
+
+    .voice-controls-group {
+      flex-wrap: wrap;
+    }
+
+    .language-select {
+      margin-left: auto;
+    }
+
+    .language-select select {
+      /* Same iOS zoom-on-focus issue applies to <select>; keep it at 16px. */
+      font-size: 16px;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    .utility-bar {
+      gap: 0.5rem;
+    }
+
+    /* On very narrow screens the numeric token readout is a nice-to-have;
+       drop it entirely so the upload icons and send button always fit. */
+    .token-info-wrapper {
+      display: none;
     }
   }
 </style>

@@ -78,4 +78,21 @@
     line-height: 1;
     font-weight: 500;
   }
+
+  @media screen and (max-width: 768px) {
+    /* These buttons carry long descriptive labels ("Say 'execute' or 2s
+       pause", "Conversation mode on/off"...). At 10rem min-width each,
+       three of them together are wider than a phone screen, which pushes
+       the language selector (and the chat input above it) past the
+       viewport edge. Collapse to icon-only below tablet width. */
+    :global(.voice-input-button) {
+      min-width: 0;
+      padding: 0.5rem;
+      gap: 0;
+    }
+
+    :global(.voice-input-button) .label {
+      display: none;
+    }
+  }
 </style>

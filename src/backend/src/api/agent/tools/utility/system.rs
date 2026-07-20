@@ -99,7 +99,7 @@ impl AgentTool for SystemCommandTool {
             "list_top_processes" => {
                 let mut cmd = Command::new("ps");
                 cmd.args(["-eo", "pid,ppid,cmd,%mem,%cpu", "--sort=-%cpu"]);
-                
+
                 let res = process_output(timeout(timeout_duration, cmd.output()).await);
                 // Get the first 15 lines in Rust instead of shelling out to `head`
                 let lines: Vec<&str> = res.lines().take(16).collect();
@@ -121,7 +121,7 @@ impl AgentTool for SystemCommandTool {
                 let mut df_cmd = Command::new("df");
                 df_cmd.arg("-h");
                 let df_out = timeout(timeout_duration, df_cmd.output()).await;
-                
+
                 let mut free_cmd = Command::new("free");
                 free_cmd.arg("-m");
                 let free_out = timeout(timeout_duration, free_cmd.output()).await;

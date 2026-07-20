@@ -303,6 +303,9 @@
   @media screen and (max-width: 768px) {
     .ai-chat {
       min-height: 70vh;
+      /* Match Agent Chat's mobile spacing between the config buttons row
+         and the content below it. */
+      gap: 1rem;
     }
 
     .iframe-container {

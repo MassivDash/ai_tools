@@ -129,4 +129,34 @@ const footerLinks = menuConfig.footerLinks
       color: var(--text-primary, rgb(6, 6, 6));
     }
   }
+
+  @media screen and (max-width: 768px) {
+    /* Fixed height + overflow:hidden clipped wrapped rows once 6 links
+       no longer fit on one line at 50px gaps; switch to an auto-height,
+       tighter-gapped wrap instead. */
+    ul {
+      height: auto;
+      gap: 12px 24px;
+      padding: 16px 12px;
+      overflow: visible;
+    }
+
+    .footer-logo {
+      width: 40px;
+      height: 40px;
+    }
+
+    .footer {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin: 0 12px;
+      text-align: center;
+    }
+
+    .flex {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
 </style>

@@ -422,6 +422,9 @@
   @media screen and (max-width: 768px) {
     .ai-chat {
       padding: 0.5rem;
+      /* Give the config buttons row room to breathe from the chat area
+         below it instead of sitting flush against it. */
+      gap: 1rem;
     }
 
     .main-content {

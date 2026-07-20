@@ -529,6 +529,14 @@
     margin: 0 auto;
   }
 
+  @media screen and (max-width: 768px) {
+    .model-notes {
+      /* Match Agent Chat's mobile spacing between the config buttons row
+         and the content below it. */
+      margin-top: 1rem;
+    }
+  }
+
   .error {
     padding: 0.75rem;
     margin-bottom: 1rem;
