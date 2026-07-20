@@ -23,7 +23,7 @@ impl GoogleBooksTool {
                 id: "google_books".to_string(),
                 name: "Google Books Search".to_string(),
                 description: "Search for books to find ISBNs and details".to_string(),
-                category: ToolCategory::Web,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleBooks,
             },
             api_key,

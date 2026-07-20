@@ -16,7 +16,7 @@ impl SystemCommandTool {
         Self {
             metadata: ToolMetadata {
                 id: "system_command".to_string(),
-                name: "System tools".to_string(),
+                name: "System Tools".to_string(),
                 tool_type: ToolType::SystemCommand,
                 description: "Execute safe, everyday Linux system commands (e.g., search files, view processes, check system status).".to_string(),
                 category: ToolCategory::Utility,

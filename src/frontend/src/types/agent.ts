@@ -100,7 +100,8 @@ export type ToolCategory =
   | 'database'
   | 'search'
   | 'file'
-  | 'communication'
+  | 'google'
+  | 'social'
   | 'development'
   | 'utility'
 

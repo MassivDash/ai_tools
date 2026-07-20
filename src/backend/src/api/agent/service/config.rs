@@ -87,6 +87,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::ChromaDB,
             ToolType::WebsiteCheck,
             ToolType::Weather,
+            ToolType::WeatherForecast,
             ToolType::Currency,
             ToolType::Stock,
             ToolType::GitHubPublic,

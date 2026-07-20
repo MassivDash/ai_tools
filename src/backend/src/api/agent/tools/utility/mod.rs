@@ -56,7 +56,9 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         if let Err(e) = registry.register(Arc::new(weather_tool)) {
             println!("⚠️ Failed to register Weather tool: {}", e);
         }
+    }
 
+    if config.enabled_tools.contains(&ToolType::WeatherForecast) {
         let forecast_tool = ForecastTool::new();
         if let Err(e) = registry.register(Arc::new(forecast_tool)) {
             println!("⚠️ Failed to register Forecast tool: {}", e);

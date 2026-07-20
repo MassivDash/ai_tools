@@ -27,7 +27,7 @@ impl BlueskyPostTool {
                 name: "Bluesky Post".to_string(),
                 description: "Post a message to the user's Bluesky account (Max 300 characters)"
                     .to_string(),
-                category: ToolCategory::Web, // Treating social as web category for now, or you can add Social category
+                category: ToolCategory::Social,
                 tool_type: ToolType::BlueskyPost,
             },
             handle,

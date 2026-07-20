@@ -7,6 +7,7 @@ pub enum ToolType {
     ChromaDB,
     WebsiteCheck,
     Weather,
+    WeatherForecast,
     Currency,
     Stock,
     GitHubPublic,
