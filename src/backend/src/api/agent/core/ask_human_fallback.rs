@@ -35,7 +35,10 @@ pub fn strip_json_block(text: &str, range: Range<usize>) -> String {
     let prefix = &text[..start];
     if let Some(fence_start) = prefix.trim_end().rfind("```") {
         let between = &prefix[fence_start + 3..];
-        if between.chars().all(|c| c.is_alphanumeric() || c.is_whitespace()) {
+        if between
+            .chars()
+            .all(|c| c.is_alphanumeric() || c.is_whitespace())
+        {
             start = fence_start;
         }
     }
@@ -105,7 +108,8 @@ mod tests {
     #[test]
     fn detects_fenced_json_mid_message() {
         let text = "Sure, here are your options:\n\n```json\n{\"question\": \"Pick one\", \"options\": [\"A\", \"B\", \"Other\"]}\n```\n\nLet me know what you think!";
-        let (value, range) = extract_leaked_ask_human_json(text).expect("should detect leaked json");
+        let (value, range) =
+            extract_leaked_ask_human_json(text).expect("should detect leaked json");
         assert_eq!(value["question"], "Pick one");
         let cleaned = strip_json_block(text, range);
         assert!(!cleaned.contains("```"));
