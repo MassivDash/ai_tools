@@ -111,6 +111,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GooglePlacesSearch,
             ToolType::BlueskyPost,
             ToolType::AskHuman,
+            ToolType::SystemCommand,
         ],
         debug_logging: false,
     };

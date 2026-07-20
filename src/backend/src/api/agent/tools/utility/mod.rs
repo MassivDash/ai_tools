@@ -12,6 +12,7 @@ pub mod google_places;
 pub mod google_sheets;
 pub mod google_tasks;
 pub mod google_youtube;
+pub mod system;
 pub mod weather;
 
 use crate::api::agent::core::types::{AgentConfig, ToolType};
@@ -31,6 +32,7 @@ use crate::api::agent::tools::utility::google_sheets::{
 };
 use crate::api::agent::tools::utility::google_tasks::{GoogleTasksReadTool, GoogleTasksWriteTool};
 use crate::api::agent::tools::utility::google_youtube::GoogleYouTubeReadTool;
+use crate::api::agent::tools::utility::system::SystemCommandTool;
 use crate::api::agent::tools::utility::weather::{ForecastTool, WeatherTool};
 use std::sync::Arc;
 
@@ -39,6 +41,13 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         let ask_human_tool = AskHumanTool::new();
         if let Err(e) = registry.register(Arc::new(ask_human_tool)) {
             println!("⚠️ Failed to register Ask Human tool: {}", e);
+        }
+    }
+
+    if config.enabled_tools.contains(&ToolType::SystemCommand) {
+        let system_tool = SystemCommandTool::new();
+        if let Err(e) = registry.register(Arc::new(system_tool)) {
+            println!("⚠️ Failed to register System Command tool: {}", e);
         }
     }
 
