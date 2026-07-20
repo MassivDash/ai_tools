@@ -567,6 +567,14 @@ pub async fn execute_agent_loop_streaming(
             }
 
             if requires_human_input {
+                // IMPORTANT: Save the assistant message with the tool call to memory BEFORE breaking
+                if let Err(e) = sqlite_memory
+                    .add_message(&conversation_id, assistant_message.clone())
+                    .await
+                {
+                    println!("Failed to save assistant message with ask_human: {}", e);
+                }
+
                 let _ = tx
                     .send(Ok(AgentStreamEvent::Done {
                         conversation_id: Some(conversation_id.clone()),
@@ -575,6 +583,15 @@ pub async fn execute_agent_loop_streaming(
                     }))
                     .await;
                 break;
+            }
+
+            // Also save the assistant message for the normal non-human-input case
+            // (Normally it might only be saved if final Answer handling catches it, but if loop continues it might be lost if we don't save it here)
+            if let Err(e) = sqlite_memory
+                .add_message(&conversation_id, assistant_message.clone())
+                .await
+            {
+                println!("Failed to save assistant message with tool calls: {}", e);
             }
 
             continue;
