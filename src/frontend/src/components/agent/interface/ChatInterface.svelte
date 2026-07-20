@@ -489,6 +489,19 @@
     switch (event.type) {
       case 'status':
         if (event.message) {
+          // Tool-lifecycle statuses (calling/executing/complete/error) duplicate
+          // the persistent 'tool' bubble already shown via tool_call/tool_result -
+          // showing them again as their own ephemeral bubble just flashes and
+          // disappears on the next event. Skip those; keep only general statuses
+          // (thinking, finalizing, error) as the transient indicator.
+          const toolLifecycleStatuses = new Set([
+            'calling_tool',
+            'tool_executing',
+            'tool_complete',
+            'tool_error'
+          ])
+          if (toolLifecycleStatuses.has(event.status || '')) break
+
           // Always show status messages - they indicate what the agent is doing
           // Remove any existing status message and add new one
           messages = messages.filter((m) => m.role !== 'status')
@@ -683,13 +696,23 @@
       )
 
       for (const m of response.data) {
-        newMessages.push({
-          id: generateMessageId(),
-          role: m.role as any,
-          content: m.content || '',
-          timestamp: Date.now(),
-          toolName: m.name
-        })
+        // Assistant turns that were tool-calls-only are stored with empty
+        // content - the tool_calls loop below (and the matching 'tool' result
+        // messages elsewhere in history) already represent that turn, so
+        // pushing this one too would just leave a blank "Assistant" bubble.
+        const hasToolCalls = Array.isArray(m.tool_calls) && m.tool_calls.length > 0
+        const isEmptyToolOnlyTurn =
+          m.role === 'assistant' && !m.content && hasToolCalls
+
+        if (!isEmptyToolOnlyTurn) {
+          newMessages.push({
+            id: generateMessageId(),
+            role: m.role as any,
+            content: m.content || '',
+            timestamp: Date.now(),
+            toolName: m.name
+          })
+        }
 
         if (m.tool_calls) {
           for (const tc of m.tool_calls) {

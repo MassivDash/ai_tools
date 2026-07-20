@@ -121,7 +121,12 @@
             </div>
           {/if}
           <div class="tool-row">
-            <MaterialIcon name={entry.icon} width="20" height="20" class="tool-icon" />
+            <MaterialIcon
+              name={entry.icon}
+              width="20"
+              height="20"
+              class="tool-icon"
+            />
             <div class="tool-main">
               <CheckboxWithHelp
                 checked={isToolEnabled(entry.toolType)}
