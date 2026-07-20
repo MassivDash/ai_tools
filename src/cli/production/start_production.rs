@@ -267,6 +267,14 @@ pub fn start_production(config: Config) {
             .arg(format!("-{}", cargo_server.id()))
             .status();
         let _ = Command::new("pkill").arg("-9").arg("llama-server").status();
+        // cargo run's child (the actual backend binary) can escape cargo's
+        // process group, so the group kill above may not reach it and it stays
+        // bound to the port. Kill it directly by binary path as a fallback.
+        let _ = Command::new("pkill")
+            .arg("-9")
+            .arg("-f")
+            .arg("target/release/backend")
+            .status();
         let _ = chromadb_server.wait();
         let _ = cargo_server.wait();
     }
