@@ -177,6 +177,19 @@ For posting to Bluesky:
    BLUESKY_PASSWORD=your_app_password
    ```
 
+### Social Tools (Facebook)
+For posting to a Facebook Page:
+1. Create a Meta app at [developers.facebook.com](https://developers.facebook.com/) and add the Facebook Login/Pages product.
+2. Generate a Page Access Token for the page you want to post to (via Graph API Explorer or a long-lived token exchange), granting the `pages_manage_posts` permission.
+3. Find the numeric Page ID (visible in the Page's "About" info or via `GET /me/accounts`).
+4. Add to `.env`:
+   ```env
+   FACEBOOK_PAGE_ID=your_page_id
+   FACEBOOK_PAGE_ACCESS_TOKEN=your_page_access_token
+   # Optional: override the pinned Graph API version (defaults to v21.0)
+   # FACEBOOK_GRAPH_API_VERSION=v21.0
+   ```
+
 ### Email Tool
 For sending emails via SMTP:
 1. Obtain the SMTP credentials from your email provider (e.g., Gmail App Passwords, SendGrid, Mailgun).

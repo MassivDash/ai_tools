@@ -7,16 +7,44 @@ use regex::Regex;
 use reqwest::Client;
 use serde_json::json;
 use std::env;
+use std::sync::LazyLock;
+
+static URL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:^|\s)(https?://[^\s]+)").unwrap());
+static TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:^|\s)(#[^\s#]+)").unwrap());
+static MENTION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:^|\s)(@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+)")
+        .unwrap()
+});
 
 /// Strip trailing punctuation that's likely sentence formatting rather than
-/// part of a URL or hashtag (e.g. "check #rust." -> "#rust").
+/// part of a URL or hashtag (e.g. "check #rust." -> "#rust"). Closing
+/// brackets are only trimmed when unbalanced within the match, so URLs that
+/// legitimately end in a paren (e.g. Wikipedia's `..._(disambiguation)`)
+/// are left intact.
 fn trim_trailing_punctuation(s: &str) -> &str {
-    s.trim_end_matches(|c: char| {
-        matches!(
-            c,
-            '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '\'' | '"'
-        )
-    })
+    let mut end = s.len();
+    while end > 0 {
+        let ch = match s[..end].chars().next_back() {
+            Some(c) => c,
+            None => break,
+        };
+        let should_trim = match ch {
+            '.' | ',' | ';' | ':' | '!' | '?' | '\'' | '"' => true,
+            ')' => count_matches(&s[..end], '(') < count_matches(&s[..end], ')'),
+            ']' => count_matches(&s[..end], '[') < count_matches(&s[..end], ']'),
+            '}' => count_matches(&s[..end], '{') < count_matches(&s[..end], '}'),
+            _ => false,
+        };
+        if !should_trim {
+            break;
+        }
+        end -= ch.len_utf8();
+    }
+    &s[..end]
+}
+
+fn count_matches(s: &str, c: char) -> usize {
+    s.matches(c).count()
 }
 
 /// A facet paired with its byte start, kept alongside for sorting once
@@ -34,8 +62,7 @@ fn build_link_and_tag_facets(text: &str) -> (Vec<PositionedFacet>, Vec<ByteRange
     let mut occupied: Vec<ByteRange> = Vec::new();
     let mut facets: Vec<PositionedFacet> = Vec::new();
 
-    let url_re = Regex::new(r"(?:^|\s)(https?://[^\s]+)").unwrap();
-    for caps in url_re.captures_iter(text) {
+    for caps in URL_RE.captures_iter(text) {
         let m = caps.get(1).unwrap();
         let trimmed = trim_trailing_punctuation(m.as_str());
         if trimmed.is_empty() {
@@ -53,8 +80,7 @@ fn build_link_and_tag_facets(text: &str) -> (Vec<PositionedFacet>, Vec<ByteRange
         ));
     }
 
-    let tag_re = Regex::new(r"(?:^|\s)(#[^\s#]+)").unwrap();
-    for caps in tag_re.captures_iter(text) {
+    for caps in TAG_RE.captures_iter(text) {
         let m = caps.get(1).unwrap();
         let start = m.start();
         if occupied.iter().any(|&(s, e)| start >= s && start < e) {
@@ -83,11 +109,8 @@ fn build_link_and_tag_facets(text: &str) -> (Vec<PositionedFacet>, Vec<ByteRange
 /// claimed by a link or hashtag. Only returns candidates (start, end, handle)
 /// — resolving each handle to a DID requires a network call, done separately.
 fn find_mention_candidates(text: &str, occupied: &[ByteRange]) -> Vec<(usize, usize, String)> {
-    let mention_re =
-        Regex::new(r"(?:^|\s)(@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+)")
-            .unwrap();
     let mut mentions = Vec::new();
-    for caps in mention_re.captures_iter(text) {
+    for caps in MENTION_RE.captures_iter(text) {
         let m = caps.get(1).unwrap();
         let start = m.start();
         if occupied.iter().any(|&(s, e)| start >= s && start < e) {
@@ -300,5 +323,78 @@ impl AgentTool for BlueskyPostTool {
             tool_name: "bluesky_post".to_string(),
             result,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_balanced_trailing_paren_in_url() {
+        // Regression: a Wikipedia-style URL ending in a matched paren must
+        // not be truncated by sentence-punctuation trimming.
+        let url = "https://en.wikipedia.org/wiki/Rust_(programming_language)";
+        assert_eq!(trim_trailing_punctuation(url), url);
+    }
+
+    #[test]
+    fn strips_unbalanced_trailing_paren() {
+        // "(" is not part of the captured match, so the trailing ")" is unbalanced.
+        let captured = "https://example.com/foo)";
+        assert_eq!(trim_trailing_punctuation(captured), "https://example.com/foo");
+    }
+
+    #[test]
+    fn strips_sentence_punctuation() {
+        assert_eq!(trim_trailing_punctuation("https://example.com."), "https://example.com");
+        assert_eq!(trim_trailing_punctuation("#rustlang,"), "#rustlang");
+    }
+
+    #[test]
+    fn builds_link_facet_with_correct_byte_offsets() {
+        let text = "Check out https://example.com/path?q=1, great stuff";
+        let (facets, occupied) = build_link_and_tag_facets(text);
+        assert_eq!(facets.len(), 1);
+        assert_eq!(occupied.len(), 1);
+        let (start, facet) = &facets[0];
+        let byte_start = facet["index"]["byteStart"].as_u64().unwrap() as usize;
+        let byte_end = facet["index"]["byteEnd"].as_u64().unwrap() as usize;
+        assert_eq!(*start, byte_start);
+        assert_eq!(occupied[0], (byte_start, byte_end));
+        // The trailing comma from the sentence must not be part of the URI.
+        assert_eq!(&text[byte_start..byte_end], "https://example.com/path?q=1");
+        assert_eq!(facet["features"][0]["uri"], "https://example.com/path?q=1");
+    }
+
+    #[test]
+    fn builds_tag_facet_with_multibyte_text() {
+        let text = "café #café über";
+        let (facets, _) = build_link_and_tag_facets(text);
+        assert_eq!(facets.len(), 1);
+        let (_, facet) = &facets[0];
+        assert_eq!(facet["features"][0]["tag"], "café");
+        let byte_start = facet["index"]["byteStart"].as_u64().unwrap() as usize;
+        let byte_end = facet["index"]["byteEnd"].as_u64().unwrap() as usize;
+        // The '#' must line up on a real UTF-8 boundary despite the preceding
+        // multibyte "café " prefix, and the slice must be exactly "#café".
+        assert_eq!(&text[byte_start..byte_end], "#café");
+    }
+
+    #[test]
+    fn does_not_double_count_hashtag_inside_url_fragment() {
+        let text = "See https://example.com/#section for details";
+        let (facets, _) = build_link_and_tag_facets(text);
+        assert_eq!(facets.len(), 1);
+        assert_eq!(facets[0].1["features"][0]["$type"], "app.bsky.richtext.facet#link");
+    }
+
+    #[test]
+    fn finds_mention_candidate_outside_occupied_ranges() {
+        let text = "ping @alice.bsky.social about this";
+        let (_, occupied) = build_link_and_tag_facets(text);
+        let mentions = find_mention_candidates(text, &occupied);
+        assert_eq!(mentions.len(), 1);
+        assert_eq!(mentions[0].2, "alice.bsky.social");
     }
 }

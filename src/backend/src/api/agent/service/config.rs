@@ -111,6 +111,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GoogleYouTubeRead,
             ToolType::GooglePlacesSearch,
             ToolType::BlueskyPost,
+            ToolType::FacebookPost,
             ToolType::AskHuman,
             ToolType::SystemCommand,
         ],

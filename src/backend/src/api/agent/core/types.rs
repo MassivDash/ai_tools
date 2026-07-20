@@ -32,6 +32,7 @@ pub enum ToolType {
     GoogleYouTubeRead,
     GooglePlacesSearch,
     BlueskyPost,
+    FacebookPost,
     SystemCommand,
     // Future tools can be added here
 }
