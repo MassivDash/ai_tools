@@ -1,3 +1,4 @@
+use crate::api::agent::core::ask_human_fallback::{extract_leaked_ask_human_json, strip_json_block};
 use crate::api::agent::core::logging::ConversationLogger;
 use crate::api::agent::core::types::{
     AgentStreamEvent, ChatCompletionRequest, ChatMessage, MessageContent, MessageRole,
@@ -373,6 +374,25 @@ pub async fn execute_agent_loop_streaming(
                 total.total_tokens = usage.total_tokens;
             } else {
                 total_usage = Some(usage);
+            }
+        }
+
+        // Fallback: on long generations some models leak the ask_human call
+        // as literal JSON in the text content instead of a native tool call.
+        // Detect it here and promote it to a real tool call so the pause-
+        // for-human-input flow and the frontend's option buttons still work.
+        if accumulated_tool_calls.is_empty() && tool_registry.get_tool_by_name("ask_human").is_some() {
+            if let Some((value, range)) = extract_leaked_ask_human_json(&accumulated_content) {
+                println!("⚠️  Detected ask_human JSON leaked into text content; promoting to a tool call");
+                accumulated_content = strip_json_block(&accumulated_content, range);
+                accumulated_tool_calls.push(crate::api::agent::core::types::ToolCall {
+                    id: format!("leaked_ask_human_{}", uuid::Uuid::new_v4()),
+                    tool_type: "function".to_string(),
+                    function: crate::api::agent::core::types::FunctionCall {
+                        name: "ask_human".to_string(),
+                        arguments: value.to_string(),
+                    },
+                });
             }
         }
 
