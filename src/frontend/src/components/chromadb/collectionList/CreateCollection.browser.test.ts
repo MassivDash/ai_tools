@@ -12,12 +12,16 @@ import type { ChromaDBCollection } from '@types/chromadb.ts'
 // Mock axiosBackendInstance
 vi.mock('@axios/axiosBackendInstance.ts', () => ({
   axiosBackendInstance: {
-    post: vi.fn()
+    post: vi.fn(),
+    // CreateCollection.svelte's loadModels() calls .get() on open; default
+    // to an empty model list so opening the form doesn't throw/log noise.
+    get: vi.fn().mockResolvedValue({ data: { models: [] } })
   }
 }))
 
 const mockedAxios = axiosBackendInstance as unknown as {
   post: ReturnType<typeof vi.fn>
+  get: ReturnType<typeof vi.fn>
 }
 
 beforeEach(() => {

@@ -700,7 +700,8 @@
         // content - the tool_calls loop below (and the matching 'tool' result
         // messages elsewhere in history) already represent that turn, so
         // pushing this one too would just leave a blank "Assistant" bubble.
-        const hasToolCalls = Array.isArray(m.tool_calls) && m.tool_calls.length > 0
+        const hasToolCalls =
+          Array.isArray(m.tool_calls) && m.tool_calls.length > 0
         const isEmptyToolOnlyTurn =
           m.role === 'assistant' && !m.content && hasToolCalls
 
