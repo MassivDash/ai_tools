@@ -70,15 +70,60 @@ A comprehensive web UI for managing and testing llama.cpp server instances:
 
 ### 2. AI Agent
 
-A Rust-based AI agent implementation with extensible tool system:
+A Rust-based AI agent implementation with an extensible tool system:
 
-- **Tool System**: Switch tools on/off dynamically
-  - **ChromaDB Tool**: Vector database search integration
-  - **Extensible Architecture**: Easy to add new tools
+- **Tool System**: Switch tools on/off dynamically per conversation via the Tools config panel
+- **Extensible Architecture**: New tools register themselves with the `ToolRegistry`; the frontend's tool list is fetched live from `/api/agent/tools`, so no frontend changes are needed to expose a new one
 - **Conversation Management**: Persistent conversation history using SQLite
 - **WebSocket Support**: Real-time streaming responses
 - **Memory Management**: SQLite-based memory system for conversation context
 - **Tool Registry**: Centralized tool registration and selection system
+- **Human-in-the-loop**: the agent can pause mid-conversation to ask the user a multiple-choice question before continuing
+
+#### Available Tools
+
+Each tool can be toggled independently; most require the API key or credential documented in [Environment Variables & API Keys](#environment-variables--api-keys) below.
+
+**Financial**
+- **Currency** — check currency exchange rates via NBP
+- **Stock** — fetch stock market data (daily/weekly/monthly time series) via Alpha Vantage
+- **Crypto** — fetch real-time and historical cryptocurrency exchange rates via Alpha Vantage
+
+**Development**
+- **GitHub (Public)** — search public repositories and users, no auth required
+- **GitHub (Authenticated)** — manage issues, PRs, and notifications on your own repos
+
+**Database & Search**
+- **ChromaDB** — semantic search over your configured vector collections, and full-document retrieval
+- **Website Check** — read and analyze the content of a given URL
+- **Google Books** — search for books to find ISBNs and details
+
+**Google Workspace** *(OAuth 2.0, one shared refresh token covers all of these)*
+- **Gmail** — read recent emails, or send an HTML-formatted email
+- **Calendar** — read upcoming events, or create a new event
+- **Drive** — search files/folders, or read a file's contents
+- **Docs** — read a Google Doc, or create/append to one
+- **Sheets** — read a range, or write values to a range
+- **Tasks** — read a task list, or create a new task
+- **Contacts** — read contacts via the People API (read-only)
+- **YouTube** — read data such as liked videos and search results (read-only)
+- **Places** — search for places, restaurants, or businesses (separate API key, not part of the OAuth flow)
+
+**Social**
+- **Bluesky Post** — post to Bluesky; automatically detects URLs, `#hashtags`, and `@mentions` in the text and attaches the `facets` needed to make them clickable (mentions are resolved to a DID via a live lookup)
+- **Facebook Post** — post to a Page, optionally attaching a link preview card
+- **Facebook Read Posts** — list recent Page posts with like/comment/share counts
+- **Facebook Read Comments** — read comments left on a specific Page post
+- **Facebook Read Messages** — list the Page's Messenger conversations, or read the messages in one
+- **Facebook Send Message** — reply to a Messenger conversation (only within Meta's standard reply window)
+- **Facebook List Business Pages** — list Pages owned by a configured Meta Business
+
+**Utility & System**
+- **Weather** — current conditions for a location
+- **Weather Forecast** — 5-day forecast
+- **Email** — send an HTML-formatted email via SMTP
+- **Ask Human** — ask the user a multiple-choice question and pause execution until they answer
+- **System Command** — execute safe, everyday Linux commands (search files, view processes, check system status)
 
 ### 3. Vector Database (ChromaDB)
 
@@ -101,13 +146,14 @@ A local ChromaDB client with comprehensive management features:
 
 ### 4. Tools Page
 
-A collection of useful data conversion and processing tools:
+A collection of standalone data conversion and processing tools (no agent or LLM involved — plain HTTP endpoints under `/api/`):
 
 - **URL to Markdown**: Convert web pages to markdown format
 - **HTML to Markdown**: Paste HTML content and convert to markdown
 - **PDF to Markdown**: Upload PDF files and extract content as markdown
-- **JSON to TOON**: Convert JSON data to TOON format for LLM consumption
-- **Text to Tokens**: Count tokens in any text using GPT-2 tokenizer
+- **Parquet to TXT**: Upload a Parquet file and extract its contents as plain text
+- **JSON to TOON**: Convert JSON to TOON format — a more token-efficient encoding for LLM prompts; reports the token count of both the JSON and TOON versions and the percentage savings
+- **Text to Tokens**: Count tokens in any text using the GPT-2 tokenizer
 
 ## Environment Variables & API Keys
 
@@ -131,6 +177,10 @@ To use the Google Workspace tools, you need to configure OAuth 2.0 credentials:
    ```env
    GOOGLE_REFRESH_TOKEN=your_refresh_token
    ```
+
+**How often you'll need to redo this:** the short-lived access token Google issues (1 hour) is refreshed automatically in the background using `GOOGLE_REFRESH_TOKEN` — no manual action for that part. The refresh token itself is what can expire:
+- With the OAuth consent screen's Publishing status set to **Testing** (as step 4 above sets it), Google expires the refresh token after **7 days**, and you'll need to rerun `node google_oauth_setup.js` weekly to get a new one.
+- Switching Publishing status to **Production** removes that 7-day limit — the refresh token then keeps working indefinitely unless you revoke it, don't use it for 6 months, or change your Google password (invalidates Gmail-scoped tokens).
 
 ### Google Places API
 For the Google Places search tool:
@@ -196,6 +246,11 @@ For posting to and managing a Facebook Page:
    # Required only for facebook_list_business_pages:
    # FACEBOOK_BUSINESS_ID=your_business_id
    ```
+
+**How often you'll need to redo this:** it depends on which kind of token you put in `FACEBOOK_PAGE_ACCESS_TOKEN`.
+- A **short-lived** token (the default from Graph API Explorer) lasts only 1-2 hours — don't use this for `.env`.
+- A **long-lived** Page Access Token (exchange a short-lived token via `fb_exchange_token`, or use the "long-lived" option in Graph API Explorer) has no set expiration — Meta doesn't put a fixed TTL on it, so there's no calendar-based refresh schedule.
+- It can still stop working early if the token-generating user changes their Facebook password, revokes the app's permissions, loses admin access to the Page, or Meta forces re-auth for security reasons. Treat a Graph API `OAuthException` as the signal to regenerate it, not a fixed interval.
 
 ### Email Tool
 For sending emails via SMTP:
