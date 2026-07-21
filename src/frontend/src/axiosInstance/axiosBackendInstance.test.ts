@@ -1,4 +1,7 @@
-import { axiosBackendInstance, getBackendUrl } from '../axiosInstance/axiosBackendInstance'
+import {
+  axiosBackendInstance,
+  getBackendUrl
+} from '../axiosInstance/axiosBackendInstance'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
 describe('axiosBackendInstance', () => {
