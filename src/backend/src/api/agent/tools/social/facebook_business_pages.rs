@@ -44,7 +44,9 @@ impl FacebookBusinessPagesTool {
         let access_token = self.credentials.access_token()?;
 
         let client = Client::new();
-        let url = self.credentials.graph_url(&format!("{}/owned_pages", business_id));
+        let url = self
+            .credentials
+            .graph_url(&format!("{}/owned_pages", business_id));
 
         let response = client
             .get(&url)
@@ -68,7 +70,11 @@ impl FacebookBusinessPagesTool {
             return Ok("No Pages found under this Business.".to_string());
         }
 
-        Ok(pages.iter().map(format_page_line).collect::<Vec<_>>().join("\n"))
+        Ok(pages
+            .iter()
+            .map(format_page_line)
+            .collect::<Vec<_>>()
+            .join("\n"))
     }
 }
 

@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 
-const FIELDS: &str = "id,message,created_time,permalink_url,likes.summary(true),comments.summary(true),shares";
+const FIELDS: &str =
+    "id,message,created_time,permalink_url,likes.summary(true),comments.summary(true),shares";
 
 /// Facebook Read Posts Tool implementation
 /// Lists recent posts on the user's Facebook Page with engagement counts
@@ -64,7 +65,11 @@ impl FacebookReadPostsTool {
             return Ok("No posts found on the Page.".to_string());
         }
 
-        Ok(posts.iter().map(format_post_summary).collect::<Vec<_>>().join("\n"))
+        Ok(posts
+            .iter()
+            .map(format_post_summary)
+            .collect::<Vec<_>>()
+            .join("\n"))
     }
 }
 
@@ -73,8 +78,12 @@ fn format_post_summary(post: &serde_json::Value) -> String {
     let id = post["id"].as_str().unwrap_or("unknown");
     let message = post["message"].as_str().unwrap_or("(no text)");
     let created = post["created_time"].as_str().unwrap_or("unknown time");
-    let likes = post["likes"]["summary"]["total_count"].as_u64().unwrap_or(0);
-    let comments = post["comments"]["summary"]["total_count"].as_u64().unwrap_or(0);
+    let likes = post["likes"]["summary"]["total_count"]
+        .as_u64()
+        .unwrap_or(0);
+    let comments = post["comments"]["summary"]["total_count"]
+        .as_u64()
+        .unwrap_or(0);
     let shares = post["shares"]["count"].as_u64().unwrap_or(0);
     format!(
         "[{}] {} | likes: {} comments: {} shares: {} | id: {}",

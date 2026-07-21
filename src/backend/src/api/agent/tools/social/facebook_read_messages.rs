@@ -36,7 +36,9 @@ impl FacebookReadMessagesTool {
         let access_token = self.credentials.access_token()?;
 
         let client = Client::new();
-        let url = self.credentials.graph_url(&format!("{}/conversations", page_id));
+        let url = self
+            .credentials
+            .graph_url(&format!("{}/conversations", page_id));
         let limit_str = limit.to_string();
 
         let response = client
@@ -76,7 +78,9 @@ impl FacebookReadMessagesTool {
         let access_token = self.credentials.access_token()?;
 
         let client = Client::new();
-        let url = self.credentials.graph_url(&format!("{}/messages", conversation_id));
+        let url = self
+            .credentials
+            .graph_url(&format!("{}/messages", conversation_id));
         let limit_str = limit.to_string();
 
         let response = client
@@ -118,7 +122,9 @@ impl FacebookReadMessagesTool {
 /// facebook_send_message.
 fn format_conversation_summary(conversation: &serde_json::Value) -> String {
     let id = conversation["id"].as_str().unwrap_or("unknown");
-    let updated = conversation["updated_time"].as_str().unwrap_or("unknown time");
+    let updated = conversation["updated_time"]
+        .as_str()
+        .unwrap_or("unknown time");
     let snippet = conversation["snippet"].as_str().unwrap_or("(no preview)");
     let participants = conversation["participants"]["data"]
         .as_array()
@@ -151,10 +157,7 @@ fn format_message_line(message: &serde_json::Value) -> String {
     let from_id = message["from"]["id"].as_str().unwrap_or("unknown");
     let text = message["message"].as_str().unwrap_or("(no text)");
     let created = message["created_time"].as_str().unwrap_or("unknown time");
-    format!(
-        "[{}] {} (psid: {}): {}",
-        created, from_name, from_id, text
-    )
+    format!("[{}] {} (psid: {}): {}", created, from_name, from_id, text)
 }
 
 #[async_trait]

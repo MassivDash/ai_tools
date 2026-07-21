@@ -48,7 +48,10 @@ impl FacebookCredentials {
     /// Builds a full Graph API URL for `path` (e.g. "123456/posts") using
     /// the configured (or default) API version.
     pub fn graph_url(&self, path: &str) -> String {
-        format!("https://graph.facebook.com/{}/{}", self.graph_api_version, path)
+        format!(
+            "https://graph.facebook.com/{}/{}",
+            self.graph_api_version, path
+        )
     }
 }
 

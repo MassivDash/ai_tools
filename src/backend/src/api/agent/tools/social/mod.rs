@@ -40,34 +40,43 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         }
     }
 
-    if config.enabled_tools.contains(&ToolType::FacebookCommentsRead) {
+    if config
+        .enabled_tools
+        .contains(&ToolType::FacebookCommentsRead)
+    {
         let tool = FacebookReadCommentsTool::new();
         if let Err(e) = registry.register(Arc::new(tool)) {
             println!("⚠️ Failed to register Facebook Read Comments tool: {}", e);
         }
     }
 
-    if config.enabled_tools.contains(&ToolType::FacebookMessagesRead) {
+    if config
+        .enabled_tools
+        .contains(&ToolType::FacebookMessagesRead)
+    {
         let tool = FacebookReadMessagesTool::new();
         if let Err(e) = registry.register(Arc::new(tool)) {
             println!("⚠️ Failed to register Facebook Read Messages tool: {}", e);
         }
     }
 
-    if config.enabled_tools.contains(&ToolType::FacebookMessageSend) {
+    if config
+        .enabled_tools
+        .contains(&ToolType::FacebookMessageSend)
+    {
         let tool = FacebookSendMessageTool::new();
         if let Err(e) = registry.register(Arc::new(tool)) {
             println!("⚠️ Failed to register Facebook Send Message tool: {}", e);
         }
     }
 
-    if config.enabled_tools.contains(&ToolType::FacebookBusinessPagesRead) {
+    if config
+        .enabled_tools
+        .contains(&ToolType::FacebookBusinessPagesRead)
+    {
         let tool = FacebookBusinessPagesTool::new();
         if let Err(e) = registry.register(Arc::new(tool)) {
-            println!(
-                "⚠️ Failed to register Facebook Business Pages tool: {}",
-                e
-            );
+            println!("⚠️ Failed to register Facebook Business Pages tool: {}", e);
         }
     }
 }
