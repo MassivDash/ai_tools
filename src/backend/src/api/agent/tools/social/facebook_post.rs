@@ -1,33 +1,22 @@
 use crate::api::agent::core::types::{ToolCall, ToolCallResult, ToolType};
 use crate::api::agent::tools::framework::agent_tool::{AgentTool, ToolCategory, ToolMetadata};
+use crate::api::agent::tools::social::facebook_common::FacebookCredentials;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
-use std::env;
-
-/// Default Graph API version, used when FACEBOOK_GRAPH_API_VERSION isn't
-/// set. Meta sunsets versions on a ~2-year cycle; overriding via env var
-/// avoids needing a code change/redeploy when this one is retired.
-const DEFAULT_GRAPH_API_VERSION: &str = "v21.0";
 
 /// Facebook Page Post Tool implementation
 /// Allows the agent to post to the user's Facebook Page via the Graph API
+/// (requires the `pages_manage_posts` permission).
 pub struct FacebookPostTool {
     metadata: ToolMetadata,
-    page_id: Option<String>,
-    access_token: Option<String>,
-    graph_api_version: String,
+    credentials: FacebookCredentials,
 }
 
 impl FacebookPostTool {
     /// Create a new Facebook tool
     pub fn new() -> Self {
-        let page_id = env::var("FACEBOOK_PAGE_ID").ok();
-        let access_token = env::var("FACEBOOK_PAGE_ACCESS_TOKEN").ok();
-        let graph_api_version = env::var("FACEBOOK_GRAPH_API_VERSION")
-            .unwrap_or_else(|_| DEFAULT_GRAPH_API_VERSION.to_string());
-
         Self {
             metadata: ToolMetadata {
                 id: "facebook_post".to_string(),
@@ -36,27 +25,17 @@ impl FacebookPostTool {
                 category: ToolCategory::Social,
                 tool_type: ToolType::FacebookPost,
             },
-            page_id,
-            access_token,
-            graph_api_version,
+            credentials: FacebookCredentials::from_env(),
         }
     }
 
     /// Post to the configured Facebook Page via the Graph API
     async fn post_to_facebook(&self, message: &str, link: Option<&str>) -> Result<String> {
-        let page_id = self
-            .page_id
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("FACEBOOK_PAGE_ID environment variable not set"))?;
-        let access_token = self.access_token.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set")
-        })?;
+        let page_id = self.credentials.page_id()?;
+        let access_token = self.credentials.access_token()?;
 
         let client = Client::new();
-        let url = format!(
-            "https://graph.facebook.com/{}/{}/feed",
-            self.graph_api_version, page_id
-        );
+        let url = self.credentials.graph_url(&format!("{}/feed", page_id));
 
         let mut params: Vec<(&str, &str)> =
             vec![("message", message), ("access_token", access_token)];

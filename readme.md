@@ -178,9 +178,14 @@ For posting to Bluesky:
    ```
 
 ### Social Tools (Facebook)
-For posting to a Facebook Page:
+For posting to and managing a Facebook Page:
 1. Create a Meta app at [developers.facebook.com](https://developers.facebook.com/) and add the Facebook Login/Pages product.
-2. Generate a Page Access Token for the page you want to post to (via Graph API Explorer or a long-lived token exchange), granting the `pages_manage_posts` permission.
+2. Generate a Page Access Token for the page (via Graph API Explorer or a long-lived token exchange), granting whichever of these permissions match the tools you want to enable:
+   - `pages_manage_posts` — `facebook_post` (create posts)
+   - `pages_read_engagement` — `facebook_read_posts` (read posts + like/comment/share counts)
+   - `pages_read_user_content` — `facebook_read_comments` (read comments on a post)
+   - `pages_messaging` — `facebook_read_messages` (read the Messenger inbox) and `facebook_send_message` (reply to a conversation)
+   - `business_management` — `facebook_list_business_pages` (list Pages owned by the Business — note: this reuses the Page Access Token, which may not carry business-scoped access depending on how it was generated; a User/System User token may be required instead)
 3. Find the numeric Page ID (visible in the Page's "About" info or via `GET /me/accounts`).
 4. Add to `.env`:
    ```env
@@ -188,6 +193,8 @@ For posting to a Facebook Page:
    FACEBOOK_PAGE_ACCESS_TOKEN=your_page_access_token
    # Optional: override the pinned Graph API version (defaults to v21.0)
    # FACEBOOK_GRAPH_API_VERSION=v21.0
+   # Required only for facebook_list_business_pages:
+   # FACEBOOK_BUSINESS_ID=your_business_id
    ```
 
 ### Email Tool

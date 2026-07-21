@@ -33,6 +33,11 @@ pub enum ToolType {
     GooglePlacesSearch,
     BlueskyPost,
     FacebookPost,
+    FacebookPostsRead,
+    FacebookCommentsRead,
+    FacebookMessagesRead,
+    FacebookMessageSend,
+    FacebookBusinessPagesRead,
     SystemCommand,
     // Future tools can be added here
 }
