@@ -5,16 +5,40 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ToolType {
     ChromaDB,
-    ReadDocument,
-
     WebsiteCheck,
     Weather,
+    WeatherForecast,
     Currency,
     Stock,
     GitHubPublic,
     GitHubAuthenticated,
     Crypto,
     GoogleBooks,
+    Email,
+    GoogleGmail,
+    GoogleCalendar,
+    GoogleGmailRead,
+    GoogleCalendarRead,
+    AskHuman,
+    GoogleDriveSearch,
+    GoogleDriveRead,
+    GoogleDocsRead,
+    GoogleDocsWrite,
+    GoogleSheetsRead,
+    GoogleSheetsWrite,
+    GoogleTasksRead,
+    GoogleTasksWrite,
+    GoogleContactsRead,
+    GoogleYouTubeRead,
+    GooglePlacesSearch,
+    BlueskyPost,
+    FacebookPost,
+    FacebookPostsRead,
+    FacebookCommentsRead,
+    FacebookMessagesRead,
+    FacebookMessageSend,
+    FacebookBusinessPagesRead,
+    SystemCommand,
     // Future tools can be added here
 }
 
@@ -23,20 +47,9 @@ pub enum ToolType {
 pub struct AgentConfig {
     /// List of enabled tools
     pub enabled_tools: Vec<ToolType>,
-    /// ChromaDB configuration (only used if ChromaDB tool is enabled)
-    pub chromadb: Option<ChromaDBToolConfig>,
     /// Whether to enable debug logging for agent conversations
     #[serde(default)]
     pub debug_logging: bool,
-}
-
-/// ChromaDB tool configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChromaDBToolConfig {
-    /// Collection name to use for searches
-    pub collection: String,
-    /// Embedding model to use for queries
-    pub embedding_model: String,
 }
 
 /// Chat message role
@@ -215,6 +228,8 @@ pub struct AgentChatRequest {
     pub message: MessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_result: Option<ToolCallResult>,
 }
 
 /// Agent chat response
@@ -233,6 +248,8 @@ pub struct AgentChatResponse {
 pub struct ToolCallResult {
     pub tool_name: String,
     pub result: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 pub type ActiveGenerations = std::sync::Arc<
@@ -244,8 +261,6 @@ pub type ActiveGenerations = std::sync::Arc<
 pub struct AgentConfigRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled_tools: Option<Vec<ToolType>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub chromadb: Option<ChromaDBToolConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debug_logging: Option<bool>,
 }
@@ -298,6 +313,7 @@ pub enum AgentStreamEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         display_name: Option<String>,
         arguments: String,
+        tool_call_id: String,
     },
     #[serde(rename = "tool_result")]
     ToolResult {

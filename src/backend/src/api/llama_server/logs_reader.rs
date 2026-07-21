@@ -1,6 +1,5 @@
 use crate::api::llama_server::types::{LogBuffer, LogEntry, LogSource, ServerStateHandle};
 use crate::api::llama_server::websocket::WebSocketState;
-use std::io::{BufRead, BufReader};
 use std::process::{ChildStderr, ChildStdout};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -59,28 +58,15 @@ fn read_stdout_stream(
     generation: u32,
     port: Option<u16>,
 ) {
-    let reader = BufReader::new(stream);
-    let lines = reader.lines();
-
-    for line_result in lines {
-        match line_result {
-            Ok(line) => {
-                process_log_line(
-                    line,
-                    log_buffer.clone(),
-                    server_state.clone(),
-                    LogSource::Stdout,
-                    ws_state.clone(),
-                    generation,
-                    port,
-                );
-            }
-            Err(e) => {
-                eprintln!("Error reading stdout line: {}", e);
-                break;
-            }
-        }
-    }
+    read_stream_generic(
+        stream,
+        log_buffer,
+        server_state,
+        LogSource::Stdout,
+        ws_state,
+        generation,
+        port,
+    );
 }
 
 fn read_stderr_stream(
@@ -91,24 +77,71 @@ fn read_stderr_stream(
     generation: u32,
     port: Option<u16>,
 ) {
-    let reader = BufReader::new(stream);
-    let lines = reader.lines();
+    read_stream_generic(
+        stream,
+        log_buffer,
+        server_state,
+        LogSource::Stderr,
+        ws_state,
+        generation,
+        port,
+    );
+}
 
-    for line_result in lines {
-        match line_result {
-            Ok(line) => {
-                process_log_line(
-                    line,
-                    log_buffer.clone(),
-                    server_state.clone(),
-                    LogSource::Stderr,
-                    ws_state.clone(),
-                    generation,
-                    port,
-                );
+fn read_stream_generic<R: std::io::Read>(
+    stream: R,
+    log_buffer: LogBuffer,
+    server_state: ServerStateHandle,
+    source: LogSource,
+    ws_state: Option<Arc<WebSocketState>>,
+    generation: u32,
+    port: Option<u16>,
+) {
+    let mut reader = std::io::BufReader::new(stream);
+    let mut buf = [0; 1024];
+    let mut line_buf = Vec::new();
+
+    loop {
+        use std::io::Read;
+        match reader.read(&mut buf) {
+            Ok(0) => {
+                if !line_buf.is_empty() {
+                    let line = String::from_utf8_lossy(&line_buf).into_owned();
+                    process_log_line(
+                        line,
+                        log_buffer.clone(),
+                        server_state.clone(),
+                        source.clone(),
+                        ws_state.clone(),
+                        generation,
+                        port,
+                    );
+                }
+                break;
+            }
+            Ok(n) => {
+                for &b in &buf[..n] {
+                    if b == b'\n' || b == b'\r' {
+                        if !line_buf.is_empty() {
+                            let line = String::from_utf8_lossy(&line_buf).into_owned();
+                            process_log_line(
+                                line,
+                                log_buffer.clone(),
+                                server_state.clone(),
+                                source.clone(),
+                                ws_state.clone(),
+                                generation,
+                                port,
+                            );
+                            line_buf.clear();
+                        }
+                    } else {
+                        line_buf.push(b);
+                    }
+                }
             }
             Err(e) => {
-                eprintln!("Error reading stderr line: {}", e);
+                eprintln!("Error reading {:?} stream: {}", source, e);
                 break;
             }
         }
@@ -172,7 +205,9 @@ fn process_log_line(
     // Check if server is ready - Generalize check to support any port/host
     // We check for tokens individually to handle potential ANSI color codes in the output
     let is_ready_msg =
-        (line.contains("main") && line.contains("listening") && line.contains("http"))
+        ((line.contains("main") || line.contains("llama_server") || line.contains("srv"))
+            && line.contains("listening")
+            && line.contains("http"))
             || line.contains("HTTP server listening");
 
     if is_ready_msg {
@@ -245,6 +280,32 @@ mod tests {
 
         let state = server_state.lock().unwrap();
         assert!(state.is_ready, "Server should be ready with plain log line");
+    }
+
+    #[test]
+    fn test_process_log_line_readiness_new_format() {
+        let log_buffer: LogBuffer = Arc::new(std::sync::Mutex::new(VecDeque::new()));
+        let server_state: ServerStateHandle = Arc::new(std::sync::Mutex::new(ServerState {
+            is_ready: false,
+            generation: 1,
+        }));
+        let line = "0.01.411.337 I srv  llama_server: listening on http://0.0.0.0:8099".to_string();
+
+        process_log_line(
+            line,
+            log_buffer,
+            server_state.clone(),
+            LogSource::Stdout,
+            None,
+            1,
+            Some(8099),
+        );
+
+        let state = server_state.lock().unwrap();
+        assert!(
+            state.is_ready,
+            "Server should be ready with new log line format"
+        );
     }
 
     #[test]

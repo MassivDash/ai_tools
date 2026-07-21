@@ -64,7 +64,7 @@ mod tests {
 
         assert!(resp.status().is_success());
         let body: ConfigResponse = test::read_body_json(resp).await;
-        assert_eq!(body.ctx_size, 10240);
+        assert_eq!(body.ctx_size, 0);
         assert!(body.hf_model.contains("DeepSeek"));
     }
 

@@ -66,10 +66,8 @@ pub async fn post_update_config(
     let mut config_guard = config.lock().unwrap();
 
     if let Some(ctx_size) = body.ctx_size {
-        if ctx_size > 0 {
-            config_guard.ctx_size = ctx_size;
-            println!("📝 Updated context size to: {}", config_guard.ctx_size);
-        }
+        config_guard.ctx_size = ctx_size;
+        println!("📝 Updated context size to: {}", config_guard.ctx_size);
     }
 
     if let Some(threads) = body.threads {
@@ -283,9 +281,8 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_post_update_config_invalid_ctx_size_ignored() {
+    async fn test_post_update_config_ctx_size_zero_allowed() {
         let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::default()));
-        let original_ctx_size = config.lock().unwrap().ctx_size;
         let default_configs = create_test_default_configs().await;
 
         let app = test::init_service(
@@ -300,7 +297,7 @@ mod tests {
             .uri("/api/llama-server/config")
             .set_json(&ConfigRequest {
                 hf_model: None,
-                ctx_size: Some(0), // Invalid (must be > 0)
+                ctx_size: Some(0), // Valid (0 means auto)
                 threads: None,
                 threads_batch: None,
                 predict: None,
@@ -317,8 +314,8 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
 
-        // Verify ctx_size was not updated (0 is invalid)
+        // Verify ctx_size was updated to 0
         let config_guard = config.lock().unwrap();
-        assert_eq!(config_guard.ctx_size, original_ctx_size);
+        assert_eq!(config_guard.ctx_size, 0);
     }
 }

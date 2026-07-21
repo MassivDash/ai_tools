@@ -39,29 +39,9 @@ pub async fn post_agent_config(
 ) -> ActixResult<HttpResponse> {
     let mut config_guard = agent_config.lock().unwrap();
 
-    // Validate ChromaDB config if provided
-    if let Some(ref chromadb_config) = req.chromadb {
-        if chromadb_config.collection.trim().is_empty()
-            || chromadb_config.embedding_model.trim().is_empty()
-        {
-            return Ok(HttpResponse::BadRequest().json(AgentConfigResponse {
-                success: false,
-                message: "ChromaDB configuration requires both collection and embedding_model"
-                    .to_string(),
-            }));
-        }
-    }
-
     // Update enabled_tools if provided
-    if let Some(mut enabled_tools) = req.enabled_tools.clone() {
-        // Remove ChromaDB from enabled_tools if present (it's now a separate config section)
-        enabled_tools.retain(|t| *t != ToolType::ChromaDB);
+    if let Some(enabled_tools) = req.enabled_tools.clone() {
         config_guard.enabled_tools = enabled_tools;
-    }
-
-    // Update ChromaDB config if provided
-    if let Some(chromadb_config) = req.chromadb.clone() {
-        config_guard.chromadb = Some(chromadb_config);
     }
 
     // Update debug logging if provided
@@ -94,7 +74,7 @@ pub struct ToolInfo {
 /// This returns all tools that are properly configured and available for use
 #[get("/api/agent/tools")]
 pub async fn get_available_tools() -> ActixResult<HttpResponse> {
-    use crate::api::agent::core::types::{ChromaDBToolConfig, ToolType};
+    use crate::api::agent::core::types::ToolType;
     use crate::api::agent::tools::{self, framework::registry::ToolRegistry};
 
     // Create a temporary registry to discover all available tools
@@ -105,22 +85,41 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     let all_tools_config = AgentConfig {
         enabled_tools: vec![
             ToolType::ChromaDB,
-            ToolType::ReadDocument,
             ToolType::WebsiteCheck,
             ToolType::Weather,
+            ToolType::WeatherForecast,
             ToolType::Currency,
             ToolType::Stock,
             ToolType::GitHubPublic,
             ToolType::GitHubAuthenticated,
             ToolType::Crypto,
             ToolType::GoogleBooks,
+            ToolType::Email,
+            ToolType::GoogleGmail,
+            ToolType::GoogleCalendar,
+            ToolType::GoogleGmailRead,
+            ToolType::GoogleCalendarRead,
+            ToolType::GoogleDriveSearch,
+            ToolType::GoogleDriveRead,
+            ToolType::GoogleDocsRead,
+            ToolType::GoogleDocsWrite,
+            ToolType::GoogleSheetsRead,
+            ToolType::GoogleSheetsWrite,
+            ToolType::GoogleTasksRead,
+            ToolType::GoogleTasksWrite,
+            ToolType::GoogleContactsRead,
+            ToolType::GoogleYouTubeRead,
+            ToolType::GooglePlacesSearch,
+            ToolType::BlueskyPost,
+            ToolType::FacebookPost,
+            ToolType::FacebookPostsRead,
+            ToolType::FacebookCommentsRead,
+            ToolType::FacebookMessagesRead,
+            ToolType::FacebookMessageSend,
+            ToolType::FacebookBusinessPagesRead,
+            ToolType::AskHuman,
+            ToolType::SystemCommand,
         ],
-        // Provide dummy config for ChromaDB so it attempts registration
-        // It will only succeed if the code handles it, but connection check might fail it effectively.
-        chromadb: Some(ChromaDBToolConfig {
-            collection: "metadata_check".to_string(),
-            embedding_model: "metadata_check".to_string(),
-        }),
         debug_logging: false,
     };
 
@@ -128,6 +127,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     // This allows ChromaDB tool to attempt registration (it might fail if it checks connection)
     let context = tools::RegisterContext {
         chroma_address: Some("http://localhost:8000"),
+        available_collections: &[],
     };
 
     // Register all tools

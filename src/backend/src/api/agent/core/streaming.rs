@@ -1,3 +1,6 @@
+use crate::api::agent::core::ask_human_fallback::{
+    extract_leaked_ask_human_json, strip_json_block,
+};
 use crate::api::agent::core::logging::ConversationLogger;
 use crate::api::agent::core::types::{
     AgentStreamEvent, ChatCompletionRequest, ChatMessage, MessageContent, MessageRole,
@@ -376,10 +379,38 @@ pub async fn execute_agent_loop_streaming(
             }
         }
 
+        // Fallback: on long generations some models leak the ask_human call
+        // as literal JSON in the text content instead of a native tool call.
+        // Detect it here and promote it to a real tool call so the pause-
+        // for-human-input flow and the frontend's option buttons still work.
+        if accumulated_tool_calls.is_empty()
+            && tool_registry.get_tool_by_name("ask_human").is_some()
+        {
+            if let Some((value, range)) = extract_leaked_ask_human_json(&accumulated_content) {
+                let msg =
+                    "Detected ask_human JSON leaked into text content; promoting to a tool call";
+                println!("⚠️  {}", msg);
+                logger.log(
+                    "ASK_HUMAN_FALLBACK",
+                    &format!("{}\nRaw args: {}", msg, value),
+                );
+                accumulated_content = strip_json_block(&accumulated_content, range);
+                accumulated_tool_calls.push(crate::api::agent::core::types::ToolCall {
+                    id: format!("leaked_ask_human_{}", uuid::Uuid::new_v4()),
+                    tool_type: "function".to_string(),
+                    function: crate::api::agent::core::types::FunctionCall {
+                        name: "ask_human".to_string(),
+                        arguments: value.to_string(),
+                    },
+                });
+            }
+        }
+
         // Decide next step: Tool Execution or Final Answer
         if !accumulated_tool_calls.is_empty() {
             // Send tool call events
             let tool_calls_to_process = accumulated_tool_calls.clone();
+            let mut requires_human_input = false;
 
             for tool_call in &tool_calls_to_process {
                 let tool_name = tool_call.function.name.clone();
@@ -399,12 +430,19 @@ pub async fn execute_agent_loop_streaming(
                         tool_name: tool_name.clone(),
                         display_name: Some(display_name.clone()),
                         arguments: tool_call.function.arguments.clone(),
+                        tool_call_id: tool_call.id.clone(),
                     }))
                     .await;
 
                 // Check cancellation before tool execution
                 if *cancel_rx.borrow() {
                     loop_cancelled = true;
+                    break;
+                }
+
+                if tool_name == "ask_human" {
+                    println!("⏸️  AskHuman tool detected. Pausing execution...");
+                    requires_human_input = true;
                     break;
                 }
 
@@ -487,6 +525,7 @@ pub async fn execute_agent_loop_streaming(
                             }))
                             .await;
                         let error_result = ToolCallResult {
+                            tool_call_id: None,
                             tool_name: tool_call.function.name.clone(),
                             result: format!("Error: {:#}", e),
                         };
@@ -525,33 +564,64 @@ pub async fn execute_agent_loop_streaming(
             logger.log_message(&assistant_message);
 
             // Add tool results as tool messages
-            let tool_calls_to_msg_process = messages
-                .last()
-                .unwrap()
-                .tool_calls
-                .as_ref()
-                .unwrap()
-                .clone();
-            for tool_call in tool_calls_to_msg_process {
-                let result = tool_results
-                    .iter()
-                    .find(|r| r.tool_name == tool_call.function.name)
-                    .cloned()
-                    .unwrap_or_else(|| ToolCallResult {
-                        tool_name: tool_call.function.name.clone(),
-                        result: String::new(),
-                    });
+            if !requires_human_input {
+                let tool_calls_to_msg_process = messages
+                    .last()
+                    .unwrap()
+                    .tool_calls
+                    .as_ref()
+                    .unwrap()
+                    .clone();
+                for tool_call in tool_calls_to_msg_process {
+                    let result = tool_results
+                        .iter()
+                        .find(|r| r.tool_name == tool_call.function.name)
+                        .cloned()
+                        .unwrap_or_else(|| ToolCallResult {
+                            tool_call_id: None,
+                            tool_name: tool_call.function.name.clone(),
+                            result: String::new(),
+                        });
 
-                let tool_message = ChatMessage {
-                    role: MessageRole::Tool,
-                    content: MessageContent::Text(result.result.clone()),
-                    name: Some(tool_call.function.name.clone()),
-                    tool_calls: None,
-                    tool_call_id: Some(tool_call.id.clone()),
-                    reasoning_content: None,
-                };
-                messages.push(tool_message.clone());
-                logger.log_message(&tool_message);
+                    let tool_message = ChatMessage {
+                        role: MessageRole::Tool,
+                        content: MessageContent::Text(result.result.clone()),
+                        name: Some(tool_call.function.name.clone()),
+                        tool_calls: None,
+                        tool_call_id: Some(tool_call.id.clone()),
+                        reasoning_content: None,
+                    };
+                    messages.push(tool_message.clone());
+                    logger.log_message(&tool_message);
+                }
+            }
+
+            if requires_human_input {
+                // IMPORTANT: Save the assistant message with the tool call to memory BEFORE breaking
+                if let Err(e) = sqlite_memory
+                    .add_message(&conversation_id, assistant_message.clone())
+                    .await
+                {
+                    println!("Failed to save assistant message with ask_human: {}", e);
+                }
+
+                let _ = tx
+                    .send(Ok(AgentStreamEvent::Done {
+                        conversation_id: Some(conversation_id.clone()),
+                        tool_calls: None,
+                        usage: total_usage,
+                    }))
+                    .await;
+                break;
+            }
+
+            // Also save the assistant message for the normal non-human-input case
+            // (Normally it might only be saved if final Answer handling catches it, but if loop continues it might be lost if we don't save it here)
+            if let Err(e) = sqlite_memory
+                .add_message(&conversation_id, assistant_message.clone())
+                .await
+            {
+                println!("Failed to save assistant message with tool calls: {}", e);
             }
 
             continue;

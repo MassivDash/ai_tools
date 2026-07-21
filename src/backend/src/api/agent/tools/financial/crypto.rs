@@ -289,23 +289,6 @@ impl CryptoTool {
                         entries.len() - display_count
                     ));
                 }
-
-                // Add instruction for charts
-                result.push_str("\n💡 **To display a chart:**\n");
-                result.push_str("If the user asked for a chart, you **MUST** output the data inside a `json-chart` code block. **DO NOT** output raw JSON.\n");
-                result.push_str("Correct format:\n");
-                result.push_str("```json-chart\n");
-                result.push_str("{\n");
-                result.push_str("  \"type\": \"line\",\n");
-                result.push_str("  \"title\": \"Crypto Price History\",\n");
-                result.push_str("  \"xAxis\": { \"label\": \"Date\", \"data\": [\"2023-01-01\", \"2023-01-02\"] },\n");
-                result.push_str("  \"series\": [\n");
-                result.push_str(
-                    "    { \"name\": \"Close Price\", \"data\": [45000.50, 46100.20] }\n",
-                );
-                result.push_str("  ]\n");
-                result.push_str("}\n");
-                result.push_str("```\n");
             } else {
                 result.push_str("No time series data found.\n");
             }
@@ -409,6 +392,7 @@ impl AgentTool for CryptoTool {
         let result = self.format_response(&data, function, &from_currency, &to_currency, limit)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "crypto_data".to_string(),
             result,
         })

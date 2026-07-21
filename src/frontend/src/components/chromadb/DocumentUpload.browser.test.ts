@@ -6,23 +6,38 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
 import DocumentUpload from './DocumentUpload.svelte'
-import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
 
 // Mock axiosBackendInstance
-vi.mock('@axios/axiosBackendInstance.ts', () => ({
-  axiosBackendInstance: {
-    post: vi.fn()
-  }
-}))
 
-const mockedAxios = axiosBackendInstance as unknown as {
-  post: ReturnType<typeof vi.fn>
+const mockWebSocket = (success: boolean, message: string) => {
+  return class MockWebSocket {
+    onmessage: any
+    onopen: any
+    constructor(_url: string) {
+      setTimeout(() => {
+        if (this.onopen) {
+          this.onopen()
+        }
+        if (this.onmessage) {
+          const data = JSON.stringify({
+            status: success ? 'completed' : 'error',
+            message,
+            success
+          })
+          this.onmessage({ data })
+        }
+      }, 50)
+    }
+    close() {}
+  }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  global.fetch = vi.fn().mockResolvedValue({ ok: true })
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
   global.URL.revokeObjectURL = vi.fn()
+  global.WebSocket = mockWebSocket(true, 'Success') as any
 })
 
 test('renders document upload component', () => {
@@ -110,12 +125,7 @@ test('removes file from list', async () => {
 })
 
 test('uploads documents successfully', async () => {
-  mockedAxios.post.mockResolvedValueOnce({
-    data: {
-      success: true,
-      message: 'Upload successful'
-    }
-  })
+  global.WebSocket = mockWebSocket(true, 'Upload successful') as any
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {
@@ -149,13 +159,11 @@ test('uploads documents successfully', async () => {
   fireEvent.click(uploadButton)
 
   await waitFor(() => {
-    expect(mockedAxios.post).toHaveBeenCalledWith(
-      'chromadb/documents/upload',
-      expect.any(FormData),
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('chromadb/documents/upload'),
       expect.objectContaining({
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        method: 'POST',
+        body: expect.any(FormData)
       })
     )
   })
@@ -166,12 +174,7 @@ test('uploads documents successfully', async () => {
 })
 
 test('shows error when upload fails', async () => {
-  mockedAxios.post.mockResolvedValueOnce({
-    data: {
-      success: false,
-      error: 'Upload failed'
-    }
-  })
+  global.WebSocket = mockWebSocket(false, 'Upload failed') as any
 
   const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
   const fileList = {

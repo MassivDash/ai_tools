@@ -249,6 +249,14 @@
       color 0.3s ease;
   }
 
+  @media screen and (max-width: 768px) {
+    .chromadb-manager {
+      /* Match Agent Chat's mobile spacing between the config buttons row
+         and the content below it. */
+      margin-top: 1rem;
+    }
+  }
+
   @media screen and (max-width: 1024px) {
     .manager-content {
       grid-template-columns: 1fr;

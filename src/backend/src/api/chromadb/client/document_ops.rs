@@ -6,6 +6,7 @@ use crate::api::chromadb::types::AddDocumentsRequest;
 use anyhow::{Context, Result};
 use chroma::types::Metadata;
 use chroma::ChromaHttpClient;
+pub const CHROMA_BATCH_SIZE: usize = 100;
 
 use super::metadata::vec_to_chromadb_metadata;
 use super::ollama::{OllamaConfig, OllamaManager};
@@ -28,6 +29,7 @@ pub async fn add_documents(
     client: &ChromaHttpClient,
     request: AddDocumentsRequest,
     embedding_model: &str,
+    log_tx: Option<tokio::sync::mpsc::Sender<String>>,
 ) -> Result<()> {
     let collection = client
         .get_collection(&request.collection)
@@ -51,7 +53,7 @@ pub async fn add_documents(
     let ollama_manager = OllamaManager::new(config);
     let document_refs: Vec<&str> = request.documents.iter().map(|s| s.as_str()).collect();
     let mut embeddings = ollama_manager
-        .generate_embeddings_with_server(&document_refs)
+        .generate_embeddings_with_server(&document_refs, log_tx)
         .await
         .with_context(|| {
             format!(
@@ -87,7 +89,6 @@ pub async fn add_documents(
 
     // Use ChromaDB's standard add method with generated embeddings
     // We must batch this to avoid hitting request size limits (e.g. 14k vectors is too big)
-    const CHROMA_BATCH_SIZE: usize = 2000;
     let total_docs = request.ids.len();
     let num_batches = total_docs.div_ceil(CHROMA_BATCH_SIZE);
 
@@ -171,8 +172,18 @@ pub async fn add_documents(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_function_exists() {
         // Verify the function is defined
+    }
+
+    #[test]
+    fn test_batch_size_is_safe() {
+        assert!(
+            CHROMA_BATCH_SIZE <= 100,
+            "Batch size must be small enough to avoid 413 Payload Too Large on large embeddings"
+        );
     }
 }

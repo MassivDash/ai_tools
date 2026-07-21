@@ -23,7 +23,7 @@ impl GoogleBooksTool {
                 id: "google_books".to_string(),
                 name: "Google Books Search".to_string(),
                 description: "Search for books to find ISBNs and details".to_string(),
-                category: ToolCategory::Web,
+                category: ToolCategory::Google,
                 tool_type: ToolType::GoogleBooks,
             },
             api_key,
@@ -179,6 +179,7 @@ impl AgentTool for GoogleBooksTool {
         println!("✅ Google Books search completed for: {}", query);
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "search_google_books".to_string(),
             result,
         })

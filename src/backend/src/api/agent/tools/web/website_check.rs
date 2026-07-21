@@ -125,6 +125,7 @@ impl AgentTool for WebsiteCheckTool {
         println!("✅ Website check completed for: {}", url);
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "check_website".to_string(),
             result,
         })

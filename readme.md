@@ -109,6 +109,114 @@ A collection of useful data conversion and processing tools:
 - **JSON to TOON**: Convert JSON data to TOON format for LLM consumption
 - **Text to Tokens**: Count tokens in any text using GPT-2 tokenizer
 
+## Environment Variables & API Keys
+
+Certain agent tools require API keys or authentication tokens to function. These should be placed in a `.env` file in the root directory. Tools that lack their required environment variables will be automatically disabled and hidden from the UI.
+
+### Google Workspace Tools (Docs, Sheets, Drive, Gmail, Calendar, Tasks, Contacts, YouTube)
+To use the Google Workspace tools, you need to configure OAuth 2.0 credentials:
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project or select an existing one.
+3. Enable the respective APIs (e.g., Google Drive API, Google Docs API, Google Sheets API, etc.).
+4. Navigate to **APIs & Services > OAuth consent screen**. Set the Publishing status to **Testing** and add your email address to the **Test users** list.
+5. Navigate to **APIs & Services > Credentials**.
+6. Create **OAuth client ID** credentials (choose "Desktop app" as the application type).
+7. Add the following to your `.env` file:
+   ```env
+   GOOGLE_CLIENT_ID=your_client_id
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   ```
+8. Run `node google_oauth_setup.js` in the terminal and follow the prompts in your browser to authenticate and grant permissions.
+9. The script will output a refresh token. Add it to your `.env` file:
+   ```env
+   GOOGLE_REFRESH_TOKEN=your_refresh_token
+   ```
+
+### Google Places API
+For the Google Places search tool:
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Enable the **Places API (New)** for your project.
+3. Generate an API Key under **Credentials**.
+4. Add to `.env`:
+   ```env
+   GOOGLE_PLACES_API_KEY=your_places_api_key
+   ```
+
+### GitHub Tools
+For tools that read or modify GitHub repositories:
+1. Generate a Personal Access Token (classic or fine-grained) in your [GitHub Developer Settings](https://github.com/settings/tokens).
+2. Add to `.env`:
+   ```env
+   GITHUB_TOKEN=your_github_token
+   GITHUB_OWNER=your_github_username
+   ```
+
+### Weather Tool
+For real-time weather forecasting:
+1. Sign up at [OpenWeatherMap](https://openweathermap.org/).
+2. Generate an API key.
+3. Add to `.env`:
+   ```env
+   OPENWEATHER_API_KEY=your_openweather_key
+   ```
+
+### Financial Tools (Crypto & Stock)
+For cryptocurrency and stock market data:
+1. Get a free API key from [Alpha Vantage](https://www.alphavantage.co/support/#api-key).
+2. Add to `.env`:
+   ```env
+   ALPHA_ADVANTAGE_KEY=your_alpha_vantage_key
+   ```
+
+### Social Tools (Bluesky)
+For posting to Bluesky:
+1. Generate an App Password in your Bluesky account settings (Settings > Advanced > App passwords).
+2. Add to `.env`:
+   ```env
+   BLUESKY_HANDLE=your_handle.bsky.social
+   BLUESKY_PASSWORD=your_app_password
+   ```
+
+### Social Tools (Facebook)
+For posting to and managing a Facebook Page:
+1. Create a Meta app at [developers.facebook.com](https://developers.facebook.com/) and add the Facebook Login/Pages product.
+2. Generate a Page Access Token for the page (via Graph API Explorer or a long-lived token exchange), granting whichever of these permissions match the tools you want to enable:
+   - `pages_manage_posts` — `facebook_post` (create posts)
+   - `pages_read_engagement` — `facebook_read_posts` (read posts + like/comment/share counts)
+   - `pages_read_user_content` — `facebook_read_comments` (read comments on a post)
+   - `pages_messaging` — `facebook_read_messages` (read the Messenger inbox) and `facebook_send_message` (reply to a conversation)
+   - `business_management` — `facebook_list_business_pages` (list Pages owned by the Business — note: this reuses the Page Access Token, which may not carry business-scoped access depending on how it was generated; a User/System User token may be required instead)
+3. Find the numeric Page ID (visible in the Page's "About" info or via `GET /me/accounts`).
+4. Add to `.env`:
+   ```env
+   FACEBOOK_PAGE_ID=your_page_id
+   FACEBOOK_PAGE_ACCESS_TOKEN=your_page_access_token
+   # Optional: override the pinned Graph API version (defaults to v21.0)
+   # FACEBOOK_GRAPH_API_VERSION=v21.0
+   # Required only for facebook_list_business_pages:
+   # FACEBOOK_BUSINESS_ID=your_business_id
+   ```
+
+### Email Tool
+For sending emails via SMTP:
+1. Obtain the SMTP credentials from your email provider (e.g., Gmail App Passwords, SendGrid, Mailgun).
+2. Add to `.env`:
+   ```env
+   SMTP_SERVER=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your_username
+   SMTP_PASSWORD=your_password
+   SMTP_FROM_EMAIL=your_email@example.com
+   ```
+
+### Google Books API
+For searching books data:
+1. Generate an API Key in the [Google Cloud Console](https://console.cloud.google.com/) (Ensure Google Books API is enabled).
+2. Add to `.env`:
+   ```env
+   GOOGLE_BOOKS_API=your_books_api_key
+   ```
+
 ## Architecture
 
 ### Backend (Rust + Actix)

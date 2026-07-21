@@ -18,8 +18,10 @@ pub enum ToolCategory {
     Search,
     /// File operations (file-document icon)
     File,
-    /// Communication tools (send icon)
-    Communication,
+    /// Google Workspace tools (google icon)
+    Google,
+    /// Social media tools (share-variant icon)
+    Social,
     /// Development/Code tools (code-tags icon)
     Development,
     /// General/Utility tools (wrench icon)
@@ -35,7 +37,8 @@ impl ToolCategory {
             ToolCategory::Database => "database",
             ToolCategory::Search => "magnify",
             ToolCategory::File => "file-document",
-            ToolCategory::Communication => "send",
+            ToolCategory::Google => "google",
+            ToolCategory::Social => "share-variant",
             ToolCategory::Development => "code-tags",
             ToolCategory::Utility => "wrench",
         }

@@ -110,3 +110,50 @@ test('hides image attachments from chips', () => {
   // Should NOT show photo.jpg chip (filtered out because type is image)
   expect(screen.queryByText('photo.jpg')).toBeNull()
 })
+
+test('renders AskHuman tool with options', () => {
+  const message = {
+    id: '6',
+    role: 'tool',
+    content: 'Waiting for your input...',
+    timestamp: Date.now(),
+    toolName: 'ask_human',
+    toolCallId: 'call_123',
+    toolArguments: JSON.stringify({
+      question: 'Do you want to proceed?',
+      options: ['Yes', 'No']
+    })
+  }
+
+  render(MessageItem as Component, {
+    props: { message }
+  })
+
+  expect(screen.getByText('Do you want to proceed?')).toBeTruthy()
+  expect(screen.getByText('Yes')).toBeTruthy()
+  expect(screen.getByText('No')).toBeTruthy()
+  expect(screen.getByText('Other')).toBeTruthy()
+})
+
+test('renders AskHuman tool without options (fallback to Other)', () => {
+  const message = {
+    id: '7',
+    role: 'tool',
+    content: 'Waiting for your input...',
+    timestamp: Date.now(),
+    toolName: 'ask_human',
+    toolCallId: 'call_124',
+    toolArguments: JSON.stringify({
+      question: 'Please specify your preference:'
+      // Missing options
+    })
+  }
+
+  render(MessageItem as Component, {
+    props: { message }
+  })
+
+  expect(screen.getByText('Please specify your preference:')).toBeTruthy()
+  // Even without options, 'Other' should be appended and visible
+  expect(screen.getByText('Other')).toBeTruthy()
+})

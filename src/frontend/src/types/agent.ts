@@ -45,6 +45,9 @@ export interface ChatMessage {
   content: string | any[]
   timestamp: number
   toolName?: string
+  toolCallId?: string
+  toolArguments?: string
+  toolCalls?: any[]
   statusType?: string
   attachments?: FileAttachment[]
 }
@@ -63,7 +66,6 @@ export interface AgentConfig {
   enabled_tools: string[]
   chromadb?: {
     collection: string
-    embedding_model: string
   }
   debug_logging?: boolean
 }
@@ -98,7 +100,8 @@ export type ToolCategory =
   | 'database'
   | 'search'
   | 'file'
-  | 'communication'
+  | 'google'
+  | 'social'
   | 'development'
   | 'utility'
 

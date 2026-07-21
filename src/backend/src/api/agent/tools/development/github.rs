@@ -23,6 +23,10 @@ fn create_github_client(token: &str) -> Client {
         header::ACCEPT,
         header::HeaderValue::from_static("application/vnd.github.v3+json"),
     );
+    headers.insert(
+        "X-GitHub-Api-Version",
+        header::HeaderValue::from_static("2022-11-28"),
+    );
 
     Client::builder()
         .default_headers(headers)
@@ -42,7 +46,18 @@ pub struct GitHubPublicTool {
 impl GitHubPublicTool {
     pub fn new() -> Self {
         // Public tool doesn't strictly need a token, but good to have if available for rate limits
-        let token = env::var("GITHUB_TOKEN").unwrap_or_default();
+        let mut token = env::var("GITHUB_TOKEN")
+            .unwrap_or_default()
+            .trim()
+            .trim_matches(|c| c == '"' || c == '\'')
+            .to_string();
+
+        if token.starts_with("Bearer ") {
+            token = token["Bearer ".len()..].trim().to_string();
+        } else if token.starts_with("token ") {
+            token = token["token ".len()..].trim().to_string();
+        }
+
         Self {
             metadata: ToolMetadata {
                 id: "github_public".to_string(),
@@ -234,6 +249,7 @@ impl AgentTool for GitHubPublicTool {
         };
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "github_public".to_string(),
             result,
         })
@@ -252,11 +268,28 @@ pub struct GitHubAuthenticatedTool {
     metadata: ToolMetadata,
     client: Client,
     token: String,
+    owner: String,
 }
 
 impl GitHubAuthenticatedTool {
     pub fn new() -> Self {
-        let token = env::var("GITHUB_TOKEN").unwrap_or_default();
+        let mut token = env::var("GITHUB_TOKEN")
+            .unwrap_or_default()
+            .trim()
+            .trim_matches(|c| c == '"' || c == '\'')
+            .to_string();
+
+        let owner = env::var("GITHUB_OWNER")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        if token.starts_with("Bearer ") {
+            token = token["Bearer ".len()..].trim().to_string();
+        } else if token.starts_with("token ") {
+            token = token["token ".len()..].trim().to_string();
+        }
+
         Self {
             metadata: ToolMetadata {
                 id: "github_authenticated".to_string(),
@@ -267,6 +300,7 @@ impl GitHubAuthenticatedTool {
             },
             client: create_github_client(&token),
             token,
+            owner,
         }
     }
 
@@ -623,7 +657,7 @@ impl AgentTool for GitHubAuthenticatedTool {
                         "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls"],
                         "description": "The action to perform."
                     },
-                    "owner": { "type": "string", "description": "Repository owner (optional for issues/pulls)." },
+                    "owner": { "type": "string", "description": "Repository owner (optional, falls back to GITHUB_OWNER in .env)." },
                     "repo": { "type": "string", "description": "Repository name (optional for issues/pulls)." },
                     "org": { "type": "string", "description": "Organization name (required for list_org_repos)." },
                     "username": { "type": "string", "description": "Username for events check." },
@@ -653,6 +687,7 @@ impl AgentTool for GitHubAuthenticatedTool {
 
         if self.token.is_empty() {
             return Ok(ToolCallResult {
+                tool_call_id: None,
                 tool_name: "github_authenticated".to_string(),
                 result: "GITHUB_TOKEN is not set. This tool requires authentication.".to_string(),
             });
@@ -694,10 +729,15 @@ impl AgentTool for GitHubAuthenticatedTool {
                 }
             }
             "actions" => {
-                let owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                if owner.is_empty() {
+                    owner = &self.owner;
+                }
                 let repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
                 if owner.is_empty() || repo.is_empty() {
-                    return Err(anyhow::anyhow!("Owner and repo required"));
+                    return Err(anyhow::anyhow!(
+                        "Owner and repo required (add GITHUB_OWNER to .env if owner omitted)"
+                    ));
                 }
 
                 match self.check_workflow_runs(owner, repo).await {
@@ -711,7 +751,10 @@ impl AgentTool for GitHubAuthenticatedTool {
                 }
             }
             "issues" => {
-                let owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                if owner.is_empty() {
+                    owner = &self.owner;
+                }
                 let repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
                 let page = args.get("page").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
 
@@ -761,7 +804,10 @@ impl AgentTool for GitHubAuthenticatedTool {
                 }
             }
             "pulls" => {
-                let owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+                if owner.is_empty() {
+                    owner = &self.owner;
+                }
                 let repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
 
                 if owner.is_empty() || repo.is_empty() {
@@ -795,6 +841,7 @@ impl AgentTool for GitHubAuthenticatedTool {
         };
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "github_authenticated".to_string(),
             result,
         })

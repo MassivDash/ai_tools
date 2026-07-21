@@ -194,6 +194,14 @@
     font-weight: 500;
   }
 
+  @media screen and (max-width: 768px) {
+    /* Matches the icon-only collapse in MessageReader.svelte so the two
+       voice buttons don't force the row wider than the phone screen. */
+    .label {
+      display: none;
+    }
+  }
+
   .error-tooltip {
     position: absolute;
     bottom: 100%;

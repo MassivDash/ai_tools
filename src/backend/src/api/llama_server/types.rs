@@ -35,7 +35,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             hf_model: "unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL".to_string(),
-            ctx_size: 10240,
+            ctx_size: 0,
             threads: None,
             threads_batch: None,
             predict: None,

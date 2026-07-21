@@ -8,15 +8,49 @@
   import { getToolIconFromMetadata, getToolIcon } from '../../utils/toolIcons'
   import { icons } from '@iconify-json/mdi'
 
+  const OTHER_OPTION = 'Other'
+
+  interface AskHumanArgs {
+    question?: string
+    options?: string[]
+  }
+
+  const parseAskHumanArgs = (str: string | undefined): AskHumanArgs | null => {
+    if (!str) return null
+    try {
+      const parsed = JSON.parse(str)
+      return {
+        question:
+          typeof parsed.question === 'string'
+            ? parsed.question
+            : 'Please make a selection:',
+        options: Array.isArray(parsed.options) ? parsed.options : []
+      }
+    } catch {
+      // Return raw string as fallback if JSON is incomplete or invalid
+      return {
+        question: str,
+        options: []
+      }
+    }
+  }
+
   interface Props {
     message: ChatMessage
     onQuote?: (_text: string) => void
+    onSubmitToolResult?: (
+      _toolName: string,
+      _toolCallId: string,
+      _result: string
+    ) => void
   }
 
-  let { message, onQuote }: Props = $props()
+  let { message, onQuote, onSubmitToolResult }: Props = $props()
 
   let isDropdownOpen = $state(false)
   let dropdownRef: HTMLDivElement = $state()
+  let selectedOption = $state('')
+  let customOtherText = $state('')
 
   const toggleDropdown = (e: MouseEvent) => {
     e.stopPropagation()
@@ -61,7 +95,7 @@
     }
 
     if (onQuote) {
-      onQuote(textToQuote)
+      onQuote(textToQuote.trim())
     }
     closeDropdown()
   }
@@ -357,14 +391,18 @@
       class:error={isToolError(message.content)}
     >
       <MaterialIcon name={toolIcon} width="18" height="18" class="tool-icon" />
-      <span class="tool-text"
-        >{(typeof message.content === 'string'
-          ? message.content
-          : 'Tool execution'
-        )
-          .replace(/✅|❌/g, '')
-          .trim()}</span
-      >
+      <span class="tool-text">
+        {#if message.toolName === 'ask_human' && !isToolSuccess(message.content) && !isToolError(message.content)}
+          Waiting for your input...
+        {:else}
+          {(typeof message.content === 'string'
+            ? message.content
+            : 'Tool execution'
+          )
+            .replace(/✅|❌/g, '')
+            .trim()}
+        {/if}
+      </span>
       {#if isToolSuccess(message.content)}
         <MaterialIcon
           name="check-circle"
@@ -381,6 +419,69 @@
         />
       {/if}
     </div>
+    {#if message.toolName === 'ask_human' && !isToolSuccess(message.content) && !isToolError(message.content) && message.toolArguments}
+      {@const args = parseAskHumanArgs(message.toolArguments)}
+      {#if args && args.options && Array.isArray(args.options)}
+        {@const options = args.options.includes(OTHER_OPTION)
+          ? args.options
+          : [...args.options, OTHER_OPTION]}
+        <div class="ask-human-container">
+          <p class="ask-human-question">{args.question}</p>
+          <div class="ask-human-options">
+            {#each options as option}
+              <div class="ask-human-option-wrapper">
+                <label class="ask-human-option">
+                  <input
+                    type="radio"
+                    name="ask-human-{message.id}"
+                    value={option}
+                    onchange={() => {
+                      selectedOption = option
+                      if (option !== OTHER_OPTION) customOtherText = ''
+                    }}
+                  />
+                  <span>{option}</span>
+                </label>
+                {#if option === OTHER_OPTION && selectedOption === OTHER_OPTION}
+                  <input
+                    type="text"
+                    class="ask-human-other-input"
+                    bind:value={customOtherText}
+                    placeholder="Please specify..."
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter' && customOtherText.trim()) {
+                        onSubmitToolResult?.(
+                          message.toolName!,
+                          message.toolCallId!,
+                          customOtherText.trim()
+                        )
+                      }
+                    }}
+                  />
+                {/if}
+              </div>
+            {/each}
+          </div>
+          <div class="ask-human-actions">
+            <Button
+              variant="primary"
+              disabled={!selectedOption ||
+                (selectedOption === OTHER_OPTION && !customOtherText.trim())}
+              onclick={() =>
+                onSubmitToolResult?.(
+                  message.toolName!,
+                  message.toolCallId!,
+                  selectedOption === OTHER_OPTION
+                    ? customOtherText.trim()
+                    : selectedOption
+                )}
+            >
+              Submit
+            </Button>
+          </div>
+        </div>
+      {/if}
+    {/if}
   </div>
 {:else}
   <div
@@ -932,5 +1033,66 @@
     margin: 0.5rem 0;
     display: block;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .ask-human-container {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: var(--bg-tertiary, #f0f0f0);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .ask-human-question {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary, #100f0f);
+  }
+
+  .ask-human-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .ask-human-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--text-secondary, #666);
+  }
+
+  .ask-human-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .ask-human-option-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ask-human-other-input {
+    margin-left: 1.5rem;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 4px;
+    background-color: var(--bg-primary, #fff);
+    color: var(--text-primary, #100f0f);
+    font-size: 0.875rem;
+    width: calc(100% - 1.5rem);
+    max-width: 300px;
+    box-sizing: border-box;
+  }
+
+  .ask-human-other-input:focus {
+    outline: none;
+    border-color: var(--primary-color, #007bff);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
   }
 </style>

@@ -59,7 +59,7 @@ pub async fn query_collection(
     let ollama_manager = OllamaManager::new(config);
     let query_refs: Vec<&str> = request.query_texts.iter().map(|s| s.as_str()).collect();
     let mut query_embeddings = ollama_manager
-        .generate_embeddings_with_server(&query_refs)
+        .generate_embeddings_with_server(&query_refs, None)
         .await
         .with_context(|| {
             format!(

@@ -107,6 +107,26 @@
   @media screen and (max-width: 768px) {
     .tools-section {
       width: 100%;
+      /* A busy tool list used to wrap onto several lines and eat half the
+         screen; scroll it horizontally in one row instead. */
+      flex-wrap: nowrap;
+    }
+
+    .tools-label {
+      flex-shrink: 0;
+    }
+
+    .tools-badges {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      min-width: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      padding-bottom: 0.25rem;
+    }
+
+    .tools-badges :global(.badge) {
+      flex-shrink: 0;
     }
   }
 </style>

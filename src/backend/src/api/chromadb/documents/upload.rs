@@ -1,12 +1,12 @@
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::config::types::ChromaDBConfig;
-use crate::api::chromadb::types::{AddDocumentsRequest, ChromaDBResponse};
+use crate::api::chromadb::types::AddDocumentsRequest;
 use actix_multipart::Multipart;
-use actix_web::{post, web, HttpResponse, Result as ActixResult};
+use actix_web::{post, web, HttpResponse};
 use futures_util::TryStreamExt;
-use std::sync::{Arc, Mutex, Once};
+use std::sync::Once;
 use tokenizers::tokenizer::{Result as TokenizerResult, Tokenizer};
-use uuid::Uuid;
+use tokio::sync::mpsc;
 
 // Global tokenizer instance - initialized once and reused
 // Using GPT-2 style BPE tokenizer which is compatible with nomic-embed-text
@@ -49,30 +49,19 @@ fn get_tokenizer() -> TokenizerResult<&'static Tokenizer> {
     }
 }
 
+use crate::api::chromadb::websocket::ChromaWebSocketState;
+
 #[post("/api/chromadb/documents/upload")]
 pub async fn upload_documents(
     mut payload: Multipart,
     chroma_address: web::Data<String>,
-    chromadb_config: web::Data<Arc<Mutex<ChromaDBConfig>>>,
-) -> ActixResult<HttpResponse> {
-    let client = match ChromaDBClient::new(chroma_address.as_str()) {
-        Ok(c) => c,
-        Err(e) => {
-            return Ok(
-                HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
-                    success: false,
-                    data: None,
-                    error: Some(format!("Failed to initialize ChromaDB client: {}", e)),
-                    message: None,
-                }),
-            );
-        }
-    };
-
+    chromadb_config: web::Data<std::sync::Arc<std::sync::Mutex<ChromaDBConfig>>>,
+    chromadb_ws_state: web::Data<ChromaWebSocketState>,
+) -> Result<HttpResponse, actix_web::Error> {
     let mut collection_name: Option<String> = None;
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
 
-    // Parse multipart form data
+    // Parse multipart form data completely before spawning thread (Multipart is !Send)
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
         let field_name = content_disposition
@@ -81,14 +70,12 @@ pub async fn upload_documents(
             .unwrap_or("");
 
         if field_name == "collection" {
-            // Read collection name
             let mut bytes = Vec::new();
             while let Ok(Some(chunk)) = field.try_next().await {
                 bytes.extend_from_slice(&chunk);
             }
             collection_name = String::from_utf8(bytes).ok();
         } else if field_name == "files" {
-            // Read file data
             let filename = content_disposition
                 .as_ref()
                 .and_then(|cd| cd.get_filename())
@@ -105,36 +92,59 @@ pub async fn upload_documents(
             }
         }
     }
+    let (tx, mut rx) = mpsc::channel::<serde_json::Value>(100);
+    let tx_clone = tx.clone();
+
+    // Spawn a task to forward channel messages to the WebSocket broadcast
+    let ws_state = chromadb_ws_state.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            ws_state.broadcast(msg);
+        }
+    });
+
+    // Helper to send WS messages
+    let send_ws = |status: &str,
+                   message: &str,
+                   success: Option<bool>,
+                   processed: Option<usize>,
+                   total: Option<usize>| {
+        let mut val = serde_json::json!({
+            "status": status,
+            "message": message
+        });
+        if let Some(s) = success {
+            val["success"] = serde_json::json!(s);
+        }
+        if let Some(p) = processed {
+            val["processed_files"] = serde_json::json!(p);
+        }
+        if let Some(t) = total {
+            val["total_files"] = serde_json::json!(t);
+        }
+        val
+    };
 
     // Validate inputs
     let collection = match collection_name {
         Some(name) if !name.is_empty() => name,
         _ => {
-            return Ok(HttpResponse::BadRequest().json(ChromaDBResponse::<()> {
-                success: false,
-                data: None,
-                error: Some("Collection name is required".to_string()),
-                message: None,
-            }));
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Collection name is required"
+            })));
         }
     };
 
     if files.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(ChromaDBResponse::<()> {
-            success: false,
-            data: None,
-            error: Some("At least one file is required".to_string()),
-            message: None,
-        }));
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "At least one file is required"
+        })));
     }
 
-    // Process files
-    let mut all_documents: Vec<String> = Vec::new();
-    let mut all_ids: Vec<String> = Vec::new();
-    let mut all_metadatas: Vec<std::collections::HashMap<String, String>> = Vec::new();
-
-    // Get config for chunking and embedding - Fetch ONCE before processing
-    let (chunk_size, chunk_overlap, embedding_model) = {
+    // Get config for chunking
+    let (chunk_size, chunk_overlap, default_embedding_model) = {
         let config_guard = chromadb_config.lock().unwrap();
         (
             config_guard.chunk_size,
@@ -143,147 +153,249 @@ pub async fn upload_documents(
         )
     };
 
-    println!(
-        "⚙️  Using chunk size: {}, overlap: {}",
-        chunk_size, chunk_overlap
-    );
+    let chroma_addr = chroma_address.to_string();
 
-    // Create public/documents directory if it doesn't exist
-    let docs_dir = std::path::Path::new("./public/documents");
-    if let Err(e) = std::fs::create_dir_all(docs_dir) {
-        println!("⚠️ Failed to create documents directory: {}", e);
-    }
-
-    for (filename, file_data) in files {
-        println!("📄 Processing file: {}", filename);
-
-        // Save the raw file for the agent to retrieve later
-        let file_path = docs_dir.join(&filename);
-        if let Err(e) = std::fs::write(&file_path, &file_data) {
-            println!("⚠️ Failed to save document to {:?}: {}", file_path, e);
-        }
-
-        // Determine file type and parse
-        let (text, metadata) = if filename.ends_with(".pdf") {
-            match parse_pdf(&file_data) {
-                Ok((text, meta)) => (text, meta),
-                Err(e) => {
-                    println!("Error parsing PDF {}: {}", filename, e);
-                    continue;
-                }
+    tokio::spawn(async move {
+        // Initialize ChromaDB client manually
+        let client = match ChromaDBClient::new(&chroma_addr) {
+            Ok(c) => c,
+            Err(e) => {
+                let err_msg = format!("Failed to connect to ChromaDB: {}", e);
+                let _ = tx_clone
+                    .send(send_ws("error", &err_msg, Some(false), None, None))
+                    .await;
+                return;
             }
-        } else if filename.ends_with(".md")
-            || filename.ends_with(".mdx")
-            || filename.ends_with(".txt")
-        {
-            match parse_text(&file_data) {
-                Ok((text, meta)) => (text, meta),
-                Err(e) => {
-                    println!("Error parsing text file {}: {}", filename, e);
-                    continue;
-                }
-            }
-        } else {
-            println!("⚠️ Unsupported file type: {}", filename);
-            continue;
         };
 
-        // Chunk the text using token-based semantic chunking
-        // For markdown files, use markdown-aware chunking; otherwise use semantic chunking
-        let chunks = match get_tokenizer() {
-            Ok(tokenizer) => {
-                if filename.ends_with(".md") || filename.ends_with(".mdx") {
-                    chunk_markdown_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
-                } else {
-                    chunk_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
+        // Fetch the collection to see if it has an embedding_model attached to its metadata
+        let mut embedding_model = default_embedding_model;
+        if let Ok(collection_info) = client.get_collection(&collection).await {
+            if let Some(metadata) = collection_info.metadata {
+                if let Some(model) = metadata.get("embedding_model") {
+                    embedding_model = model.to_string();
                 }
+            }
+        }
+
+        // Send initial status immediately so connection opens
+
+        let _ = tx_clone
+            .send(send_ws("info", "Starting processing...", None, None, None))
+            .await;
+
+        let msg = format!(
+            "⚙️ Using chunk size: {}, overlap: {}",
+            chunk_size, chunk_overlap
+        );
+        println!("{}", msg);
+        let _ = tx_clone.send(send_ws("info", &msg, None, None, None)).await;
+
+        let mut successful_files = 0;
+        let mut failed_files = Vec::new();
+        let total_files = files.len();
+        let mut all_documents: Vec<String> = Vec::new();
+        let mut all_ids: Vec<String> = Vec::new();
+        let mut all_metadatas: Vec<std::collections::HashMap<String, String>> = Vec::new();
+
+        let docs_dir = std::path::Path::new("./public/documents");
+        if let Err(e) = std::fs::create_dir_all(docs_dir) {
+            println!("⚠️ Failed to create documents directory: {}", e);
+        }
+
+        for (filename, file_data) in files {
+            let msg = format!("📄 Processing file: {}", filename);
+            println!("{}", msg);
+            let _ = tx_clone
+                .send(send_ws(
+                    "processing",
+                    &msg,
+                    None,
+                    Some(successful_files),
+                    Some(total_files),
+                ))
+                .await;
+
+            let file_path = docs_dir.join(&filename);
+            if let Err(e) = std::fs::write(&file_path, &file_data) {
+                println!("⚠️ Failed to save document to {:?}: {}", file_path, e);
+            }
+
+            let (text, metadata, final_filename) = if filename.ends_with(".pdf") {
+                match parse_pdf(&file_data) {
+                    Ok((raw_text, meta)) => {
+                        let md_text = format_text_as_markdown(&raw_text);
+                        let md_filename = format!("{}.md", filename);
+                        let md_path = docs_dir.join(&md_filename);
+                        if let Err(e) = std::fs::write(&md_path, &md_text) {
+                            println!("⚠️ Failed to save markdown to {:?}: {}", md_path, e);
+                        }
+                        (md_text, meta, md_filename)
+                    }
+                    Err(e) => {
+                        let err_msg = format!("Error parsing PDF {}: {}", filename, e);
+                        println!("{}", err_msg);
+                        let _ = tx_clone
+                            .send(send_ws("error", &err_msg, None, None, None))
+                            .await;
+                        failed_files.push(filename.clone());
+                        continue;
+                    }
+                }
+            } else if filename.ends_with(".md")
+                || filename.ends_with(".mdx")
+                || filename.ends_with(".txt")
+            {
+                match parse_text(&file_data) {
+                    Ok((text, meta)) => (text, meta, filename.clone()),
+                    Err(e) => {
+                        let err_msg = format!("Error parsing text file {}: {}", filename, e);
+                        println!("{}", err_msg);
+                        let _ = tx_clone
+                            .send(send_ws("error", &err_msg, None, None, None))
+                            .await;
+                        failed_files.push(filename.clone());
+                        continue;
+                    }
+                }
+            } else {
+                let err_msg = format!("⚠️ Unsupported file type: {}", filename);
+                println!("{}", err_msg);
+                let _ = tx_clone
+                    .send(send_ws("error", &err_msg, None, None, None))
+                    .await;
+                failed_files.push(filename.clone());
+                continue;
+            };
+
+            successful_files += 1;
+
+            let chunks = match get_tokenizer() {
+                Ok(tokenizer) => {
+                    let _ = tx_clone
+                        .send(send_ws(
+                            "info",
+                            "✅ Loaded GPT-2 tokenizer for token-based chunking",
+                            None,
+                            None,
+                            None,
+                        ))
+                        .await;
+                    if final_filename.ends_with(".md") || final_filename.ends_with(".mdx") {
+                        chunk_markdown_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
+                    } else {
+                        chunk_semantic_tokens(&text, tokenizer, chunk_size, chunk_overlap)
+                    }
+                }
+                Err(e) => {
+                    let err_msg = format!(
+                        "⚠️ Tokenizer error: {:?}. Falling back to character-based chunking.",
+                        e
+                    );
+                    println!("{}", err_msg);
+                    let _ = tx_clone
+                        .send(send_ws("warning", &err_msg, None, None, None))
+                        .await;
+                    let char_chunk_size = chunk_size * 3;
+                    let char_overlap = chunk_overlap * 3;
+                    if final_filename.ends_with(".md") || final_filename.ends_with(".mdx") {
+                        chunk_markdown_semantic(&text, char_chunk_size, char_overlap)
+                    } else {
+                        chunk_semantic(&text, char_chunk_size, char_overlap)
+                    }
+                }
+            };
+
+            for (chunk_idx, chunk) in chunks.iter().enumerate() {
+                if chunk.trim().is_empty() {
+                    continue;
+                }
+                let chunk_id = uuid::Uuid::new_v4().to_string();
+                all_ids.push(chunk_id);
+                all_documents.push(chunk.clone());
+
+                let mut chunk_metadata = metadata.clone();
+                chunk_metadata.insert("filename".to_string(), final_filename.clone());
+                chunk_metadata.insert("chunk_index".to_string(), chunk_idx.to_string());
+                chunk_metadata.insert("total_chunks".to_string(), chunks.len().to_string());
+                all_metadatas.push(chunk_metadata);
+            }
+        }
+
+        if all_documents.is_empty() {
+            let _ = tx_clone
+                .send(send_ws(
+                    "error",
+                    "No valid documents were extracted from the files",
+                    Some(false),
+                    None,
+                    None,
+                ))
+                .await;
+            return;
+        }
+
+        let document_count = all_documents.len();
+        let request = AddDocumentsRequest {
+            collection: collection.clone(),
+            ids: all_ids,
+            documents: all_documents,
+            metadatas: Some(all_metadatas),
+        };
+
+        let msg = format!("Pushing {} chunks to ChromaDB...", document_count);
+        let _ = tx_clone.send(send_ws("info", &msg, None, None, None)).await;
+
+        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel::<String>(100);
+        let tx_log_relay = tx_clone.clone();
+
+        // Spawn a task to relay raw log messages from Ollama to the SSE stream as 'log' events
+        let _relay_task = tokio::spawn(async move {
+            while let Some(log_msg) = log_rx.recv().await {
+                let _ = tx_log_relay
+                    .send(send_ws("log", &log_msg, None, None, None))
+                    .await;
+            }
+        });
+
+        let add_result = client
+            .add_documents(request, &embedding_model, Some(log_tx))
+            .await;
+
+        // The log_tx will be dropped when add_documents completes,
+        // which will close the channel and naturally terminate the relay_task.
+
+        match add_result {
+            Ok(_) => {
+                let mut result_msg = format!(
+                    "Successfully processed {} file(s) into {} chunks for collection '{}'",
+                    successful_files, document_count, collection
+                );
+
+                if !failed_files.is_empty() {
+                    result_msg
+                        .push_str(&format!(". Failed to process: {}", failed_files.join(", ")));
+                }
+
+                let _ = tx_clone
+                    .send(send_ws("completed", &result_msg, Some(true), None, None))
+                    .await;
             }
             Err(e) => {
-                println!(
-                    "⚠️ Tokenizer error: {:?}. Falling back to character-based chunking.",
-                    e
-                );
-                // Fallback to character-based chunking (approx 3-4 chars per token)
-                let char_chunk_size = chunk_size * 3;
-                let char_overlap = chunk_overlap * 3;
-                if filename.ends_with(".md") || filename.ends_with(".mdx") {
-                    chunk_markdown_semantic(&text, char_chunk_size, char_overlap)
-                } else {
-                    chunk_semantic(&text, char_chunk_size, char_overlap)
-                }
+                let err_msg = format!("Failed to add documents to ChromaDB: {}", e);
+                println!("{}", err_msg);
+                let _ = tx_clone
+                    .send(send_ws("error", &err_msg, Some(false), None, None))
+                    .await;
             }
-        };
-
-        // Create documents, IDs, and metadata for each chunk
-        for (chunk_idx, chunk) in chunks.iter().enumerate() {
-            // Skip empty or whitespace-only chunks
-            if chunk.trim().is_empty() {
-                continue;
-            }
-
-            let chunk_id = Uuid::new_v4().to_string();
-            all_ids.push(chunk_id);
-            all_documents.push(chunk.clone());
-
-            // Create metadata for this chunk
-            let mut chunk_metadata = metadata.clone();
-            chunk_metadata.insert("filename".to_string(), filename.clone());
-            chunk_metadata.insert("chunk_index".to_string(), chunk_idx.to_string());
-            chunk_metadata.insert("total_chunks".to_string(), chunks.len().to_string());
-            all_metadatas.push(chunk_metadata);
         }
-    }
+    });
 
-    if all_documents.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(ChromaDBResponse::<()> {
-            success: false,
-            data: None,
-            error: Some("No valid documents were extracted from the files".to_string()),
-            message: None,
-        }));
-    }
-
-    // Add documents to ChromaDB
-    let document_count = all_documents.len();
-    let request = AddDocumentsRequest {
-        collection: collection.clone(),
-        ids: all_ids,
-        documents: all_documents,
-        metadatas: Some(all_metadatas),
-    };
-
-    match client.add_documents(request, &embedding_model).await {
-        Ok(_) => {
-            println!(
-                "✅ Successfully added {} documents to collection {}",
-                document_count, collection
-            );
-            Ok(HttpResponse::Ok().json(ChromaDBResponse {
-                success: true,
-                data: Some(()),
-                error: None,
-                message: Some(format!(
-                    "Successfully uploaded {} documents to collection '{}'",
-                    document_count, collection
-                )),
-            }))
-        }
-        Err(e) => {
-            println!("Failed to add documents: {}", e);
-            Ok(
-                HttpResponse::InternalServerError().json(ChromaDBResponse::<()> {
-                    success: false,
-                    data: None,
-                    error: Some(format!("Failed to add documents to ChromaDB: {}", e)),
-                    message: None,
-                }),
-            )
-        }
-    }
+    Ok(HttpResponse::Accepted()
+        .json(serde_json::json!({"success": true, "message": "Upload process started"})))
 }
 
 // PDF parser using pdftotext (external tool)
-// This is much more robust than Rust crates which can panic on malformed PDFs
 fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, String>), String> {
     use std::io::Write;
     use std::process::Command;
@@ -296,7 +408,6 @@ fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, S
         .write_all(data)
         .map_err(|e| format!("Failed to write PDF data: {}", e))?;
 
-    // Get the path before we persist (though keep ensures it stays, we just want valid path)
     let temp_path = temp_file.path().to_owned();
 
     // Call pdftotext
@@ -308,9 +419,6 @@ fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, S
         .arg("-") // Output to stdout
         .output()
         .map_err(|e| format!("Failed to execute pdftotext: {}", e))?;
-
-    // Clean up is handled by NamedTempFile when it goes out of scope?
-    // Actually NamedTempFile deletes on drop. So we are good.
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -805,4 +913,29 @@ fn chunk_text_fallback(text: &str, chunk_size: usize, overlap: usize) -> Vec<Str
     }
 
     chunks
+}
+
+/// Formats plain text as markdown
+fn format_text_as_markdown(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut markdown = String::new();
+    let mut prev_empty = false;
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            if !prev_empty {
+                markdown.push_str("\n\n");
+                prev_empty = true;
+            }
+        } else {
+            // Preserve the line, but ensure proper spacing
+            markdown.push_str(trimmed);
+            markdown.push('\n');
+            prev_empty = false;
+        }
+    }
+
+    markdown.trim().to_string()
 }

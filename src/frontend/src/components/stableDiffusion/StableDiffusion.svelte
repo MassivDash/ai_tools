@@ -428,6 +428,12 @@
   }
 
   @media (max-width: 768px) {
+    .sd-page {
+      /* Match Agent Chat's mobile spacing between the config buttons row
+         and the content below it. */
+      gap: 1rem;
+    }
+
     .main-content.with-terminal {
       margin-left: 0;
     }

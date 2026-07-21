@@ -1,14 +1,7 @@
 <script lang="ts">
   import Button from '@ui/Button.svelte'
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
-  import type {
-    AgentConfig,
-    AgentConfigResponse,
-    Collection,
-    ModelInfo,
-    ChromaDBResponse
-  } from '@types'
-  import ChromaDBConfigSection from './ChromaDBConfigSection.svelte'
+  import type { AgentConfig, AgentConfigResponse } from '@types'
   import ToolsConfigSection from './ToolsConfigSection.svelte'
   import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   import MaterialIcon from '@ui/MaterialIcon.svelte'
@@ -16,15 +9,8 @@
   export let onClose: () => void
   export let onSave: () => void
 
-  let collections: Collection[] = []
-  let models: ModelInfo[] = []
   let enabledTools: string[] = []
-  let chromadbEnabled = false
-  let selectedCollection = ''
-  let selectedEmbeddingModel = ''
   let debugLogging = false
-  let loadingCollections = false
-  let loadingModels = false
   let savingConfig = false
   let error = ''
 
@@ -35,70 +21,13 @@
       // Backend returns enabled_tools as string[] (ToolType enum serialized to snake_case)
       enabledTools = response.data.enabled_tools || []
       debugLogging = !!response.data.debug_logging
-
-      // ChromaDB is now separate from enabled_tools
-      if (response.data.chromadb) {
-        chromadbEnabled = true
-        selectedCollection = response.data.chromadb.collection
-        selectedEmbeddingModel = response.data.chromadb.embedding_model
-      } else {
-        chromadbEnabled = false
-        selectedCollection = ''
-        selectedEmbeddingModel = ''
-      }
     } catch (err: any) {
       console.error('Failed to load agent config:', err)
     }
   }
 
-  const loadCollections = async () => {
-    loadingCollections = true
-    try {
-      const response = await axiosBackendInstance.get<
-        ChromaDBResponse<Collection[]>
-      >('chromadb/collections')
-      if (response.data.success && response.data.data) {
-        collections = response.data.data
-      } else {
-        error = response.data.error || 'Failed to load collections'
-      }
-    } catch (err: any) {
-      console.error('Failed to load collections:', err)
-      error =
-        err.response?.data?.error || err.message || 'Failed to load collections'
-    } finally {
-      loadingCollections = false
-    }
-  }
-
-  const loadModels = async () => {
-    loadingModels = true
-    try {
-      const response = await axiosBackendInstance.get<{
-        models: ModelInfo[]
-      }>('chromadb/models')
-      models = response.data.models
-    } catch (err: any) {
-      console.error('Failed to load models:', err)
-      error =
-        err.response?.data?.error || err.message || 'Failed to load models'
-    } finally {
-      loadingModels = false
-    }
-  }
-
   $: if (isOpen) {
     loadConfig().catch(console.error)
-    loadCollections().catch(console.error)
-    loadModels().catch(console.error)
-  }
-
-  const handleChromaDBToggle = () => {
-    chromadbEnabled = !chromadbEnabled
-    if (!chromadbEnabled) {
-      selectedCollection = ''
-      selectedEmbeddingModel = ''
-    }
   }
 
   const handleToolToggle = (tool: string) => {
@@ -109,44 +38,16 @@
     }
   }
 
-  const handleCollectionSelect = (collection: Collection) => {
-    selectedCollection = collection.name
-  }
-
-  const handleModelSelect = (model: ModelInfo) => {
-    selectedEmbeddingModel = model.name
-  }
-
   const handleSave = async () => {
     savingConfig = true
     error = ''
 
-    // Validate ChromaDB config if enabled
-    if (chromadbEnabled) {
-      if (!selectedCollection.trim()) {
-        error = 'Please select a ChromaDB collection'
-        savingConfig = false
-        return
-      }
-      if (!selectedEmbeddingModel.trim()) {
-        error = 'Please select an embedding model'
-        savingConfig = false
-        return
-      }
-    }
-
     try {
       // Ensure enabled_tools are in the correct format (snake_case matching ToolType enum)
-      // Backend expects: ['financial_data', 'website_check'] etc.
+      // Backend expects: ['financial_data', 'website_check', 'chromadb'] etc.
       const payload = {
         enabled_tools: enabledTools, // Already in correct format from tool.tool_type
-        debug_logging: debugLogging,
-        chromadb: chromadbEnabled
-          ? {
-              collection: selectedCollection,
-              embedding_model: selectedEmbeddingModel
-            }
-          : undefined
+        debug_logging: debugLogging
       }
 
       const response = await axiosBackendInstance.post<AgentConfigResponse>(
@@ -190,19 +91,6 @@
       <div class="error">{error}</div>
     {/if}
 
-    <ChromaDBConfigSection
-      {chromadbEnabled}
-      {collections}
-      {models}
-      {selectedCollection}
-      {selectedEmbeddingModel}
-      {loadingCollections}
-      {loadingModels}
-      onToggle={handleChromaDBToggle}
-      onCollectionSelect={handleCollectionSelect}
-      onModelSelect={handleModelSelect}
-    />
-
     <div style="margin-bottom: 2rem;">
       <CheckboxWithHelp
         bind:checked={debugLogging}
@@ -215,12 +103,7 @@
   </div>
   <div class="config-footer">
     <Button variant="secondary" onclick={onClose}>Cancel</Button>
-    <Button
-      variant="primary"
-      onclick={handleSave}
-      disabled={savingConfig ||
-        (chromadbEnabled && (!selectedCollection || !selectedEmbeddingModel))}
-    >
+    <Button variant="primary" onclick={handleSave} disabled={savingConfig}>
       {savingConfig ? 'Saving...' : 'Save'}
     </Button>
   </div>

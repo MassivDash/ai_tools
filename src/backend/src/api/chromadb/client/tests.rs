@@ -103,7 +103,7 @@ mod integration_tests {
         };
 
         client
-            .add_documents(request, "nomic-embed-text")
+            .add_documents(request, "nomic-embed-text", None)
             .await
             .unwrap();
 

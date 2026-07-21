@@ -21,6 +21,7 @@ use crate::api::agent::service::config::AgentConfigHandle;
 use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::agent::testing::storage::TestingStorage;
 use crate::api::chromadb::config::types::ChromaDBConfig;
+use crate::api::chromadb::websocket::ChromaWebSocketState;
 use crate::api::default_configs::DefaultConfigsStorage;
 use crate::api::games::one_of_ten::{BroadcastHandle, GameState};
 use crate::api::llama_server::types::{
@@ -128,6 +129,7 @@ async fn main() -> std::io::Result<()> {
         );
     }
     let chromadb_config: Arc<Mutex<ChromaDBConfig>> = Arc::new(Mutex::new(chromadb_config_init));
+    let chromadb_ws_state = web::Data::new(ChromaWebSocketState::new());
 
     // Shared state for agent config
     let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
@@ -335,6 +337,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(agent_ws_state_data.clone()))
             .app_data(chroma_address_data.clone())
             .app_data(web::Data::new(chromadb_config_data.clone()))
+            .app_data(chromadb_ws_state.clone())
             .app_data(web::Data::new(agent_config_data.clone()))
             .app_data(sqlite_memory_data.clone())
             .app_data(model_notes_storage_data.clone())

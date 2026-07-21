@@ -71,9 +71,25 @@ pub async fn agent_chat(
     let mut tool_registry = ToolRegistry::new();
 
     // Register ChromaDB tool if configured
-    // Register all enabled tools
+    // Fetch available collections from ChromaDB
+    let available_collections = if config
+        .enabled_tools
+        .contains(&crate::api::agent::core::types::ToolType::ChromaDB)
+    {
+        if let Ok(client) =
+            crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
+        {
+            client.list_collections().await.unwrap_or_default()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
+        available_collections: &available_collections,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
@@ -154,25 +170,33 @@ pub async fn agent_chat(
     messages_with_system.extend(messages);
 
     // Add current user message
-    let user_message = ChatMessage {
-        role: MessageRole::User,
-        content: req.message.clone(),
-        name: None,
-        tool_calls: None,
-        tool_call_id: None,
-        reasoning_content: None,
+    let new_message = if let Some(tool_result) = &req.tool_result {
+        ChatMessage {
+            role: MessageRole::Tool,
+            content: MessageContent::Text(tool_result.result.clone()),
+            name: Some(tool_result.tool_name.clone()),
+            tool_calls: None,
+            tool_call_id: tool_result.tool_call_id.clone(),
+            reasoning_content: None,
+        }
+    } else {
+        ChatMessage {
+            role: MessageRole::User,
+            content: req.message.clone(),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        }
     };
-    messages_with_system.push(user_message.clone());
+    messages_with_system.push(new_message.clone());
 
-    // Store user message in SQLite
+    // Store message
     sqlite_memory
-        .add_message(&conversation_id, user_message)
+        .add_message(&conversation_id, new_message)
         .await
         .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!(
-                "Failed to store user message: {}",
-                e
-            ))
+            actix_web::error::ErrorInternalServerError(format!("Failed to store message: {}", e))
         })?;
 
     let messages = messages_with_system;
@@ -413,9 +437,25 @@ pub async fn agent_chat_stream(
     // Build tool registry (same as non-streaming endpoint)
     let mut tool_registry = ToolRegistry::new();
 
-    // Register all enabled tools
+    // Fetch available collections from ChromaDB
+    let available_collections = if config
+        .enabled_tools
+        .contains(&crate::api::agent::core::types::ToolType::ChromaDB)
+    {
+        if let Ok(client) =
+            crate::api::chromadb::client::ChromaDBClient::new(chroma_address.as_str())
+        {
+            client.list_collections().await.unwrap_or_default()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
+        available_collections: &available_collections,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
@@ -452,25 +492,33 @@ pub async fn agent_chat_stream(
 
     messages_with_system.extend(messages);
 
-    let user_message = ChatMessage {
-        role: MessageRole::User,
-        content: req.message.clone(),
-        name: None,
-        tool_calls: None,
-        tool_call_id: None,
-        reasoning_content: None,
+    let new_message = if let Some(tool_result) = &req.tool_result {
+        ChatMessage {
+            role: MessageRole::Tool,
+            content: MessageContent::Text(tool_result.result.clone()),
+            name: Some(tool_result.tool_name.clone()),
+            tool_calls: None,
+            tool_call_id: tool_result.tool_call_id.clone(),
+            reasoning_content: None,
+        }
+    } else {
+        ChatMessage {
+            role: MessageRole::User,
+            content: req.message.clone(),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        }
     };
-    messages_with_system.push(user_message.clone());
+    messages_with_system.push(new_message.clone());
 
-    // Store user message
+    // Store message
     sqlite_memory
-        .add_message(&conversation_id, user_message)
+        .add_message(&conversation_id, new_message)
         .await
         .map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!(
-                "Failed to store user message: {}",
-                e
-            ))
+            actix_web::error::ErrorInternalServerError(format!("Failed to store message: {}", e))
         })?;
 
     // model_name is already retrieved above

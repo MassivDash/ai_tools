@@ -23,7 +23,7 @@ impl WeatherTool {
         Self {
             metadata: ToolMetadata {
                 id: "weather_current".to_string(),
-                name: "Weather Current".to_string(),
+                name: "Current Weather".to_string(),
                 description: "Get current weather conditions for a specific location. Use this for questions about 'simulated' current weather, 'now' or 'today'. Returns current temp, conditions, humidity, wind, etc.".to_string(),
                 category: ToolCategory::Utility,
                 tool_type: ToolType::Weather,
@@ -348,6 +348,7 @@ impl AgentTool for WeatherTool {
         println!("\x1b[32m✅ Weather data retrieved successfully\x1b[0m");
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "weather_current".to_string(),
             result,
         })
@@ -406,7 +407,7 @@ impl ForecastTool {
                 name: "Weather Forecast".to_string(),
                 description: "Get 5-day weather forecast. Use this for questions about 'tomorrow', 'next week', 'future weather'. DO NOT use for 'today' or 'current' weather.".to_string(),
                 category: ToolCategory::Utility,
-                tool_type: ToolType::Weather,
+                tool_type: ToolType::WeatherForecast,
             },
             client: reqwest::Client::new(),
             api_key,
@@ -731,6 +732,7 @@ impl AgentTool for ForecastTool {
             self.format_forecast_response(&forecast_data, target_date.as_deref(), units)?;
 
         Ok(ToolCallResult {
+            tool_call_id: None,
             tool_name: "weather_forecast".to_string(),
             result,
         })
@@ -768,7 +770,7 @@ mod tests {
         let metadata = tool.metadata();
         assert_eq!(metadata.id, "weather_forecast");
         assert_eq!(metadata.category, ToolCategory::Utility);
-        assert_eq!(metadata.tool_type, ToolType::Weather);
+        assert_eq!(metadata.tool_type, ToolType::WeatherForecast);
     }
 
     #[test]

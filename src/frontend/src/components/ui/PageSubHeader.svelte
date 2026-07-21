@@ -40,6 +40,7 @@
     flex-wrap: wrap;
     gap: 1rem;
     max-width: calc(100% - 5rem);
+    flex-shrink: 0;
   }
 
   @media (max-width: 768px) {
@@ -77,6 +78,8 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .header-actions :global(.button-icon-only) {
@@ -86,9 +89,26 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    flex-shrink: 0;
   }
 
   .header-actions :global(.button-icon-only) :global(svg) {
     flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    /* With this many icon buttons, wrapping leaves an odd, off-aligned
+       last button on its own line. Scroll horizontally in one row instead. */
+    .header-actions {
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      overflow-x: auto;
+      overflow-y: hidden;
+      min-width: 0;
+      max-width: 100%;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      padding-bottom: 0.25rem;
+    }
   }
 </style>

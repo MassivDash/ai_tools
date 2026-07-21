@@ -320,6 +320,71 @@
     }
   }
 
+  export const submitToolResult = async (
+    toolName: string,
+    toolCallId: string,
+    result: string
+  ) => {
+    if (loading) return
+
+    loading = true
+    error = ''
+    currentStreamingMessage = ''
+    streamingMessageId = null
+
+    // Optimistically update the UI to show the user's choice
+    const userMessage: ChatMessage = {
+      id: generateMessageId(),
+      role: 'user',
+      content: result,
+      timestamp: Date.now()
+    }
+    messages = [...messages, userMessage]
+    setTimeout(() => scrollToBottom(true), 100)
+
+    try {
+      if (abortController) abortController.abort()
+      abortController = new AbortController()
+      ignoringStream = false
+
+      const request: any = {
+        message: '', // Empty message for tool result
+        conversation_id: conversationId || undefined,
+        tool_result: {
+          tool_name: toolName,
+          tool_call_id: toolCallId,
+          result: result
+        }
+      }
+
+      const baseUrl = axiosBackendInstance.defaults.baseURL || ''
+      const response = await window.fetch(`${baseUrl}/agent/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request),
+        signal: abortController.signal
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      setTimeout(() => scrollToBottom(true), 100)
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return
+      }
+      console.error('Failed to submit tool result:', err)
+      loading = false
+      error =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to submit tool result'
+    }
+  }
+
   const stopGeneration = async () => {
     // Do not abort the controller or ignore the stream.
     // We want to receive the final events (like Done with conversation_id) from the backend
@@ -424,6 +489,19 @@
     switch (event.type) {
       case 'status':
         if (event.message) {
+          // Tool-lifecycle statuses (calling/executing/complete/error) duplicate
+          // the persistent 'tool' bubble already shown via tool_call/tool_result -
+          // showing them again as their own ephemeral bubble just flashes and
+          // disappears on the next event. Skip those; keep only general statuses
+          // (thinking, finalizing, error) as the transient indicator.
+          const toolLifecycleStatuses = new Set([
+            'calling_tool',
+            'tool_executing',
+            'tool_complete',
+            'tool_error'
+          ])
+          if (toolLifecycleStatuses.has(event.status || '')) break
+
           // Always show status messages - they indicate what the agent is doing
           // Remove any existing status message and add new one
           messages = messages.filter((m) => m.role !== 'status')
@@ -451,7 +529,9 @@
           role: 'tool',
           content: `Calling ${event.display_name || event.tool_name}...`,
           timestamp: Date.now(),
-          toolName: event.tool_name
+          toolName: event.tool_name,
+          toolCallId: event.tool_call_id,
+          toolArguments: event.arguments
         })
         break
 
@@ -608,13 +688,52 @@
       const response = await axiosBackendInstance.get<ChatMessage[]>(
         `agent/conversations/${id}/messages`
       )
-      messages = response.data.map((m: any) => ({
-        id: generateMessageId(),
-        role: m.role as any,
-        content: m.content || '',
-        timestamp: Date.now(),
-        toolName: m.name
-      }))
+      const newMessages = []
+      const toolCallIdsWithResults = new Set(
+        response.data
+          .filter((m: any) => m.role === 'tool' && m.tool_call_id)
+          .map((m: any) => m.tool_call_id)
+      )
+
+      for (const m of response.data) {
+        // Assistant turns that were tool-calls-only are stored with empty
+        // content - the tool_calls loop below (and the matching 'tool' result
+        // messages elsewhere in history) already represent that turn, so
+        // pushing this one too would just leave a blank "Assistant" bubble.
+        const hasToolCalls = Array.isArray(m.tool_calls) && m.tool_calls.length > 0
+        const isEmptyToolOnlyTurn =
+          m.role === 'assistant' && !m.content && hasToolCalls
+
+        if (!isEmptyToolOnlyTurn) {
+          newMessages.push({
+            id: generateMessageId(),
+            role: m.role as any,
+            content: m.content || '',
+            timestamp: Date.now(),
+            toolName: m.name
+          })
+        }
+
+        if (m.tool_calls) {
+          for (const tc of m.tool_calls) {
+            if (
+              tc.function.name === 'ask_human' &&
+              !toolCallIdsWithResults.has(tc.id)
+            ) {
+              newMessages.push({
+                id: generateMessageId(),
+                role: 'tool',
+                content: `Calling ${tc.function.name}...`,
+                timestamp: Date.now(),
+                toolName: tc.function.name,
+                toolCallId: tc.id,
+                toolArguments: tc.function.arguments
+              })
+            }
+          }
+        }
+      }
+      messages = newMessages
       conversationId = id
     } catch (err) {
       console.error('Failed to load messages:', err)
@@ -674,6 +793,7 @@
     bind:chatContainer
     bind:bottomAnchor
     onQuote={handleQuote}
+    onSubmitToolResult={submitToolResult}
   />
 
   <ChatInput
@@ -754,9 +874,16 @@
     font-size: 0.9rem;
   }
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: 1024px) {
     .chat-interface {
-      padding: 0.5rem;
+      padding: 0;
+      height: 100% !important;
+      width: 100% !important;
+      max-height: none;
+      flex: 1;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
     }
   }
 

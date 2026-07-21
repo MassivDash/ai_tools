@@ -40,6 +40,7 @@ export interface CreateCollectionRequest {
   name: string
   metadata?: Record<string, string>
   distance_metric?: DistanceMetric
+  embedding_model?: string
 }
 
 export interface UploadDocumentRequest {

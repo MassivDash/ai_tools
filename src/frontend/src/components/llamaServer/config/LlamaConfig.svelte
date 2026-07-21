@@ -51,10 +51,10 @@
 
   let localModels: ModelInfo[] = []
   let modelNotes: Map<string, ModelNote> = new Map()
-  let config: ConfigResponse = { hf_model: '', ctx_size: 10240 }
+  let config: ConfigResponse = { hf_model: '', ctx_size: 0 }
   let newHfModel = '' // Display value (filename)
   let newHfModelBackend = '' // Backend value (path or hf_format)
-  let newCtxSize = 10240
+  let newCtxSize = 0
   // Advanced options
   let newThreads: number | '' = ''
   let newThreadsBatch: number | '' = ''
@@ -168,6 +168,7 @@
     if (model.path) {
       newModel = model.path
     }
+    newCtxSize = 0
   }
 
   const handleSave = async () => {
@@ -299,7 +300,7 @@
         label=""
         type="number"
         bind:value={newCtxSize}
-        min="1"
+        min="0"
       />
     </div>
 

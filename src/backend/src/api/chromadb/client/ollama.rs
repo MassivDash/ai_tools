@@ -255,11 +255,19 @@ impl OllamaManager {
     }
 
     /// Generate embeddings for the given texts
-    pub async fn generate_embeddings(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-        println!(
+    pub async fn generate_embeddings(
+        &self,
+        texts: &[&str],
+        log_tx: Option<tokio::sync::mpsc::Sender<String>>,
+    ) -> Result<Vec<Vec<f32>>> {
+        let msg = format!(
             "🔧 Initializing Ollama embedding function with model '{}' at {}:{}...",
             self.config.model, self.config.host, self.config.port
         );
+        println!("{}", msg);
+        if let Some(tx) = &log_tx {
+            let _ = tx.send(msg).await;
+        }
 
         // Verify the model name matches what we expect (check for common issues)
         if self.config.model.contains(":latest") {
@@ -292,19 +300,27 @@ impl OllamaManager {
             }
         };
 
-        println!("📝 Generating embeddings for {} text(s)...", texts.len());
+        let msg = format!("📝 Generating embeddings for {} text(s)...", texts.len());
+        println!("{}", msg);
+        if let Some(tx) = &log_tx {
+            let _ = tx.send(msg).await;
+        }
 
         // Batch processing to avoid timeouts with large inputs
         const BATCH_SIZE: usize = 10;
         let mut all_embeddings = Vec::with_capacity(texts.len());
 
         for (batch_idx, chunk) in texts.chunks(BATCH_SIZE).enumerate() {
-            println!(
+            let msg = format!(
                 "Processing batch {}/{} ({} items)...",
                 batch_idx + 1,
                 texts.len().div_ceil(BATCH_SIZE),
                 chunk.len()
             );
+            println!("{}", msg);
+            if let Some(tx) = &log_tx {
+                let _ = tx.send(msg).await;
+            }
 
             // Sanitize inputs: Ollama can error 400 on empty strings
             // We replace empty or whitespace-only strings with a single period "."
@@ -413,11 +429,21 @@ impl OllamaManager {
     }
 
     /// Complete workflow: start server, ensure model, generate embeddings, stop server
-    pub async fn generate_embeddings_with_server(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-        println!(
+    /// High-level function that ensures the server is running, model is available,
+    /// generates embeddings, and stops the server (if it started one).
+    pub async fn generate_embeddings_with_server(
+        &self,
+        texts: &[&str],
+        log_tx: Option<tokio::sync::mpsc::Sender<String>>,
+    ) -> Result<Vec<Vec<f32>>> {
+        let msg = format!(
             "🚀 Starting embedding generation workflow for model '{}'",
             self.config.model
         );
+        println!("{}", msg);
+        if let Some(tx) = &log_tx {
+            let _ = tx.send(msg).await;
+        }
 
         let process = match self.start_server().await {
             Ok(Some(p)) => Some(p),
@@ -444,7 +470,7 @@ impl OllamaManager {
         }
 
         // Generate embeddings
-        let result = self.generate_embeddings(texts).await;
+        let result = self.generate_embeddings(texts, log_tx).await;
 
         // Always stop the server if we started it, even if embedding generation failed
         self.stop_server(process).await;
