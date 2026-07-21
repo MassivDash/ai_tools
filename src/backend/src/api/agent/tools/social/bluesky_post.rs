@@ -9,7 +9,8 @@ use serde_json::json;
 use std::env;
 use std::sync::LazyLock;
 
-static URL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:^|\s)(https?://[^\s]+)").unwrap());
+static URL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:^|\s)(https?://[^\s]+)").unwrap());
 static TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:^|\s)(#[^\s#]+)").unwrap());
 static MENTION_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:^|\s)(@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+)")
@@ -342,12 +343,18 @@ mod tests {
     fn strips_unbalanced_trailing_paren() {
         // "(" is not part of the captured match, so the trailing ")" is unbalanced.
         let captured = "https://example.com/foo)";
-        assert_eq!(trim_trailing_punctuation(captured), "https://example.com/foo");
+        assert_eq!(
+            trim_trailing_punctuation(captured),
+            "https://example.com/foo"
+        );
     }
 
     #[test]
     fn strips_sentence_punctuation() {
-        assert_eq!(trim_trailing_punctuation("https://example.com."), "https://example.com");
+        assert_eq!(
+            trim_trailing_punctuation("https://example.com."),
+            "https://example.com"
+        );
         assert_eq!(trim_trailing_punctuation("#rustlang,"), "#rustlang");
     }
 
@@ -386,7 +393,10 @@ mod tests {
         let text = "See https://example.com/#section for details";
         let (facets, _) = build_link_and_tag_facets(text);
         assert_eq!(facets.len(), 1);
-        assert_eq!(facets[0].1["features"][0]["$type"], "app.bsky.richtext.facet#link");
+        assert_eq!(
+            facets[0].1["features"][0]["$type"],
+            "app.bsky.richtext.facet#link"
+        );
     }
 
     #[test]

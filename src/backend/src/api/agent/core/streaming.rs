@@ -387,9 +387,13 @@ pub async fn execute_agent_loop_streaming(
             && tool_registry.get_tool_by_name("ask_human").is_some()
         {
             if let Some((value, range)) = extract_leaked_ask_human_json(&accumulated_content) {
-                let msg = "Detected ask_human JSON leaked into text content; promoting to a tool call";
+                let msg =
+                    "Detected ask_human JSON leaked into text content; promoting to a tool call";
                 println!("⚠️  {}", msg);
-                logger.log("ASK_HUMAN_FALLBACK", &format!("{}\nRaw args: {}", msg, value));
+                logger.log(
+                    "ASK_HUMAN_FALLBACK",
+                    &format!("{}\nRaw args: {}", msg, value),
+                );
                 accumulated_content = strip_json_block(&accumulated_content, range);
                 accumulated_tool_calls.push(crate::api::agent::core::types::ToolCall {
                     id: format!("leaked_ask_human_{}", uuid::Uuid::new_v4()),

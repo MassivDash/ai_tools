@@ -58,7 +58,8 @@ impl FacebookPostTool {
             self.graph_api_version, page_id
         );
 
-        let mut params: Vec<(&str, &str)> = vec![("message", message), ("access_token", access_token)];
+        let mut params: Vec<(&str, &str)> =
+            vec![("message", message), ("access_token", access_token)];
         if let Some(link) = link {
             params.push(("link", link));
         }
@@ -72,7 +73,10 @@ impl FacebookPostTool {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("Failed to post to Facebook: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to post to Facebook: {}",
+                error_text
+            ));
         }
 
         let data: serde_json::Value = response.json().await?;
