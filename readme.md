@@ -97,6 +97,8 @@ Each tool can be toggled independently; most require the API key or credential d
 - **ChromaDB** — semantic search over your configured vector collections, and full-document retrieval
 - **Website Check** — read and analyze the content of a given URL
 - **Google Books** — search for books to find ISBNs and details
+- **Allegro Gift Search** — search Allegro (the Polish marketplace) for products and gift ideas, with optional price range and sort
+- **Allegro Gift Wishlist** — maintain a wishlist of gift ideas and check Allegro for current best prices/deals on them
 
 **Google Workspace** *(OAuth 2.0, one shared refresh token covers all of these)*
 - **Gmail** — read recent emails, or send an HTML-formatted email
@@ -271,6 +273,18 @@ For searching books data:
    ```env
    GOOGLE_BOOKS_API=your_books_api_key
    ```
+
+### Allegro API
+For the Allegro gift search and wishlist tools:
+1. Register an app at the [Allegro Developer Portal](https://apps.developer.allegro.pl/) to get a Client ID and Client Secret (client-credentials grant).
+2. Add to `.env`:
+   ```env
+   ALLEGRO_CLIENT_ID=your_client_id
+   ALLEGRO_CLIENT_SECRET=your_client_secret
+   ```
+3. Optional: `ALLEGRO_WISHLIST_PATH` overrides where the wishlist is stored (defaults to `data/allegro_wishlist.json`).
+
+**Note:** Allegro's `GET /offers/listing` search endpoint is restricted to "verified applications" — a status Allegro grants manually after reviewing your registered app, separate from just having a Client ID/Secret. A newly-registered app may get a 403 (`VerificationRequired`) until that review clears; the tool surfaces this explicitly in its error message rather than failing silently.
 
 ## Architecture
 
