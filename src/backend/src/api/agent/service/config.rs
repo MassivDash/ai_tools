@@ -110,8 +110,6 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GoogleContactsRead,
             ToolType::GoogleYouTubeRead,
             ToolType::GooglePlacesSearch,
-            ToolType::AllegroSearch,
-            ToolType::AllegroWishlist,
             ToolType::BlueskyPost,
             ToolType::FacebookPost,
             ToolType::FacebookPostsRead,

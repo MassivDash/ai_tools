@@ -31,8 +31,6 @@ pub enum ToolType {
     GoogleContactsRead,
     GoogleYouTubeRead,
     GooglePlacesSearch,
-    AllegroSearch,
-    AllegroWishlist,
     BlueskyPost,
     FacebookPost,
     FacebookPostsRead,
