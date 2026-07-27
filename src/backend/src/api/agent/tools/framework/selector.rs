@@ -78,7 +78,8 @@ impl ToolSelector {
     { \"name\": \"Series Name\", \"data\": [10.5, 20.3] }
   ]
 }
-```",
+```
+- CHART COLORS: Each series may optionally include a `color` field (a hex string, e.g. \"#e34948\"). Leave it out by default — the chart automatically assigns a distinct, accessible color to each series. Only set `color` explicitly when the user asks for specific/custom colors, or when a color carries meaning (e.g. red for losses, green for gains).",
         );
 
         prompt
