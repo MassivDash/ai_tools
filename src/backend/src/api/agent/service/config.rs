@@ -85,6 +85,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     let all_tools_config = AgentConfig {
         enabled_tools: vec![
             ToolType::ChromaDB,
+            ToolType::PageIndex,
             ToolType::WebsiteCheck,
             ToolType::Weather,
             ToolType::WeatherForecast,
@@ -128,6 +129,7 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
     let context = tools::RegisterContext {
         chroma_address: Some("http://localhost:8000"),
         available_collections: &[],
+        available_page_indexes: &[],
     };
 
     // Register all tools

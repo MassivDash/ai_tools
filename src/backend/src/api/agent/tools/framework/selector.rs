@@ -43,6 +43,18 @@ impl ToolSelector {
                 prompt.push_str("- **Cite Sources:** When answering based on knowledge base results or documents, you MUST list your sources (e.g., filenames) clearly at the end of your response.\n\n");
             }
 
+            // If PageIndex is enabled, explain the vectorless, reasoning-based navigation strategy
+            let has_pageindex_tool = all_tools
+                .iter()
+                .any(|tool| tool.metadata().tool_type == ToolType::PageIndex);
+
+            if has_pageindex_tool {
+                prompt.push_str("**PAGEINDEX (REASONING-BASED BOOK NAVIGATION):** You have access to hierarchical table-of-contents indexes for technical books, built without vector search. To use it: call `pageindex_tool` with action `get_tree` first to see a book's chapter/section outline and per-section summaries.\n");
+                prompt.push_str("- **Reason, Don't Match Keywords:** Read the section summaries and pick the node(s) most likely to answer the question by reasoning about their meaning, not by matching keywords.\n");
+                prompt.push_str("- **Drill Down When Needed:** If a summary is too broad to confidently answer, call `get_tree` again (or use the children already returned) and pick a more specific child node instead of guessing.\n");
+                prompt.push_str("- **Read Before Answering:** Once you've identified the relevant node, call `pageindex_tool` with action `read_node` to fetch its actual text before answering - never answer from the summary alone.\n\n");
+            }
+
             prompt.push_str("**THINK FIRST BEFORE USING ANY OTHER TOOLS THAN THE KNOWLEDGE BASE:** Do you really need to use a tool? If you can answer with your internal knowledge, do NOT use a tool.\n\n");
 
             for (i, tool) in all_tools.iter().enumerate() {

@@ -106,6 +106,9 @@ export const getToolIcon = (toolName: string | undefined): string => {
   ) {
     return 'database'
   }
+  if (name.includes('pageindex')) {
+    return 'file-tree'
+  }
   if (name.includes('search') || name.includes('query')) {
     return 'magnify'
   }
