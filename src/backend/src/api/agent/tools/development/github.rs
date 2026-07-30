@@ -471,6 +471,24 @@ impl GitHubAuthenticatedTool {
         response.json().await.context("Failed to parse pulls")
     }
 
+    async fn get_my_profile(&self) -> Result<serde_json::Value> {
+        if self.token.is_empty() {
+            return Err(anyhow::anyhow!("GITHUB_TOKEN is required to check followers"));
+        }
+        let url = "https://api.github.com/user";
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .context("Failed to fetch authenticated user profile")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response.json().await.context("Failed to parse user profile")
+    }
+
     async fn list_authenticated_issues(
         &self,
         filter: &str,
@@ -618,6 +636,16 @@ impl GitHubAuthenticatedTool {
         output
     }
 
+    fn format_followers(&self, data: &serde_json::Value) -> String {
+        let login = data["login"].as_str().unwrap_or("unknown");
+        let followers = data["followers"].as_u64().unwrap_or(0);
+        let following = data["following"].as_u64().unwrap_or(0);
+        format!(
+            "**@{}** has **{}** followers (following {}).",
+            login, followers, following
+        )
+    }
+
     fn format_pulls(&self, data: &serde_json::Value) -> String {
         let items = match data.as_array() {
             Some(i) => i,
@@ -648,13 +676,13 @@ impl AgentTool for GitHubAuthenticatedTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "github_authenticated",
-            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, and events. REQUIRED: GITHUB_TOKEN env variable.",
+            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, events, pull requests, and follower count. REQUIRED: GITHUB_TOKEN env variable.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls"],
+                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls", "followers"],
                         "description": "The action to perform."
                     },
                     "owner": { "type": "string", "description": "Repository owner (optional, falls back to GITHUB_OWNER in .env)." },
@@ -837,6 +865,10 @@ impl AgentTool for GitHubAuthenticatedTool {
                     }
                 }
             }
+            "followers" => match self.get_my_profile().await {
+                Ok(data) => format!("👥 **Followers**\n\n{}", self.format_followers(&data)),
+                Err(e) => format!("Failed: {}", e),
+            },
             _ => return Err(anyhow::anyhow!("Unknown action: {}", action)),
         };
 
