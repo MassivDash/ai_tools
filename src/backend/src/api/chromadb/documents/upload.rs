@@ -875,4 +875,3 @@ fn chunk_text_fallback(text: &str, chunk_size: usize, overlap: usize) -> Vec<Str
 
     chunks
 }
-

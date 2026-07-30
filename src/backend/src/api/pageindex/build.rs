@@ -36,7 +36,9 @@ const LLM_REACHABILITY_TIMEOUT_SECS: u64 = 3;
 /// timeout so an unreachable server fails the request quickly.
 pub async fn check_llama_reachable(llama_base_url: &str) -> Result<(), String> {
     let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(LLM_REACHABILITY_TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_secs(
+            LLM_REACHABILITY_TIMEOUT_SECS,
+        ))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
@@ -212,7 +214,11 @@ fn build_windows(pages: &[String], window_size: usize) -> Vec<(u32, u32, String)
         let mut combined = String::new();
         for (offset, page_text) in pages[start..end].iter().enumerate() {
             let page_num = (start + offset + 1) as u32;
-            combined.push_str(&format!("--- PAGE {} ---\n{}\n", page_num, page_text.trim()));
+            combined.push_str(&format!(
+                "--- PAGE {} ---\n{}\n",
+                page_num,
+                page_text.trim()
+            ));
         }
         windows.push(((start + 1) as u32, end as u32, combined));
         start = end;
@@ -348,7 +354,10 @@ struct SummarizeCtx<'a> {
 /// Bottom-up recursive summarization: leaves are summarized from their raw extracted
 /// text; parents are summarized from their children's already-computed summaries.
 /// Boxed because async fns cannot be directly recursive.
-fn summarize_nodes<'a>(nodes: &'a mut [PageIndexNode], ctx: &'a SummarizeCtx<'a>) -> BoxFuture<'a, ()> {
+fn summarize_nodes<'a>(
+    nodes: &'a mut [PageIndexNode],
+    ctx: &'a SummarizeCtx<'a>,
+) -> BoxFuture<'a, ()> {
     async move {
         for node in nodes.iter_mut() {
             if !node.children.is_empty() {
@@ -383,7 +392,12 @@ fn summarize_nodes<'a>(nodes: &'a mut [PageIndexNode], ctx: &'a SummarizeCtx<'a>
 async fn summarize_leaf(node: &PageIndexNode, ctx: &SummarizeCtx<'_>) -> String {
     let text = match extract_pdf_text(ctx.pdf_bytes, Some((node.page_start, node.page_end))) {
         Ok((text, _)) => text,
-        Err(e) => return format!("(Summary unavailable: failed to extract section text: {})", e),
+        Err(e) => {
+            return format!(
+                "(Summary unavailable: failed to extract section text: {})",
+                e
+            )
+        }
     };
 
     let trimmed_text = truncate_chars(text.trim(), MAX_SECTION_TEXT_CHARS);

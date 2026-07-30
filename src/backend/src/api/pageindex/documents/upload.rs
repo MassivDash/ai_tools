@@ -1,5 +1,7 @@
 use crate::api::llama_server::types::Config;
-use crate::api::pageindex::build::{build_index, check_llama_reachable, derive_title_from_filename};
+use crate::api::pageindex::build::{
+    build_index, check_llama_reachable, derive_title_from_filename,
+};
 use crate::api::pageindex::storage::PageIndexStorage;
 use crate::api::pageindex::websocket::PageIndexWebSocketState;
 use actix_multipart::Multipart;
@@ -119,7 +121,10 @@ pub async fn upload_document(
         let title = derive_title_from_filename(&filename);
 
         if let Err(e) = storage.insert_pending(&id, &filename, &title).await {
-            println!("⚠️ Failed to record PageIndex document '{}': {}", filename, e);
+            println!(
+                "⚠️ Failed to record PageIndex document '{}': {}",
+                filename, e
+            );
             continue;
         }
 
@@ -157,7 +162,10 @@ pub async fn upload_document(
 
     let mut message = format!("Indexing started for {} file(s)", accepted.len());
     if !skipped_files.is_empty() {
-        message.push_str(&format!(". Skipped non-PDF files: {}", skipped_files.join(", ")));
+        message.push_str(&format!(
+            ". Skipped non-PDF files: {}",
+            skipped_files.join(", ")
+        ));
     }
 
     Ok(HttpResponse::Accepted().json(serde_json::json!({

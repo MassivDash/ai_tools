@@ -11,7 +11,10 @@ use std::path::Path;
 /// Returns `None` if the PDF has no outline, the outline can't be parsed, or it
 /// contains no usable (non-blank) titles - callers should fall back to LLM-based
 /// structure inference in that case.
-pub(crate) fn extract_bookmark_tree(pdf_path: &Path, total_pages: u32) -> Option<Vec<PageIndexNode>> {
+pub(crate) fn extract_bookmark_tree(
+    pdf_path: &Path,
+    total_pages: u32,
+) -> Option<Vec<PageIndexNode>> {
     let doc = lopdf::Document::load(pdf_path).ok()?;
     let toc = doc.get_toc().ok()?;
 
@@ -37,7 +40,11 @@ pub(crate) fn extract_bookmark_tree(pdf_path: &Path, total_pages: u32) -> Option
 /// Recursively group a flat, depth-annotated list of (level, title, page_start) entries
 /// into a nested tree. Entries at the level of the first item in `entries[*idx..]` become
 /// siblings; a run of deeper-level entries immediately following one becomes its children.
-fn build_level(entries: &[(usize, String, u32)], idx: &mut usize, counter: &mut u32) -> Vec<PageIndexNode> {
+fn build_level(
+    entries: &[(usize, String, u32)],
+    idx: &mut usize,
+    counter: &mut u32,
+) -> Vec<PageIndexNode> {
     let mut nodes = Vec::new();
     if *idx >= entries.len() {
         return nodes;
@@ -75,7 +82,10 @@ pub(crate) fn fill_page_ends(nodes: &mut [PageIndexNode], bound: u32) {
     let n = nodes.len();
     for i in 0..n {
         let end = if i + 1 < n {
-            nodes[i + 1].page_start.saturating_sub(1).max(nodes[i].page_start)
+            nodes[i + 1]
+                .page_start
+                .saturating_sub(1)
+                .max(nodes[i].page_start)
         } else {
             bound.max(nodes[i].page_start)
         };
