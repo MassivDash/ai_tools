@@ -6,6 +6,7 @@
   import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   import Input from '@ui/Input.svelte'
   import Button from '@ui/Button.svelte'
+  import { formatLabel, deriveToolEntries } from './toolEntries'
   export let enabledTools: string[] = []
   export let onToggle: (_tool: string) => void
 
@@ -35,28 +36,7 @@
     return enabledTools.includes(toolType)
   }
 
-  const formatLabel = (value: string) =>
-    value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ')
-
-  // Collapse tools sharing a tool_type into a single row (e.g. Gmail read/write)
-  $: toolEntries = (() => {
-    const byType = new Map<string, ToolInfo[]>()
-    for (const tool of availableTools) {
-      const list = byType.get(tool.tool_type) || []
-      list.push(tool)
-      byType.set(tool.tool_type, list)
-    }
-    return Array.from(byType.entries()).map(([toolType, tools]) => ({
-      toolType,
-      category: tools[0].category || 'other',
-      icon: tools[0].icon,
-      displayName: tools.length > 1 ? formatLabel(toolType) : tools[0].name,
-      description:
-        tools.length > 1
-          ? tools.map((t) => t.description).join('. ')
-          : tools[0].description
-    }))
-  })()
+  $: toolEntries = deriveToolEntries(availableTools)
 
   $: filteredEntries = toolEntries.filter((entry) => {
     if (!searchQuery.trim()) return true

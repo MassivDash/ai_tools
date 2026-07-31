@@ -473,7 +473,9 @@ impl GitHubAuthenticatedTool {
 
     async fn get_my_profile(&self) -> Result<serde_json::Value> {
         if self.token.is_empty() {
-            return Err(anyhow::anyhow!("GITHUB_TOKEN is required to check followers"));
+            return Err(anyhow::anyhow!(
+                "GITHUB_TOKEN is required to check followers"
+            ));
         }
         let url = "https://api.github.com/user";
         let response = self
@@ -486,7 +488,10 @@ impl GitHubAuthenticatedTool {
         if !response.status().is_success() {
             return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
         }
-        response.json().await.context("Failed to parse user profile")
+        response
+            .json()
+            .await
+            .context("Failed to parse user profile")
     }
 
     async fn list_authenticated_issues(

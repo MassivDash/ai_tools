@@ -6,3 +6,4 @@ pub mod llama_server;
 pub mod model_notes;
 pub mod pageindex;
 pub mod sd_server;
+pub mod tool_groups;
