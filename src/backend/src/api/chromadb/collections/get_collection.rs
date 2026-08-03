@@ -43,3 +43,113 @@ pub async fn get_collection(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{
+        lock_chroma_endpoint, MockChroma, MockChromaCollection, MockChromaConfig,
+        UNPARSEABLE_CHROMA_ENDPOINT,
+    };
+    use actix_web::{test, App};
+
+    #[actix_web::test]
+    async fn test_get_collection_returns_the_named_collection() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![
+            MockChromaCollection::new("notes")
+                .with_metadata(&[("owner", "alice")])
+                .with_count(11),
+            MockChromaCollection::new("papers"),
+        ]))
+        .await;
+
+        let guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(chroma.base_url.clone()))
+                .service(get_collection),
+        )
+        .await;
+        let resp = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/chromadb/collections/notes")
+                .to_request(),
+        )
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        drop(guard);
+
+        assert!(body.success);
+        let collection = body.data.unwrap();
+        assert_eq!(collection.name, "notes");
+        assert_eq!(collection.count, Some(11));
+        assert_eq!(collection.metadata.as_ref().unwrap()["owner"], "alice");
+
+        // The handler asked for exactly the collection named in the path.
+        assert!(chroma.requests()[0].path.ends_with("/collections/notes"));
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_get_collection_reports_an_unknown_name_as_404() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![MockChromaCollection::new(
+            "notes",
+        )]))
+        .await;
+
+        let guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(chroma.base_url.clone()))
+                .service(get_collection),
+        )
+        .await;
+        let resp = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/chromadb/collections/missing")
+                .to_request(),
+        )
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 404);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        drop(guard);
+
+        assert!(!body.success);
+        assert!(body.data.is_none());
+        assert!(body.error.unwrap().contains("Failed to get collection"));
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_get_collection_reports_an_unusable_address_as_503() {
+        let _guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(UNPARSEABLE_CHROMA_ENDPOINT.to_string()))
+                .service(get_collection),
+        )
+        .await;
+        let resp = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/chromadb/collections/notes")
+                .to_request(),
+        )
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 503);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        assert!(!body.success);
+        assert!(body
+            .error
+            .unwrap()
+            .contains("Failed to create ChromaDB client"));
+    }
+}

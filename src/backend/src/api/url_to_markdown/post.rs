@@ -470,4 +470,277 @@ mod tests {
         // Should not be 400 (bad request) for URL format
         assert_ne!(resp.status().as_u16(), 400);
     }
+
+    #[actix_rt::test]
+    async fn test_convert_url_to_markdown_rejects_an_unfetchable_host() {
+        let app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+
+        // Parses as a URL, but the connection is always refused.
+        let req = test::TestRequest::post()
+            .uri("/api/url-to-markdown")
+            .set_json(&UrlRequest {
+                url: "http://127.0.0.1:1/page".to_string(),
+                extract_body: true,
+                enable_preprocessing: false,
+                remove_navigation: false,
+                remove_forms: false,
+                preprocessing_preset: None,
+                follow_links: false,
+                count_tokens: false,
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("Failed to fetch URL:"));
+    }
+
+    #[actix_rt::test]
+    async fn test_convert_url_to_markdown_rejects_urls_without_a_scheme() {
+        let app = test::init_service(App::new().service(convert_url_to_markdown)).await;
+
+        for url in ["", "example.com/page", "//example.com", "   "] {
+            let req = test::TestRequest::post()
+                .uri("/api/url-to-markdown")
+                .set_json(&UrlRequest {
+                    url: url.to_string(),
+                    extract_body: true,
+                    enable_preprocessing: false,
+                    remove_navigation: false,
+                    remove_forms: false,
+                    preprocessing_preset: None,
+                    follow_links: false,
+                    count_tokens: false,
+                })
+                .to_request();
+
+            let resp = test::call_service(&app, req).await;
+            assert_eq!(
+                resp.status().as_u16(),
+                400,
+                "url {:?} should be rejected",
+                url
+            );
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["error"], "Invalid URL format");
+        }
+    }
+
+    // ---- create_zip_with_links ----
+
+    fn config() -> ConversionConfig {
+        ConversionConfig {
+            extract_body: true,
+            enable_preprocessing: false,
+            remove_navigation: false,
+            remove_forms: false,
+            preprocessing_preset: None,
+            follow_links: true,
+        }
+    }
+
+    fn link(text: &str, url: &str) -> crate::markdown_utils::convert::LinkInfo {
+        crate::markdown_utils::convert::LinkInfo {
+            original: url.to_string(),
+            full_url: url.to_string(),
+            link_text: text.to_string(),
+        }
+    }
+
+    fn zip_entry_names(bytes: &[u8]) -> Vec<String> {
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes.to_vec())).unwrap();
+        (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect()
+    }
+
+    #[actix_rt::test]
+    async fn test_create_zip_with_links_writes_the_main_page() {
+        let main = crate::markdown_utils::convert::ConversionResult {
+            markdown: "# Main page\n\nBody text.".to_string(),
+            internal_links: Vec::new(),
+        };
+
+        let zip_bytes = create_zip_with_links("https://example.com/docs", &main, &config())
+            .await
+            .unwrap();
+
+        assert_eq!(zip_entry_names(&zip_bytes), vec!["index.md"]);
+
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).unwrap();
+        let mut contents = String::new();
+        std::io::Read::read_to_string(&mut archive.by_index(0).unwrap(), &mut contents).unwrap();
+        assert_eq!(contents, "# Main page\n\nBody text.");
+    }
+
+    #[actix_rt::test]
+    async fn test_create_zip_with_links_skips_links_it_cannot_fetch() {
+        let main = crate::markdown_utils::convert::ConversionResult {
+            markdown: "# Main".to_string(),
+            internal_links: vec![
+                link("Refused", "http://127.0.0.1:1/one"),
+                link("Also refused", "http://127.0.0.1:1/two"),
+            ],
+        };
+
+        let zip_bytes = create_zip_with_links("https://example.com/docs", &main, &config())
+            .await
+            .unwrap();
+
+        // Unfetchable links are logged and skipped; the archive still contains
+        // the main page rather than failing outright.
+        assert_eq!(zip_entry_names(&zip_bytes), vec!["index.md"]);
+    }
+
+    #[actix_rt::test]
+    async fn test_create_zip_with_links_deduplicates_repeated_urls() {
+        let main = crate::markdown_utils::convert::ConversionResult {
+            markdown: "# Main".to_string(),
+            internal_links: vec![
+                link("First", "http://127.0.0.1:1/same"),
+                link("Second", "http://127.0.0.1:1/same"),
+            ],
+        };
+
+        // Both entries point at the same URL, so only one fetch is attempted.
+        let zip_bytes = create_zip_with_links("https://example.com/docs", &main, &config())
+            .await
+            .unwrap();
+
+        assert_eq!(zip_entry_names(&zip_bytes), vec!["index.md"]);
+    }
+
+    #[actix_rt::test]
+    async fn test_create_zip_with_links_skips_the_main_url_when_it_appears_as_a_link() {
+        let main_url = "https://example.com/docs";
+        let main = crate::markdown_utils::convert::ConversionResult {
+            markdown: "# Main".to_string(),
+            internal_links: vec![link("Self", main_url)],
+        };
+
+        let zip_bytes = create_zip_with_links(main_url, &main, &config())
+            .await
+            .unwrap();
+
+        assert_eq!(zip_entry_names(&zip_bytes), vec!["index.md"]);
+    }
+}
+
+/// `create_unique_filename` is synchronous, so its tests live outside the module
+/// that imports `actix_web::test` (which shadows the built-in `#[test]`).
+#[cfg(test)]
+mod filename_tests {
+    use super::*;
+
+    // ---- create_unique_filename ----
+
+    fn unique(link_text: &str, url: &str, used: &mut std::collections::HashSet<String>) -> String {
+        create_unique_filename(link_text, url, used)
+    }
+
+    #[test]
+    fn test_create_unique_filename_slugifies_the_link_text() {
+        let mut used = std::collections::HashSet::new();
+        assert_eq!(
+            unique("About Us", "https://example.com/x", &mut used),
+            "about_us.md"
+        );
+        // Every non-alphanumeric character becomes an underscore, including the
+        // separators around the slash and the trailing "!".
+        assert_eq!(
+            unique("Contact / Support!", "https://example.com/y", &mut used),
+            "contact___support_.md"
+        );
+    }
+
+    #[test]
+    fn test_create_unique_filename_appends_a_counter_on_collisions() {
+        let mut used = std::collections::HashSet::new();
+        assert_eq!(
+            unique("Docs", "https://example.com/a", &mut used),
+            "docs.md"
+        );
+        assert_eq!(
+            unique("Docs", "https://example.com/b", &mut used),
+            "docs_1.md"
+        );
+        assert_eq!(
+            unique("Docs", "https://example.com/c", &mut used),
+            "docs_2.md"
+        );
+        assert_eq!(used.len(), 3);
+    }
+
+    #[test]
+    fn test_create_unique_filename_falls_back_to_the_last_url_segment() {
+        let mut used = std::collections::HashSet::new();
+
+        // Empty link text: use the URL path instead.
+        assert_eq!(
+            unique("", "https://example.com/docs/getting-started", &mut used),
+            "getting-started.md"
+        );
+
+        // Link text of 100 chars or more is also treated as unusable.
+        let long_text = "x".repeat(100);
+        assert_eq!(
+            unique(&long_text, "https://example.com/guide/setup", &mut used),
+            "setup.md"
+        );
+    }
+
+    #[test]
+    fn test_create_unique_filename_falls_back_to_index() {
+        let mut used = std::collections::HashSet::new();
+
+        // A root URL has an empty last path segment.
+        assert_eq!(unique("", "https://example.com/", &mut used), "index.md");
+        // Whitespace-only link text slugifies to nothing.
+        assert_eq!(
+            unique("   ", "https://example.com/", &mut used),
+            "index_1.md"
+        );
+        // An unparseable fallback URL.
+        assert_eq!(unique("", "not a url", &mut used), "index_2.md");
+    }
+
+    #[test]
+    fn test_create_unique_filename_truncates_very_long_slugs() {
+        let mut used = std::collections::HashSet::new();
+        // 99 alphanumeric chars: usable as link text but longer than the 90-char cap.
+        let name = unique(&"a".repeat(99), "https://example.com/x", &mut used);
+
+        assert_eq!(name, format!("{}.md", "a".repeat(90)));
+    }
+
+    #[test]
+    fn test_create_unique_filename_does_not_double_the_md_extension() {
+        let mut used = std::collections::HashSet::new();
+
+        // The ".md" strip only ever applies to names taken from the URL path -
+        // link text has its dots replaced by underscores before that check runs.
+        assert_eq!(
+            unique("", "https://example.com/docs/readme.md", &mut used),
+            "readme.md"
+        );
+        assert_eq!(
+            unique("readme.md", "https://example.com/x", &mut used),
+            "readme_md.md"
+        );
+    }
+
+    #[test]
+    fn test_create_unique_filename_slug_keeps_punctuation_as_underscores() {
+        let mut used = std::collections::HashSet::new();
+
+        // Non-alphanumerics all collapse to underscores rather than being dropped.
+        assert_eq!(
+            unique("!!!", "https://example.com/page", &mut used),
+            "___.md"
+        );
+    }
 }

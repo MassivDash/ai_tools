@@ -24,7 +24,9 @@ pub struct PublicKeys {
     pub public_llama_url: Option<String>,
 }
 
-pub fn get_config(args: &Vec<String>) -> Config {
+/// Build the configuration out of `toml_path` (when it can be read) and the cli
+/// arguments, which always win over the toml file.
+pub fn get_config_from(toml_path: &str, args: &Vec<String>) -> Config {
     // create default config
 
     let astro_port = 5432;
@@ -47,11 +49,28 @@ pub fn get_config(args: &Vec<String>) -> Config {
         },
     };
 
-    if let Ok(toml) = read_toml(&ASTROX_TOML.to_string()) {
+    if let Ok(toml) = read_toml(&toml_path.to_string()) {
         config = toml;
     }
 
     config = collect_config_args(config, args);
+    config
+}
+
+pub fn get_config(args: &Vec<String>) -> Config {
+    get_config_from(ASTROX_TOML, args)
+}
+
+/// Resolve the configuration used by the production commands.
+/// Astrox.toml wins, the default config is the fallback, and the environment is
+/// always forced to prod.
+pub fn get_prod_config() -> Config {
+    let mut config = match read_toml(&ASTROX_TOML.to_string()) {
+        Ok(config) => config,
+        Err(_) => get_config(&vec![]),
+    };
+
+    config.env = "prod".to_string();
     config
 }
 

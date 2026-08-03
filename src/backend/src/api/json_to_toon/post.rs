@@ -454,4 +454,185 @@ mod tests {
             assert!(body.toon_tokens <= body.json_tokens);
         }
     }
+
+    #[actix_rt::test]
+    async fn test_body_that_is_not_json_at_all_is_rejected() {
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/json-to-toon")
+            .insert_header(("content-type", "application/json"))
+            .set_payload("this is not a JSON request body")
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_rt::test]
+    async fn test_body_with_invalid_utf8_is_rejected() {
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/json-to-toon")
+            .insert_header(("content-type", "application/json"))
+            .set_payload(vec![0x7b, 0xff, 0xfe, 0x7d])
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    // ---- multipart (file upload) branch ----
+
+    const BOUNDARY: &str = "----------------toontest";
+
+    fn multipart_body(parts: &[(&str, Option<&str>, &[u8])]) -> Vec<u8> {
+        let mut body = Vec::new();
+        for (name, filename, content) in parts {
+            body.extend_from_slice(format!("--{}\r\n", BOUNDARY).as_bytes());
+            match filename {
+                Some(filename) => body.extend_from_slice(
+                    format!(
+                        "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n\
+                         Content-Type: application/octet-stream\r\n\r\n",
+                        name, filename
+                    )
+                    .as_bytes(),
+                ),
+                None => body.extend_from_slice(
+                    format!("Content-Disposition: form-data; name=\"{}\"\r\n\r\n", name).as_bytes(),
+                ),
+            }
+            body.extend_from_slice(content);
+            body.extend_from_slice(b"\r\n");
+        }
+        body.extend_from_slice(format!("--{}--\r\n", BOUNDARY).as_bytes());
+        body
+    }
+
+    async fn post_multipart(
+        parts: &[(&str, Option<&str>, &[u8])],
+    ) -> actix_web::dev::ServiceResponse {
+        let app = test::init_service(App::new().service(convert_json_to_toon)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/json-to-toon")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(parts))
+            .to_request();
+        test::call_service(&app, req).await
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_file_upload_is_converted() {
+        let resp = post_multipart(&[("file", Some("data.json"), br#"{"user":{"id":7}}"#)]).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ToonResponse = test::read_body_json(resp).await;
+        assert!(body.toon.contains("user"));
+        assert!(body.toon.contains('7'));
+        // Token counting is off by default in the multipart branch.
+        assert_eq!(body.json_tokens, 0);
+        assert_eq!(body.toon_tokens, 0);
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_json_field_is_accepted_instead_of_a_file() {
+        let resp = post_multipart(&[("json", None, br#"{"pasted":true}"#)]).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ToonResponse = test::read_body_json(resp).await;
+        assert!(body.toon.contains("pasted"));
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_count_tokens_flag_enables_counting() {
+        for flag in ["true", "TRUE", "1"] {
+            let resp = post_multipart(&[
+                ("count_tokens", None, flag.as_bytes()),
+                ("file", Some("d.json"), br#"{"users":[{"id":1},{"id":2}]}"#),
+            ])
+            .await;
+
+            assert_eq!(resp.status().as_u16(), 200);
+            let body: ToonResponse = test::read_body_json(resp).await;
+            assert!(
+                body.json_tokens > 0,
+                "flag {} should turn token counting on",
+                flag
+            );
+            assert!(body.toon_tokens > 0);
+        }
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_count_tokens_flag_off_by_default_for_other_values() {
+        let resp = post_multipart(&[
+            ("count_tokens", None, b"no"),
+            ("file", Some("d.json"), br#"{"a":1}"#),
+        ])
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ToonResponse = test::read_body_json(resp).await;
+        assert_eq!(body.json_tokens, 0);
+        assert_eq!(body.toon_tokens, 0);
+        assert_eq!(body.token_savings, 0.0);
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_without_json_data_is_rejected() {
+        let resp = post_multipart(&[("unrelated", None, b"ignored")]).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_with_a_non_utf8_file_is_rejected() {
+        let resp = post_multipart(&[("file", Some("d.json"), &[0x7b, 0xff, 0xfe, 0x7d])]).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("File is not valid UTF-8:"));
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_with_an_empty_file_is_rejected() {
+        let resp = post_multipart(&[("file", Some("empty.json"), b"")]).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"], "JSON content cannot be empty");
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_with_malformed_json_is_rejected() {
+        let resp = post_multipart(&[("file", Some("bad.json"), b"{ not json }")]).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body["error"].as_str().unwrap().starts_with("Invalid JSON:"));
+    }
+
+    #[actix_rt::test]
+    async fn test_multipart_file_field_wins_over_an_earlier_json_field() {
+        // Both fields write into the same slot, so the last one parsed wins.
+        let resp = post_multipart(&[
+            ("json", None, br#"{"from":"field"}"#),
+            ("file", Some("d.json"), br#"{"from":"file"}"#),
+        ])
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ToonResponse = test::read_body_json(resp).await;
+        assert!(body.toon.contains("file"));
+        assert!(!body.toon.contains("field"));
+    }
 }

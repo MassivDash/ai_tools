@@ -475,4 +475,782 @@ impl SqliteConversationMemory {
 
         Ok(title.unwrap_or_else(|| "New Conversation".to_string()))
     }
+
+    /// Drop both tables so that subsequent queries fail. Used to exercise the
+    /// error paths of the handlers that sit on top of this store.
+    #[cfg(test)]
+    pub(crate) async fn drop_tables_for_tests(&self) {
+        for statement in ["DROP TABLE messages", "DROP TABLE conversations"] {
+            sqlx::query(statement)
+                .execute(&self.pool)
+                .await
+                .expect("Failed to drop table");
+        }
+    }
+}
+
+/// Build a `SqliteConversationMemory` backed by a throwaway on-disk SQLite file.
+///
+/// `SqliteConversationMemory::new` takes a filesystem path (it canonicalizes it
+/// and creates the parent directory), so a `sqlite::memory:` URL is not an
+/// option here. The returned `TempDir` must be kept alive for as long as the
+/// store is used.
+#[cfg(test)]
+pub(crate) async fn new_test_memory() -> (tempfile::TempDir, SqliteConversationMemory) {
+    let dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let memory = SqliteConversationMemory::new(dir.path().join("conversations.db"))
+        .await
+        .expect("Failed to initialize conversation memory");
+    (dir, memory)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::{ContentPart, FunctionCall, ImageUrl, MessageContent};
+
+    fn user_message(text: &str) -> ChatMessage {
+        ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::Text(text.to_string()),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_creates_an_empty_store() {
+        let (_dir, memory) = new_test_memory().await;
+
+        assert!(memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations")
+            .is_empty());
+        assert_eq!(
+            memory
+                .get_last_message_id()
+                .await
+                .expect("Failed to get last id"),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_new_creates_the_parent_directory() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let nested = dir.path().join("deeply/nested/conversations.db");
+
+        let memory = SqliteConversationMemory::new(&nested)
+            .await
+            .expect("Failed to initialize conversation memory");
+
+        assert!(
+            nested.exists(),
+            "the database file should have been created"
+        );
+        assert!(memory.get_conversations().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_reopening_an_existing_database_keeps_its_data() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("conversations.db");
+
+        let id = {
+            let memory = SqliteConversationMemory::new(&path)
+                .await
+                .expect("Failed to initialize");
+            let id = memory
+                .get_or_create_conversation_id(None, Some("model-a"))
+                .await
+                .expect("Failed to create conversation");
+            memory
+                .add_message(&id, user_message("hello"))
+                .await
+                .expect("Failed to add message");
+            id
+        };
+
+        // The path now exists, which takes the `canonicalize` branch in `new`
+        let reopened = SqliteConversationMemory::new(&path)
+            .await
+            .expect("Failed to reopen");
+
+        assert_eq!(
+            reopened
+                .message_count(&id)
+                .await
+                .expect("Failed to count messages"),
+            1
+        );
+        let conversations = reopened
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations.len(), 1);
+        assert_eq!(conversations[0].model.as_deref(), Some("model-a"));
+    }
+
+    #[tokio::test]
+    async fn test_new_resets_a_messages_table_without_tool_call_columns() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("legacy.db");
+
+        // Build a legacy schema: `messages` without the `tool_calls` column.
+        {
+            let options = SqliteConnectOptions::new()
+                .filename(&path)
+                .create_if_missing(true);
+            let pool = SqlitePool::connect_with(options)
+                .await
+                .expect("Failed to connect");
+            sqlx::query(
+                "CREATE TABLE conversations (id TEXT PRIMARY KEY, title TEXT, model TEXT, created_at INTEGER NOT NULL DEFAULT 0)",
+            )
+            .execute(&pool)
+            .await
+            .expect("Failed to create legacy conversations table");
+            sqlx::query(
+                "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL)",
+            )
+            .execute(&pool)
+            .await
+            .expect("Failed to create legacy messages table");
+            sqlx::query("INSERT INTO conversations (id) VALUES ('legacy')")
+                .execute(&pool)
+                .await
+                .expect("Failed to seed conversation");
+            sqlx::query(
+                "INSERT INTO messages (conversation_id, role, content) VALUES ('legacy', 'user', 'old')",
+            )
+            .execute(&pool)
+            .await
+            .expect("Failed to seed message");
+            pool.close().await;
+        }
+
+        let memory = SqliteConversationMemory::new(&path)
+            .await
+            .expect("Failed to migrate legacy database");
+
+        // Messages were dropped and recreated, conversations were preserved.
+        assert_eq!(
+            memory
+                .message_count("legacy")
+                .await
+                .expect("Failed to count messages"),
+            0
+        );
+        assert_eq!(
+            memory
+                .get_conversations()
+                .await
+                .expect("Failed to list conversations")
+                .len(),
+            1
+        );
+
+        // The recreated table accepts the current message shape.
+        memory
+            .add_message("legacy", user_message("new"))
+            .await
+            .expect("Failed to add message to migrated table");
+    }
+
+    #[tokio::test]
+    async fn test_new_resets_a_conversations_table_without_title_or_model() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("legacy-conversations.db");
+
+        {
+            let options = SqliteConnectOptions::new()
+                .filename(&path)
+                .create_if_missing(true);
+            let pool = SqlitePool::connect_with(options)
+                .await
+                .expect("Failed to connect");
+            sqlx::query(
+                "CREATE TABLE conversations (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL DEFAULT 0)",
+            )
+            .execute(&pool)
+            .await
+            .expect("Failed to create legacy conversations table");
+            sqlx::query("INSERT INTO conversations (id) VALUES ('legacy')")
+                .execute(&pool)
+                .await
+                .expect("Failed to seed conversation");
+            pool.close().await;
+        }
+
+        let memory = SqliteConversationMemory::new(&path)
+            .await
+            .expect("Failed to migrate legacy database");
+
+        assert!(
+            memory
+                .get_conversations()
+                .await
+                .expect("Failed to list conversations")
+                .is_empty(),
+            "the outdated conversations table should have been recreated"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_or_create_conversation_id_generates_a_titled_conversation() {
+        let (_dir, memory) = new_test_memory().await;
+
+        let id = memory
+            .get_or_create_conversation_id(None, Some("model-a"))
+            .await
+            .expect("Failed to create conversation");
+
+        assert_eq!(id.len(), 36, "expected a uuid, got {}", id);
+        let conversations = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations.len(), 1);
+        assert_eq!(conversations[0].id, id);
+        assert_eq!(conversations[0].model.as_deref(), Some("model-a"));
+        let title = conversations[0].title.clone().expect("expected a title");
+        assert!(title.starts_with("Chat "), "unexpected title: {}", title);
+        assert_eq!(
+            memory.get_title(&id).await.expect("Failed to get title"),
+            title
+        );
+        assert!(conversations[0].created_at > 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_or_create_conversation_id_inserts_unknown_ids_without_a_title() {
+        let (_dir, memory) = new_test_memory().await;
+
+        let id = memory
+            .get_or_create_conversation_id(Some("supplied-id".to_string()), None)
+            .await
+            .expect("Failed to create conversation");
+
+        assert_eq!(id, "supplied-id");
+        let conversations = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations.len(), 1);
+        assert!(conversations[0].title.is_none());
+        assert!(conversations[0].model.is_none());
+        // A row with a NULL title decodes to an empty string, so the
+        // "New Conversation" fallback only applies to a missing conversation.
+        assert_eq!(
+            memory.get_title(&id).await.expect("Failed to get title"),
+            ""
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_or_create_conversation_id_updates_the_model_of_a_known_conversation() {
+        let (_dir, memory) = new_test_memory().await;
+
+        let id = memory
+            .get_or_create_conversation_id(None, Some("model-a"))
+            .await
+            .expect("Failed to create conversation");
+
+        let same_id = memory
+            .get_or_create_conversation_id(Some(id.clone()), Some("model-b"))
+            .await
+            .expect("Failed to reuse conversation");
+
+        assert_eq!(same_id, id);
+        let conversations = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations.len(), 1, "no duplicate conversation was made");
+        assert_eq!(conversations[0].model.as_deref(), Some("model-b"));
+
+        // Passing no model leaves the stored model alone
+        memory
+            .get_or_create_conversation_id(Some(id.clone()), None)
+            .await
+            .expect("Failed to reuse conversation");
+        let conversations = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations[0].model.as_deref(), Some("model-b"));
+    }
+
+    #[tokio::test]
+    async fn test_add_and_get_messages_round_trips_every_role_and_field() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        let assistant = ChatMessage {
+            role: MessageRole::Assistant,
+            content: MessageContent::Text(String::new()),
+            name: None,
+            tool_calls: Some(vec![ToolCall {
+                id: "call_1".to_string(),
+                tool_type: "function".to_string(),
+                function: FunctionCall {
+                    name: "weather".to_string(),
+                    arguments: "{\"city\":\"Rome\"}".to_string(),
+                },
+            }]),
+            tool_call_id: None,
+            reasoning_content: Some("dropped on the way to storage".to_string()),
+        };
+        let tool = ChatMessage {
+            role: MessageRole::Tool,
+            content: MessageContent::Text("sunny".to_string()),
+            name: Some("weather".to_string()),
+            tool_calls: None,
+            tool_call_id: Some("call_1".to_string()),
+            reasoning_content: None,
+        };
+        let system = ChatMessage {
+            role: MessageRole::System,
+            content: MessageContent::Text("be nice".to_string()),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        };
+
+        for message in [
+            system,
+            user_message("what is the weather?"),
+            assistant,
+            tool,
+        ] {
+            memory
+                .add_message(&id, message)
+                .await
+                .expect("Failed to add message");
+        }
+
+        let messages = memory
+            .get_messages(&id)
+            .await
+            .expect("Failed to get messages");
+        assert_eq!(messages.len(), 4);
+        assert_eq!(messages[0].role, MessageRole::System);
+        assert_eq!(messages[1].role, MessageRole::User);
+        assert_eq!(messages[1].content.text(), "what is the weather?");
+
+        assert_eq!(messages[2].role, MessageRole::Assistant);
+        let calls = messages[2]
+            .tool_calls
+            .as_ref()
+            .expect("expected stored tool calls");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call_1");
+        assert_eq!(calls[0].function.name, "weather");
+        assert!(
+            messages[2].reasoning_content.is_none(),
+            "reasoning_content is not persisted"
+        );
+
+        assert_eq!(messages[3].role, MessageRole::Tool);
+        assert_eq!(messages[3].name.as_deref(), Some("weather"));
+        assert_eq!(messages[3].tool_call_id.as_deref(), Some("call_1"));
+        assert_eq!(messages[3].content.text(), "sunny");
+    }
+
+    #[tokio::test]
+    async fn test_multipart_content_round_trips_as_parts() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        memory
+            .add_message(
+                &id,
+                ChatMessage {
+                    role: MessageRole::User,
+                    content: MessageContent::Parts(vec![
+                        ContentPart::Text {
+                            text: "look at this".to_string(),
+                        },
+                        ContentPart::ImageUrl {
+                            image_url: ImageUrl {
+                                url: "http://example.com/a.png".to_string(),
+                            },
+                        },
+                    ]),
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                    reasoning_content: None,
+                },
+            )
+            .await
+            .expect("Failed to add message");
+
+        let messages = memory
+            .get_messages(&id)
+            .await
+            .expect("Failed to get messages");
+        match &messages[0].content {
+            MessageContent::Parts(parts) => assert_eq!(parts.len(), 2),
+            other => panic!("Expected parts, got {:?}", other),
+        }
+        assert_eq!(messages[0].content.text(), "look at this");
+    }
+
+    #[tokio::test]
+    async fn test_get_messages_falls_back_to_text_for_unparsable_bracket_content() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        // Text that merely looks like a JSON array must survive as plain text,
+        // and an unknown stored role falls back to `User`.
+        sqlx::query(
+            "INSERT INTO messages (conversation_id, role, content) VALUES (?1, 'wizard', '[not json')",
+        )
+        .bind(&id)
+        .execute(&memory.pool)
+        .await
+        .expect("Failed to insert raw message");
+
+        let messages = memory
+            .get_messages(&id)
+            .await
+            .expect("Failed to get messages");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].role, MessageRole::User);
+        assert_eq!(messages[0].content.text(), "[not json");
+    }
+
+    #[tokio::test]
+    async fn test_get_messages_for_unknown_conversation_is_empty() {
+        let (_dir, memory) = new_test_memory().await;
+
+        assert!(memory
+            .get_messages("nope")
+            .await
+            .expect("Failed to get messages")
+            .is_empty());
+        assert_eq!(
+            memory
+                .message_count("nope")
+                .await
+                .expect("Failed to count messages"),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_clear_conversation_deletes_all_messages_but_keeps_the_conversation() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        for text in ["one", "two"] {
+            memory
+                .add_message(&id, user_message(text))
+                .await
+                .expect("Failed to add message");
+        }
+
+        memory
+            .clear_conversation(&id, None)
+            .await
+            .expect("Failed to clear conversation");
+
+        assert_eq!(
+            memory
+                .message_count(&id)
+                .await
+                .expect("Failed to count messages"),
+            0
+        );
+        assert_eq!(
+            memory
+                .get_conversations()
+                .await
+                .expect("Failed to list conversations")
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_clear_conversation_keeping_recent_messages() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        // `keep_recent` works on the created_at timestamp, so the messages that
+        // must survive are given a newer timestamp than the ones being dropped.
+        for (text, created_at) in [("oldest", 100), ("older", 200), ("newest", 300)] {
+            sqlx::query(
+                "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?1, 'user', ?2, ?3)",
+            )
+            .bind(&id)
+            .bind(text)
+            .bind(created_at)
+            .execute(&memory.pool)
+            .await
+            .expect("Failed to insert message");
+        }
+
+        memory
+            .clear_conversation(&id, Some(2))
+            .await
+            .expect("Failed to clear conversation");
+
+        let remaining: Vec<String> = memory
+            .get_messages(&id)
+            .await
+            .expect("Failed to get messages")
+            .iter()
+            .map(|m| m.content.text())
+            .collect();
+        assert_eq!(remaining, vec!["older", "newest"]);
+    }
+
+    #[tokio::test]
+    async fn test_clear_conversation_keeping_more_than_exists_deletes_nothing() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+        memory
+            .add_message(&id, user_message("keep me"))
+            .await
+            .expect("Failed to add message");
+
+        memory
+            .clear_conversation(&id, Some(10))
+            .await
+            .expect("Failed to clear conversation");
+
+        assert_eq!(
+            memory
+                .message_count(&id)
+                .await
+                .expect("Failed to count messages"),
+            1
+        );
+
+        // An empty conversation has no minimum timestamp, so nothing happens
+        let empty = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+        memory
+            .clear_conversation(&empty, Some(3))
+            .await
+            .expect("Failed to clear empty conversation");
+        assert_eq!(
+            memory
+                .message_count(&empty)
+                .await
+                .expect("Failed to count messages"),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rollback_via_last_message_id_and_delete_after() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        memory
+            .add_message(&id, user_message("keep"))
+            .await
+            .expect("Failed to add message");
+        let checkpoint = memory
+            .get_last_message_id()
+            .await
+            .expect("Failed to get last id");
+        assert_eq!(checkpoint, 1);
+
+        for text in ["discard 1", "discard 2"] {
+            memory
+                .add_message(&id, user_message(text))
+                .await
+                .expect("Failed to add message");
+        }
+        assert_eq!(
+            memory
+                .get_last_message_id()
+                .await
+                .expect("Failed to get last id"),
+            3
+        );
+
+        memory
+            .delete_messages_after_id(checkpoint)
+            .await
+            .expect("Failed to roll back");
+
+        let messages = memory
+            .get_messages(&id)
+            .await
+            .expect("Failed to get messages");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content.text(), "keep");
+    }
+
+    #[tokio::test]
+    async fn test_get_conversations_is_ordered_newest_first() {
+        let (_dir, memory) = new_test_memory().await;
+
+        for (id, created_at) in [("old", 100), ("new", 300), ("middle", 200)] {
+            sqlx::query("INSERT INTO conversations (id, title, created_at) VALUES (?1, ?1, ?2)")
+                .bind(id)
+                .bind(created_at)
+                .execute(&memory.pool)
+                .await
+                .expect("Failed to insert conversation");
+        }
+
+        let ids: Vec<String> = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations")
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
+        assert_eq!(ids, vec!["new", "middle", "old"]);
+    }
+
+    #[tokio::test]
+    async fn test_delete_conversation_cascades_to_its_messages() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+        memory
+            .add_message(&id, user_message("hello"))
+            .await
+            .expect("Failed to add message");
+
+        memory
+            .delete_conversation(&id)
+            .await
+            .expect("Failed to delete conversation");
+
+        assert!(memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations")
+            .is_empty());
+
+        // Deleting an unknown conversation is a no-op rather than an error
+        memory
+            .delete_conversation("nope")
+            .await
+            .expect("Deleting a missing conversation should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_update_conversation_title_and_model() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+
+        memory
+            .update_conversation_title(&id, "Renamed chat")
+            .await
+            .expect("Failed to update title");
+        memory
+            .update_conversation_model(&id, "model-z")
+            .await
+            .expect("Failed to update model");
+
+        assert_eq!(
+            memory.get_title(&id).await.expect("Failed to get title"),
+            "Renamed chat"
+        );
+        let conversations = memory
+            .get_conversations()
+            .await
+            .expect("Failed to list conversations");
+        assert_eq!(conversations[0].model.as_deref(), Some("model-z"));
+
+        // Updating an unknown conversation affects nothing and does not error
+        memory
+            .update_conversation_title("nope", "ghost")
+            .await
+            .expect("Failed to update missing title");
+        memory
+            .update_conversation_model("nope", "ghost")
+            .await
+            .expect("Failed to update missing model");
+        assert_eq!(
+            memory
+                .get_conversations()
+                .await
+                .expect("Failed to list conversations")
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_title_of_unknown_conversation_falls_back() {
+        let (_dir, memory) = new_test_memory().await;
+
+        assert_eq!(
+            memory.get_title("nope").await.expect("Failed to get title"),
+            "New Conversation"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_every_query_reports_an_error_once_the_tables_are_gone() {
+        let (_dir, memory) = new_test_memory().await;
+        let id = memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .expect("Failed to create conversation");
+        memory.drop_tables_for_tests().await;
+
+        assert!(memory.get_conversations().await.is_err());
+        assert!(memory.get_messages(&id).await.is_err());
+        assert!(memory.message_count(&id).await.is_err());
+        assert!(memory.get_last_message_id().await.is_err());
+        assert!(memory.delete_messages_after_id(0).await.is_err());
+        assert!(memory.clear_conversation(&id, None).await.is_err());
+        assert!(memory.clear_conversation(&id, Some(1)).await.is_err());
+        assert!(memory.add_message(&id, user_message("x")).await.is_err());
+        assert!(memory.delete_conversation(&id).await.is_err());
+        assert!(memory.update_conversation_title(&id, "t").await.is_err());
+        assert!(memory.update_conversation_model(&id, "m").await.is_err());
+        assert!(memory.get_title(&id).await.is_err());
+        assert!(memory
+            .get_or_create_conversation_id(Some(id), None)
+            .await
+            .is_err());
+        assert!(memory
+            .get_or_create_conversation_id(None, None)
+            .await
+            .is_err());
+    }
 }

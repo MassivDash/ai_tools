@@ -396,4 +396,314 @@ impl ModelNotesStorage {
             Ok(None)
         }
     }
+
+    /// Drop the backing table so that every subsequent query fails.
+    ///
+    /// Used by the handler tests to exercise the `Err(..)` arms that map storage
+    /// failures onto `500` responses; there is no other way to make a healthy
+    /// in-memory/temp-file database fail on demand.
+    #[cfg(test)]
+    pub(crate) async fn drop_table_for_tests(&self) {
+        sqlx::query("DROP TABLE model_notes")
+            .execute(&self.pool)
+            .await
+            .expect("Failed to drop model_notes table");
+    }
+}
+
+/// Build a `ModelNotesStorage` backed by a throwaway on-disk SQLite file.
+///
+/// `ModelNotesStorage::new` takes a filesystem path (it canonicalizes it and
+/// creates the parent directory), so a `sqlite::memory:` URL is not an option
+/// here the way it is for the pool-based storages. The returned `TempDir` must
+/// be kept alive for as long as the storage is used.
+#[cfg(test)]
+pub(crate) async fn new_test_storage() -> (tempfile::TempDir, ModelNotesStorage) {
+    let dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let storage = ModelNotesStorage::new(dir.path().join("model_notes.db"))
+        .await
+        .expect("Failed to initialize storage");
+    (dir, storage)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn note(platform: &str, model_name: &str) -> ModelNote {
+        ModelNote {
+            id: None,
+            platform: platform.to_string(),
+            model_name: model_name.to_string(),
+            model_path: None,
+            is_favorite: false,
+            is_default: false,
+            tags: Vec::new(),
+            notes: None,
+            created_at: None,
+            updated_at: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_creates_empty_table() {
+        let (_dir, storage) = new_test_storage().await;
+        assert!(storage.get_all_notes().await.unwrap().is_empty());
+        assert!(storage
+            .get_note("llama", "missing")
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn test_new_is_idempotent_and_keeps_existing_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("nested").join("model_notes.db");
+
+        let storage = ModelNotesStorage::new(&db).await.unwrap();
+        storage.upsert_note(&note("llama", "kept")).await.unwrap();
+        drop(storage);
+
+        // Re-opening an existing file must not wipe the table.
+        let reopened = ModelNotesStorage::new(&db).await.unwrap();
+        let notes = reopened.get_all_notes().await.unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].model_name, "kept");
+    }
+
+    #[tokio::test]
+    async fn test_upsert_inserts_new_note_with_timestamps_and_id() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let mut incoming = note("llama", "qwen3-4b");
+        incoming.model_path = Some("/models/qwen3-4b.gguf".to_string());
+        incoming.is_favorite = true;
+        incoming.tags = vec!["fast".to_string(), "small".to_string()];
+        incoming.notes = Some("works well".to_string());
+
+        let saved = storage.upsert_note(&incoming).await.unwrap();
+
+        assert!(saved.id.is_some());
+        assert!(saved.created_at.is_some());
+        assert!(saved.updated_at.is_some());
+        assert_eq!(saved.model_path, Some("/models/qwen3-4b.gguf".to_string()));
+        assert!(saved.is_favorite);
+        assert!(!saved.is_default);
+        assert_eq!(saved.tags, vec!["fast", "small"]);
+        assert_eq!(saved.notes.as_deref(), Some("works well"));
+    }
+
+    #[tokio::test]
+    async fn test_upsert_updates_instead_of_duplicating() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let first = storage.upsert_note(&note("llama", "same")).await.unwrap();
+
+        let mut second = note("llama", "same");
+        second.is_favorite = true;
+        second.notes = Some("updated".to_string());
+        let updated = storage.upsert_note(&second).await.unwrap();
+
+        // Same row (UNIQUE(platform, model_name)), not a second insert.
+        assert_eq!(updated.id, first.id);
+        assert!(updated.is_favorite);
+        assert_eq!(updated.notes.as_deref(), Some("updated"));
+        assert_eq!(storage.get_all_notes().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_upsert_without_path_preserves_existing_path() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let mut with_path = note("llama", "keep-path");
+        with_path.model_path = Some("/models/keep.gguf".to_string());
+        storage.upsert_note(&with_path).await.unwrap();
+
+        // A non-default upsert that carries no path must not clear the stored one.
+        let mut without_path = note("llama", "keep-path");
+        without_path.is_favorite = true;
+        let updated = storage.upsert_note(&without_path).await.unwrap();
+
+        assert_eq!(updated.model_path, Some("/models/keep.gguf".to_string()));
+        assert!(updated.is_favorite);
+    }
+
+    #[tokio::test]
+    async fn test_upsert_with_new_path_replaces_existing_path() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let mut first = note("llama", "swap-path");
+        first.model_path = Some("/models/old.gguf".to_string());
+        storage.upsert_note(&first).await.unwrap();
+
+        let mut second = note("llama", "swap-path");
+        second.model_path = Some("/models/new.gguf".to_string());
+        let updated = storage.upsert_note(&second).await.unwrap();
+
+        assert_eq!(updated.model_path, Some("/models/new.gguf".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_default_note_never_stores_a_path() {
+        let (_dir, storage) = new_test_storage().await;
+
+        // On insert.
+        let mut inserted = note("llama", "default-model");
+        inserted.is_default = true;
+        inserted.model_path = Some("/models/ignored.gguf".to_string());
+        let saved = storage.upsert_note(&inserted).await.unwrap();
+        assert!(saved.is_default);
+        assert!(saved.model_path.is_none());
+
+        // And on update of a row that previously had a path.
+        let mut with_path = note("ollama", "switcher");
+        with_path.model_path = Some("/models/present.gguf".to_string());
+        storage.upsert_note(&with_path).await.unwrap();
+
+        let mut promote = note("ollama", "switcher");
+        promote.is_default = true;
+        promote.model_path = Some("/models/still-ignored.gguf".to_string());
+        let promoted = storage.upsert_note(&promote).await.unwrap();
+        assert!(promoted.is_default);
+        assert!(promoted.model_path.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_setting_default_unsets_other_defaults_on_same_platform_only() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let mut llama_a = note("llama", "a");
+        llama_a.is_default = true;
+        storage.upsert_note(&llama_a).await.unwrap();
+
+        let mut ollama_x = note("ollama", "x");
+        ollama_x.is_default = true;
+        storage.upsert_note(&ollama_x).await.unwrap();
+
+        let mut llama_b = note("llama", "b");
+        llama_b.is_default = true;
+        storage.upsert_note(&llama_b).await.unwrap();
+
+        // Only one default per platform, and the other platform is untouched.
+        assert_eq!(
+            storage
+                .get_default_model("llama")
+                .await
+                .unwrap()
+                .unwrap()
+                .model_name,
+            "b"
+        );
+        assert!(
+            !storage
+                .get_note("llama", "a")
+                .await
+                .unwrap()
+                .unwrap()
+                .is_default
+        );
+        assert_eq!(
+            storage
+                .get_default_model("ollama")
+                .await
+                .unwrap()
+                .unwrap()
+                .model_name,
+            "x"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_default_model_none_when_nothing_is_default() {
+        let (_dir, storage) = new_test_storage().await;
+        storage.upsert_note(&note("llama", "plain")).await.unwrap();
+
+        assert!(storage.get_default_model("llama").await.unwrap().is_none());
+        assert!(storage.get_default_model("ollama").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_favorites_are_listed_first() {
+        let (_dir, storage) = new_test_storage().await;
+
+        storage
+            .upsert_note(&note("llama", "plain-1"))
+            .await
+            .unwrap();
+        storage
+            .upsert_note(&note("llama", "plain-2"))
+            .await
+            .unwrap();
+
+        let mut favorite = note("llama", "starred");
+        favorite.is_favorite = true;
+        storage.upsert_note(&favorite).await.unwrap();
+
+        let notes = storage.get_all_notes().await.unwrap();
+        assert_eq!(notes.len(), 3);
+        assert_eq!(notes[0].model_name, "starred");
+        assert!(notes[1..].iter().all(|n| !n.is_favorite));
+    }
+
+    #[tokio::test]
+    async fn test_tags_round_trip_including_empty_and_unicode() {
+        let (_dir, storage) = new_test_storage().await;
+
+        let mut empty_tags = note("llama", "no-tags");
+        empty_tags.tags = Vec::new();
+        let saved = storage.upsert_note(&empty_tags).await.unwrap();
+        assert!(saved.tags.is_empty());
+
+        let mut unicode_tags = note("ollama", "tagged");
+        unicode_tags.tags = vec!["schnell ⚡".to_string(), "日本語".to_string()];
+        let saved = storage.upsert_note(&unicode_tags).await.unwrap();
+        assert_eq!(saved.tags, vec!["schnell ⚡", "日本語"]);
+
+        // And after a fresh read from the DB.
+        let reread = storage.get_note("ollama", "tagged").await.unwrap().unwrap();
+        assert_eq!(reread.tags, vec!["schnell ⚡", "日本語"]);
+    }
+
+    #[tokio::test]
+    async fn test_same_model_name_on_two_platforms_are_separate_rows() {
+        let (_dir, storage) = new_test_storage().await;
+
+        storage.upsert_note(&note("llama", "shared")).await.unwrap();
+        storage
+            .upsert_note(&note("ollama", "shared"))
+            .await
+            .unwrap();
+
+        assert_eq!(storage.get_all_notes().await.unwrap().len(), 2);
+        assert!(storage.get_note("llama", "shared").await.unwrap().is_some());
+        assert!(storage
+            .get_note("ollama", "shared")
+            .await
+            .unwrap()
+            .is_some());
+    }
+
+    #[tokio::test]
+    async fn test_delete_note() {
+        let (_dir, storage) = new_test_storage().await;
+        storage.upsert_note(&note("llama", "doomed")).await.unwrap();
+
+        assert!(storage.delete_note("llama", "doomed").await.unwrap());
+        assert!(storage.get_note("llama", "doomed").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_delete_note_returns_false_when_missing() {
+        let (_dir, storage) = new_test_storage().await;
+        storage
+            .upsert_note(&note("llama", "present"))
+            .await
+            .unwrap();
+
+        // Wrong name, and right name on the wrong platform.
+        assert!(!storage.delete_note("llama", "absent").await.unwrap());
+        assert!(!storage.delete_note("ollama", "present").await.unwrap());
+        assert_eq!(storage.get_all_notes().await.unwrap().len(), 1);
+    }
 }

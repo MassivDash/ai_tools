@@ -155,109 +155,255 @@ pub async fn create_collection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{
+        lock_chroma_endpoint, MockChroma, MockChromaCollection, MockChromaConfig,
+        UNPARSEABLE_CHROMA_ENDPOINT,
+    };
     use actix_web::{test, web, App};
     use std::collections::HashMap;
 
-    #[actix_web::test]
-    async fn test_create_collection_empty_name() {
+    fn post(request: CreateCollectionRequest) -> test::TestRequest {
+        test::TestRequest::post()
+            .uri("/api/chromadb/collections")
+            .set_json(&request)
+    }
+
+    fn named(name: &str) -> CreateCollectionRequest {
+        CreateCollectionRequest {
+            name: name.to_string(),
+            metadata: None,
+            distance_metric: None,
+            embedding_model: None,
+        }
+    }
+
+    /// Names are rejected before a client is ever built, so these cases need no
+    /// server at all - the address is deliberately unusable to prove that.
+    async fn reject(request: CreateCollectionRequest) -> ChromaDBResponse<Collection> {
+        let _guard = lock_chroma_endpoint();
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .app_data(web::Data::new(UNPARSEABLE_CHROMA_ENDPOINT.to_string()))
                 .service(create_collection),
         )
         .await;
 
-        let req = test::TestRequest::post()
-            .uri("/api/chromadb/collections")
-            .set_json(&CreateCollectionRequest {
-                name: "   ".to_string(), // Empty after trim
-                metadata: None,
-                distance_metric: None,
-                embedding_model: None,
-            })
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
+        let resp = test::call_service(&app, post(request).to_request()).await;
         assert_eq!(resp.status().as_u16(), 400);
+        test::read_body_json(resp).await
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_empty_name() {
+        let body = reject(named("   ")).await;
+
+        assert!(!body.success);
+        assert_eq!(body.error.unwrap(), "Collection name cannot be empty");
     }
 
     #[actix_web::test]
     async fn test_create_collection_name_too_long() {
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new("http://localhost:8000".to_string()))
-                .service(create_collection),
-        )
-        .await;
+        let body = reject(named(&"a".repeat(101))).await;
 
-        let long_name = "a".repeat(101); // 101 characters
-
-        let req = test::TestRequest::post()
-            .uri("/api/chromadb/collections")
-            .set_json(&CreateCollectionRequest {
-                name: long_name,
-                metadata: None,
-                distance_metric: None,
-                embedding_model: None,
-            })
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status().as_u16(), 400);
+        assert!(!body.success);
+        assert_eq!(
+            body.error.unwrap(),
+            "Collection name is too long (max 100 characters)"
+        );
     }
 
     #[actix_web::test]
-    #[ignore]
-    async fn test_create_collection_name_sanitization() {
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new("http://localhost:8000".to_string()))
-                .service(create_collection),
-        )
-        .await;
+    async fn test_create_collection_name_of_only_invalid_characters() {
+        // Every character is replaced with '_', and the result is then trimmed
+        // away entirely.
+        let body = reject(named("!!!")).await;
 
-        // Test that names with spaces get sanitized
-        let req = test::TestRequest::post()
-            .uri("/api/chromadb/collections")
-            .set_json(&CreateCollectionRequest {
-                name: "test collection name".to_string(),
-                metadata: None,
-                distance_metric: None,
-                embedding_model: None,
-            })
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        // Should not be 400 (bad request) - sanitization should handle it
-        // It might fail with 500 if ChromaDB is not available, but that's OK
-        assert_ne!(resp.status().as_u16(), 400);
+        assert!(!body.success);
+        assert_eq!(
+            body.error.unwrap(),
+            "Collection name contains only invalid characters"
+        );
     }
 
     #[actix_web::test]
-    #[ignore]
-    async fn test_create_collection_with_metadata() {
+    async fn test_create_collection_accepts_a_name_of_exactly_the_limit() {
+        let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+        let name = "a".repeat(100);
+
+        let guard = lock_chroma_endpoint();
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new("http://localhost:8000".to_string()))
+                .app_data(web::Data::new(chroma.base_url.clone()))
                 .service(create_collection),
         )
         .await;
+        let resp = test::call_service(&app, post(named(&name)).to_request()).await;
 
-        let mut metadata = HashMap::new();
-        metadata.insert("description".to_string(), "test collection".to_string());
+        assert_eq!(resp.status().as_u16(), 200);
+        drop(guard);
+        assert_eq!(chroma.collection_names(), vec![name]);
 
-        let req = test::TestRequest::post()
-            .uri("/api/chromadb/collections")
-            .set_json(&CreateCollectionRequest {
-                name: "test_collection".to_string(),
-                metadata: Some(metadata),
-                distance_metric: None,
-                embedding_model: None,
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_sanitises_the_name_before_sending_it() {
+        let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+
+        let guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(chroma.base_url.clone()))
+                .service(create_collection),
+        )
+        .await;
+        let resp =
+            test::call_service(&app, post(named("  my notes & papers!  ")).to_request()).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        drop(guard);
+
+        // Spaces and punctuation become underscores; leading and trailing
+        // underscores are then trimmed off.
+        assert!(body.success);
+        assert_eq!(body.data.unwrap().name, "my_notes___papers");
+        assert_eq!(
+            chroma.requests()[0].body.as_ref().unwrap()["name"],
+            "my_notes___papers"
+        );
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_folds_the_distance_metric_and_model_into_metadata() {
+        let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+
+        let guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(chroma.base_url.clone()))
+                .service(create_collection),
+        )
+        .await;
+        let resp = test::call_service(
+            &app,
+            post(CreateCollectionRequest {
+                name: "notes".to_string(),
+                metadata: Some(HashMap::from([(
+                    "description".to_string(),
+                    "test collection".to_string(),
+                )])),
+                distance_metric: Some(DistanceMetric::Cosine),
+                embedding_model: Some("nomic-embed-text".to_string()),
             })
-            .to_request();
+            .to_request(),
+        )
+        .await;
 
-        let resp = test::call_service(&app, req).await;
-        // Should not be 400 (bad request)
-        assert_ne!(resp.status().as_u16(), 400);
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        drop(guard);
+
+        let sent = chroma.requests()[0].body.clone().unwrap();
+        assert_eq!(sent["metadata"]["description"], "test collection");
+        assert_eq!(sent["metadata"]["hnsw:space"], "cosine");
+        assert_eq!(sent["metadata"]["embedding_model"], "nomic-embed-text");
+
+        let created = body.data.unwrap();
+        assert_eq!(created.count, Some(0));
+        assert_eq!(created.metadata.as_ref().unwrap()["hnsw:space"], "cosine");
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_maps_each_distance_metric_to_its_wire_name() {
+        for (metric, expected) in [
+            (DistanceMetric::Cosine, "cosine"),
+            (DistanceMetric::L2, "l2"),
+            (DistanceMetric::Ip, "ip"),
+        ] {
+            let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+
+            let guard = lock_chroma_endpoint();
+            let app = test::init_service(
+                App::new()
+                    .app_data(web::Data::new(chroma.base_url.clone()))
+                    .service(create_collection),
+            )
+            .await;
+            let resp = test::call_service(
+                &app,
+                post(CreateCollectionRequest {
+                    name: "notes".to_string(),
+                    metadata: None,
+                    distance_metric: Some(metric),
+                    embedding_model: None,
+                })
+                .to_request(),
+            )
+            .await;
+            assert_eq!(resp.status().as_u16(), 200);
+            drop(guard);
+
+            assert_eq!(
+                chroma.requests()[0].body.as_ref().unwrap()["metadata"]["hnsw:space"],
+                expected
+            );
+
+            chroma.stop().await;
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_reports_a_name_clash_as_500() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![MockChromaCollection::new(
+            "notes",
+        )]))
+        .await;
+
+        let guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(chroma.base_url.clone()))
+                .service(create_collection),
+        )
+        .await;
+        let resp = test::call_service(&app, post(named("notes")).to_request()).await;
+
+        assert_eq!(resp.status().as_u16(), 500);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        drop(guard);
+
+        assert!(!body.success);
+        assert!(body.data.is_none());
+        assert!(body
+            .error
+            .unwrap()
+            .contains("Failed to create collection: Failed to create collection 'notes'"));
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_create_collection_reports_an_unusable_address_as_503() {
+        let _guard = lock_chroma_endpoint();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(UNPARSEABLE_CHROMA_ENDPOINT.to_string()))
+                .service(create_collection),
+        )
+        .await;
+        let resp = test::call_service(&app, post(named("notes")).to_request()).await;
+
+        assert_eq!(resp.status().as_u16(), 503);
+        let body: ChromaDBResponse<Collection> = test::read_body_json(resp).await;
+        assert!(!body.success);
+        assert!(body
+            .error
+            .unwrap()
+            .contains("Failed to connect to ChromaDB"));
     }
 }

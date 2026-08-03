@@ -133,4 +133,55 @@ mod tests {
         // Verify circular links are not included
         assert!(!links.iter().any(|l| l.full_url == "https://example.com/"));
     }
+
+    #[test]
+    fn test_extract_internal_links_invalid_base_url_returns_empty() {
+        let links = extract_internal_links("[Link](/page1)", "not a url");
+        assert!(links.is_empty());
+    }
+
+    #[test]
+    fn test_extract_internal_links_base_path_already_ends_with_slash() {
+        // The base path already ends in '/', so relative links resolve against it
+        // directly instead of having a trailing slash appended.
+        let links = extract_internal_links("[Sub](./sub) [Up](../up)", "https://example.com/docs/");
+
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].full_url, "https://example.com/docs/sub");
+        assert_eq!(links[1].full_url, "https://example.com/up");
+    }
+
+    #[test]
+    fn test_extract_internal_links_skips_mailto_tel_and_anchors() {
+        let markdown = "[Mail](mailto:a@b.com) [Call](tel:+123) [Anchor](#top) [Rel](page.html)";
+        let links = extract_internal_links(markdown, "https://example.com/docs");
+
+        // "page.html" has no leading / ./ ../ so it is not treated as internal either.
+        assert!(links.is_empty());
+    }
+
+    #[test]
+    fn test_extract_internal_links_deduplicates_by_full_url() {
+        let markdown = "[First](/page) [Second](/page) [Third](/other)";
+        let links = extract_internal_links(markdown, "https://example.com");
+
+        assert_eq!(links.len(), 2);
+        // First occurrence wins, so the link text of the duplicate is discarded.
+        assert_eq!(links[0].link_text, "First");
+        assert_eq!(links[1].original, "/other");
+    }
+
+    #[test]
+    fn test_extract_internal_links_preserves_original_path() {
+        let links = extract_internal_links("[Deep](/a/b/c?q=1)", "https://example.com/docs");
+
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].original, "/a/b/c?q=1");
+        assert_eq!(links[0].full_url, "https://example.com/a/b/c?q=1");
+    }
+
+    #[test]
+    fn test_extract_internal_links_no_links_at_all() {
+        assert!(extract_internal_links("plain text, no links", "https://example.com").is_empty());
+    }
 }

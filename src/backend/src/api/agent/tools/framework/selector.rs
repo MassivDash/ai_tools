@@ -97,3 +97,102 @@ impl ToolSelector {
         prompt
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::EchoTool;
+
+    /// A registry holding one echo tool per `(id, tool_type)` pair.
+    fn registry_with(tools: Vec<(&str, ToolType)>) -> Arc<ToolRegistry> {
+        let mut registry = ToolRegistry::new();
+        for (name, tool_type) in tools {
+            registry
+                .register(Arc::new(
+                    EchoTool::new(name, "canned").with_tool_type(tool_type),
+                ))
+                .expect("Registering a test tool should succeed");
+        }
+        Arc::new(registry)
+    }
+
+    #[test]
+    fn an_empty_registry_says_no_tools_are_enabled() {
+        let prompt = ToolSelector::new(Arc::new(ToolRegistry::new())).build_system_prompt();
+
+        assert!(prompt.starts_with("Current Date/Time: "));
+        assert!(prompt.contains("User Default Timezone: Europe/Warsaw"));
+        assert!(prompt.contains("AVAILABLE TOOLS: None (no tools are currently enabled)"));
+        // The tool-specific preambles are all absent.
+        assert!(!prompt.contains("**KNOWLEDGE BASE & RAG ALWAYS:**"));
+        assert!(!prompt.contains("**PAGEINDEX"));
+        assert!(!prompt.contains("THINK FIRST"));
+        // The general guidelines are always appended.
+        assert!(prompt.contains("GUIDELINES:"));
+        assert!(prompt.contains("```json-chart"));
+    }
+
+    #[test]
+    fn registered_tools_are_numbered_with_their_function_descriptions() {
+        let prompt = ToolSelector::new(registry_with(vec![
+            ("first_tool", ToolType::AskHuman),
+            ("second_tool", ToolType::AskHuman),
+        ]))
+        .build_system_prompt();
+
+        assert!(prompt.contains("AVAILABLE TOOLS:\n"));
+        assert!(prompt.contains("THINK FIRST BEFORE USING ANY OTHER TOOLS"));
+        // The registry is a HashMap, so only the numbering and the presence of
+        // both entries is guaranteed, not their order.
+        assert!(prompt.contains("1. "));
+        assert!(prompt.contains("2. "));
+        assert!(prompt.contains("first_tool: A test tool that echoes a canned result"));
+        assert!(prompt.contains("second_tool: A test tool that echoes a canned result"));
+        // Neither RAG preamble applies to these tool types.
+        assert!(!prompt.contains("**KNOWLEDGE BASE & RAG ALWAYS:**"));
+        assert!(!prompt.contains("**PAGEINDEX"));
+    }
+
+    #[test]
+    fn a_chromadb_tool_adds_the_knowledge_base_instructions() {
+        let prompt = ToolSelector::new(registry_with(vec![("kb", ToolType::ChromaDB)]))
+            .build_system_prompt();
+
+        assert!(prompt.contains("**KNOWLEDGE BASE & RAG ALWAYS:**"));
+        assert!(prompt.contains("**Multi-Query Strategy:**"));
+        assert!(prompt.contains("**Deep Dive (REQUIRED):**"));
+        assert!(prompt.contains("**Cite Sources:**"));
+        assert!(!prompt.contains("**PAGEINDEX"));
+    }
+
+    #[test]
+    fn a_pageindex_tool_adds_the_reasoning_navigation_instructions() {
+        let prompt = ToolSelector::new(registry_with(vec![("outline", ToolType::PageIndex)]))
+            .build_system_prompt();
+
+        assert!(prompt.contains("**PAGEINDEX (REASONING-BASED BOOK NAVIGATION):**"));
+        assert!(prompt.contains("**Reason, Don't Match Keywords:**"));
+        assert!(prompt.contains("**Read Before Answering:**"));
+        assert!(!prompt.contains("**KNOWLEDGE BASE & RAG ALWAYS:**"));
+    }
+
+    #[test]
+    fn both_rag_preambles_appear_when_both_tool_types_are_enabled() {
+        let prompt = ToolSelector::new(registry_with(vec![
+            ("kb", ToolType::ChromaDB),
+            ("outline", ToolType::PageIndex),
+        ]))
+        .build_system_prompt();
+
+        let knowledge_base = prompt
+            .find("**KNOWLEDGE BASE & RAG ALWAYS:**")
+            .expect("the knowledge base preamble");
+        let pageindex = prompt
+            .find("**PAGEINDEX (REASONING-BASED BOOK NAVIGATION):**")
+            .expect("the pageindex preamble");
+        let think_first = prompt.find("**THINK FIRST").expect("the think-first line");
+        // Both preambles precede the general "think first" warning.
+        assert!(knowledge_base < pageindex, "{}", prompt);
+        assert!(pageindex < think_first, "{}", prompt);
+    }
+}

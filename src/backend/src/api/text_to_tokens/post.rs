@@ -123,4 +123,74 @@ mod tests {
         assert!(body.token_count > 0);
         assert_eq!(body.character_count, 5); // "Hello" after trim
     }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_error_message_for_empty_text() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: String::new(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"], "Text cannot be empty");
+    }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_counts_characters_and_words() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: "  one two   three\nfour  ".to_string(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: TokenResponse = test::read_body_json(resp).await;
+        // "one two   three\nfour" after trimming.
+        assert_eq!(body.character_count, 20);
+        // Any run of whitespace, including newlines, separates words.
+        assert_eq!(body.word_count, 4);
+        assert!(body.token_count > 0);
+    }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_counts_unicode_characters_not_bytes() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(&TextRequest {
+                text: "héllo 世界".to_string(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: TokenResponse = test::read_body_json(resp).await;
+        // 7 chars but 12 bytes.
+        assert_eq!(body.character_count, 8);
+        assert_eq!(body.word_count, 2);
+    }
+
+    #[actix_web::test]
+    async fn test_convert_text_to_tokens_rejects_a_body_without_the_text_field() {
+        let app = test::init_service(App::new().service(convert_text_to_tokens)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/text-to-tokens")
+            .set_json(serde_json::json!({}))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_client_error());
+    }
 }

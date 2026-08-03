@@ -227,7 +227,11 @@ fn extract_value_from_array(array: &dyn Array, row_idx: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::test_support::{sample_parquet, to_parquet};
     use super::*;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+    use std::sync::Arc;
 
     #[test]
     fn test_process_parquet_file_empty_data() {
@@ -241,5 +245,339 @@ mod tests {
         let invalid_data = b"This is not a parquet file";
         let result = process_parquet_file(invalid_data);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_parquet_file_joins_columns_and_skips_nulls() {
+        let (text, rows) = process_parquet_file(&sample_parquet()).unwrap();
+
+        assert_eq!(rows, 3);
+        // Null cells are dropped; the remaining values in a row are space-joined.
+        assert_eq!(text, "hello world 1\nsecond row\n3\n");
+    }
+
+    #[test]
+    fn test_process_parquet_file_with_zero_rows() {
+        let schema = Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, true)]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(StringArray::from(Vec::<Option<&str>>::new()))],
+        )
+        .unwrap();
+
+        let (text, rows) = process_parquet_file(&to_parquet(&batch)).unwrap();
+
+        assert_eq!(rows, 0);
+        assert!(text.is_empty());
+    }
+
+    #[test]
+    fn test_process_parquet_file_drops_rows_that_are_entirely_blank() {
+        let schema = Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, true)]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(StringArray::from(vec![
+                Some("kept"),
+                None,
+                Some("   "),
+                Some("also kept"),
+            ]))],
+        )
+        .unwrap();
+
+        let (text, rows) = process_parquet_file(&to_parquet(&batch)).unwrap();
+
+        // All four rows are counted, but nulls and whitespace-only cells emit nothing.
+        assert_eq!(rows, 4);
+        assert_eq!(text, "kept\nalso kept\n");
+    }
+
+    #[test]
+    fn test_process_parquet_file_handles_every_supported_column_type() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("s", DataType::Utf8, false),
+            Field::new("ls", DataType::LargeUtf8, false),
+            Field::new("i8", DataType::Int8, false),
+            Field::new("i16", DataType::Int16, false),
+            Field::new("i32", DataType::Int32, false),
+            Field::new("i64", DataType::Int64, false),
+            Field::new("u8", DataType::UInt8, false),
+            Field::new("u16", DataType::UInt16, false),
+            Field::new("u32", DataType::UInt32, false),
+            Field::new("u64", DataType::UInt64, false),
+            Field::new("f32", DataType::Float32, false),
+            Field::new("f64", DataType::Float64, false),
+            Field::new("b", DataType::Boolean, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(vec!["str"])),
+                Arc::new(LargeStringArray::from(vec!["large"])),
+                Arc::new(Int8Array::from(vec![-8i8])),
+                Arc::new(Int16Array::from(vec![-16i16])),
+                Arc::new(Int32Array::from(vec![-32i32])),
+                Arc::new(Int64Array::from(vec![-64i64])),
+                Arc::new(UInt8Array::from(vec![8u8])),
+                Arc::new(UInt16Array::from(vec![16u16])),
+                Arc::new(UInt32Array::from(vec![32u32])),
+                Arc::new(UInt64Array::from(vec![64u64])),
+                Arc::new(Float32Array::from(vec![1.5f32])),
+                Arc::new(Float64Array::from(vec![2.25f64])),
+                Arc::new(BooleanArray::from(vec![true])),
+            ],
+        )
+        .unwrap();
+
+        let (text, rows) = process_parquet_file(&to_parquet(&batch)).unwrap();
+
+        assert_eq!(rows, 1);
+        assert_eq!(text, "str large -8 -16 -32 -64 8 16 32 64 1.5 2.25 true\n");
+    }
+
+    #[test]
+    fn test_extract_value_from_array_falls_back_to_debug_for_unsupported_types() {
+        // Date32 is not one of the handled arrow types, so the debug rendering is used.
+        let array = arrow::array::Date32Array::from(vec![19_000]);
+        let value = extract_value_from_array(&array, 0);
+
+        assert!(!value.is_empty());
+        assert!(value.contains("19000") || value.contains("PrimitiveArray"));
+    }
+}
+
+/// Endpoint-level tests live in their own module: importing `actix_web::test`
+/// shadows the built-in `#[test]` attribute, which the pure-function tests above
+/// rely on.
+#[cfg(test)]
+mod endpoint_tests {
+    use super::test_support::{multipart_body, sample_parquet, to_parquet, BOUNDARY};
+    use super::*;
+    use actix_web::{test, App};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+    use std::sync::Arc;
+
+    #[actix_web::test]
+    async fn test_endpoint_rejects_a_request_with_no_files() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[("other", None, b"ignored")]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"], "No parquet files provided");
+    }
+
+    #[actix_web::test]
+    async fn test_endpoint_ignores_zero_byte_files() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[("files", Some("empty.parquet"), b"")]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_endpoint_streams_the_extracted_text_as_a_download() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+        let parquet = sample_parquet();
+
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[("files", Some("data.parquet"), &parquet)]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        assert_eq!(
+            resp.headers().get("content-type").unwrap(),
+            "text/plain; charset=utf-8"
+        );
+        let disposition = resp
+            .headers()
+            .get("content-disposition")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(disposition.starts_with("attachment; filename=\"imatrix_quantization_data_"));
+        assert!(disposition.ends_with(".txt\""));
+
+        let body = test::read_body(resp).await;
+        assert_eq!(
+            String::from_utf8(body.to_vec()).unwrap(),
+            "hello world 1\nsecond row\n3\n"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_endpoint_concatenates_multiple_files_in_order() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+
+        let schema = Arc::new(Schema::new(vec![Field::new("t", DataType::Utf8, false)]));
+        let first = to_parquet(
+            &RecordBatch::try_new(
+                schema.clone(),
+                vec![Arc::new(StringArray::from(vec!["first file"]))],
+            )
+            .unwrap(),
+        );
+        let second = to_parquet(
+            &RecordBatch::try_new(
+                schema,
+                vec![Arc::new(StringArray::from(vec!["second file"]))],
+            )
+            .unwrap(),
+        );
+
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[
+                ("files", Some("a.parquet"), &first),
+                ("files", Some("b.parquet"), &second),
+            ]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body = String::from_utf8(test::read_body(resp).await.to_vec()).unwrap();
+        assert_eq!(body, "first file\nsecond file\n");
+    }
+
+    #[actix_web::test]
+    async fn test_endpoint_skips_files_without_a_parquet_extension() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+        let parquet = sample_parquet();
+
+        // The .txt file is accepted into the batch but produces no output.
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[
+                ("files", Some("notes.txt"), b"not parquet at all"),
+                ("files", Some("data.parquet"), &parquet),
+            ]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body = String::from_utf8(test::read_body(resp).await.to_vec()).unwrap();
+        assert_eq!(body, "hello world 1\nsecond row\n3\n");
+    }
+
+    #[actix_web::test]
+    async fn test_endpoint_names_a_file_field_without_a_filename() {
+        let app = test::init_service(App::new().service(convert_parquet_to_txt)).await;
+        let parquet = sample_parquet();
+
+        // No filename in the content disposition: the handler synthesizes
+        // "file_0.parquet", which still passes the extension check.
+        let req = test::TestRequest::post()
+            .uri("/api/parquet-to-txt")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(&[("files", None, &parquet)]))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body = String::from_utf8(test::read_body(resp).await.to_vec()).unwrap();
+        assert_eq!(body, "hello world 1\nsecond row\n3\n");
+    }
+}
+
+/// Fixtures shared by the pure-function and endpoint test modules.
+#[cfg(test)]
+mod test_support {
+    use arrow::array::{Int32Array, StringArray};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+    use parquet::arrow::ArrowWriter;
+    use std::sync::Arc;
+
+    pub(super) const BOUNDARY: &str = "----------------parquettest";
+
+    /// Serialize a record batch into an in-memory parquet file.
+    pub(super) fn to_parquet(batch: &RecordBatch) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        let mut writer = ArrowWriter::try_new(&mut buffer, batch.schema(), None).unwrap();
+        writer.write(batch).unwrap();
+        writer.close().unwrap();
+        buffer
+    }
+
+    /// A two-column, three-row parquet file with a null in the middle row.
+    pub(super) fn sample_parquet() -> Vec<u8> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("text", DataType::Utf8, true),
+            Field::new("count", DataType::Int32, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(vec![
+                    Some("hello world"),
+                    Some("second row"),
+                    None,
+                ])),
+                Arc::new(Int32Array::from(vec![Some(1), None, Some(3)])),
+            ],
+        )
+        .unwrap();
+        to_parquet(&batch)
+    }
+
+    pub(super) fn multipart_body(parts: &[(&str, Option<&str>, &[u8])]) -> Vec<u8> {
+        let mut body = Vec::new();
+        for (name, filename, content) in parts {
+            body.extend_from_slice(format!("--{}\r\n", BOUNDARY).as_bytes());
+            match filename {
+                Some(filename) => body.extend_from_slice(
+                    format!(
+                        "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n\
+                         Content-Type: application/octet-stream\r\n\r\n",
+                        name, filename
+                    )
+                    .as_bytes(),
+                ),
+                None => body.extend_from_slice(
+                    format!("Content-Disposition: form-data; name=\"{}\"\r\n\r\n", name).as_bytes(),
+                ),
+            }
+            body.extend_from_slice(content);
+            body.extend_from_slice(b"\r\n");
+        }
+        body.extend_from_slice(format!("--{}--\r\n", BOUNDARY).as_bytes());
+        body
     }
 }

@@ -268,6 +268,235 @@ test('a fully-applied group shows Remove, and removing it un-checks its tools', 
   })
 })
 
+const configGet =
+  (config: Record<string, unknown>, tools: unknown[] = []) =>
+  (url: string) => {
+    if (url === 'agent/config') return Promise.resolve({ data: config })
+    if (url === 'agent/tools') return Promise.resolve({ data: tools })
+    return Promise.resolve({ data: {} })
+  }
+
+const mockTools = [
+  {
+    name: 'Calculator',
+    tool_type: 'calculator',
+    description: 'Perform math',
+    category: 'utility',
+    icon: 'calculator'
+  },
+  {
+    name: 'Web Search',
+    tool_type: 'web_search',
+    description: 'Search the web',
+    category: 'search',
+    icon: 'magnify'
+  }
+]
+
+test('does not load the config while the panel is closed', async () => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+
+  render(AgentConfig as Component, {
+    props: { ...defaultProps, isOpen: false }
+  })
+
+  // ToolsConfigSection still loads the tool list on mount, but the panel
+  // itself must not fetch the config until it is opened.
+  await waitFor(() => expect(mockedAxios.get).toHaveBeenCalled())
+  expect(mockedAxios.get).not.toHaveBeenCalledWith('agent/config')
+})
+
+test('tolerates a config response without enabled_tools and disables Clear All', async () => {
+  mockedAxios.get.mockImplementation(configGet({}))
+
+  render(AgentConfig as Component, { props: defaultProps })
+
+  await waitFor(() =>
+    expect(mockedAxios.get).toHaveBeenCalledWith('agent/config')
+  )
+  expect(screen.getByRole('button', { name: 'Clear All' })).toBeDisabled()
+})
+
+test('logs a failure to load the config', async () => {
+  const failure = new Error('config unavailable')
+  mockedAxios.get.mockImplementation((url: string) => {
+    if (url === 'agent/config') return Promise.reject(failure)
+    return Promise.resolve({ data: [] })
+  })
+
+  render(AgentConfig as Component, { props: defaultProps })
+
+  await waitFor(() => {
+    expect(console.error).toHaveBeenCalledWith(
+      'Failed to load agent config:',
+      failure
+    )
+  })
+})
+
+test('restores the debug logging flag from the backend', async () => {
+  mockedAxios.get.mockImplementation(
+    configGet({ enabled_tools: [], debug_logging: true })
+  )
+
+  render(AgentConfig as Component, { props: defaultProps })
+
+  await waitFor(() => {
+    expect(
+      screen.getByLabelText('Debug Conversation Logging') as HTMLInputElement
+    ).toBeChecked()
+  })
+})
+
+test('toggling a tool on and off is reflected in the saved payload', async () => {
+  // A save is followed by a reload, so the fake backend has to remember what
+  // was posted for the second half of this test to be meaningful.
+  let stored: string[] = ['calculator']
+  mockedAxios.get.mockImplementation((url: string) => {
+    if (url === 'agent/config')
+      return Promise.resolve({ data: { enabled_tools: [...stored] } })
+    if (url === 'agent/tools') return Promise.resolve({ data: mockTools })
+    return Promise.resolve({ data: {} })
+  })
+  mockedAxios.post.mockImplementation((_url: string, payload: any) => {
+    stored = payload.enabled_tools
+    return Promise.resolve({ data: { success: true } })
+  })
+
+  render(AgentConfig as Component, { props: defaultProps })
+
+  await waitFor(() => screen.getByLabelText('Web Search'))
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText('Calculator') as HTMLInputElement
+    ).toBeChecked()
+  )
+
+  // Enable a second tool
+  await fireEvent.click(screen.getByLabelText('Web Search'))
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('agent/config', {
+      enabled_tools: ['calculator', 'web_search'],
+      debug_logging: false
+    })
+  })
+
+  // ...and disable the original one
+  mockedAxios.post.mockClear()
+  await fireEvent.click(screen.getByLabelText('Calculator'))
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('agent/config', {
+      enabled_tools: ['web_search'],
+      debug_logging: false
+    })
+  })
+})
+
+test('saving persists the debug logging checkbox', async () => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+  mockedAxios.post.mockResolvedValue({ data: { success: true } })
+
+  render(AgentConfig as Component, { props: defaultProps })
+
+  await waitFor(() => screen.getByText('Agent Configuration'))
+  await fireEvent.click(screen.getByLabelText('Debug Conversation Logging'))
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('agent/config', {
+      enabled_tools: [],
+      debug_logging: true
+    })
+  })
+})
+
+test('an unsuccessful save shows the returned message and keeps the panel open', async () => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+  mockedAxios.post.mockResolvedValue({
+    data: { success: false, message: 'tool registry is locked' }
+  })
+
+  const onClose = vi.fn()
+  const onSave = vi.fn()
+  render(AgentConfig as Component, {
+    props: { ...defaultProps, onClose, onSave }
+  })
+
+  await waitFor(() => screen.getByText('Agent Configuration'))
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() =>
+    expect(screen.getByText('tool registry is locked')).toBeTruthy()
+  )
+  expect(onClose).not.toHaveBeenCalled()
+  expect(onSave).not.toHaveBeenCalled()
+})
+
+test.each([
+  [
+    'the backend error field',
+    { response: { data: { error: 'bad tool type' } } },
+    'bad tool type'
+  ],
+  [
+    'the backend message field',
+    { response: { data: { message: 'validation failed' } } },
+    'validation failed'
+  ],
+  ['the thrown message', new Error('Network Error'), 'Network Error'],
+  ['a generic fallback', {}, 'Failed to save agent config']
+])('a rejected save surfaces %s', async (_label, rejection, expected) => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+  mockedAxios.post.mockRejectedValue(rejection)
+
+  const onClose = vi.fn()
+  render(AgentConfig as Component, { props: { ...defaultProps, onClose } })
+
+  await waitFor(() => screen.getByText('Agent Configuration'))
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => expect(screen.getByText(expected)).toBeTruthy())
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('a successful save closes the panel and reloads the config', async () => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+  mockedAxios.post.mockResolvedValue({ data: { success: true } })
+
+  const onClose = vi.fn()
+  render(AgentConfig as Component, { props: { ...defaultProps, onClose } })
+
+  await waitFor(() => screen.getByText('Agent Configuration'))
+  const configLoadsBefore = mockedAxios.get.mock.calls.filter(
+    ([url]: [string]) => url === 'agent/config'
+  ).length
+
+  await fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  const configLoadsAfter = mockedAxios.get.mock.calls.filter(
+    ([url]: [string]) => url === 'agent/config'
+  ).length
+  expect(configLoadsAfter).toBe(configLoadsBefore + 1)
+})
+
+test('the close button and Cancel both call onClose', async () => {
+  mockedAxios.get.mockImplementation(configGet({ enabled_tools: [] }))
+  const onClose = vi.fn()
+
+  render(AgentConfig as Component, { props: { ...defaultProps, onClose } })
+
+  await waitFor(() => screen.getByText('Agent Configuration'))
+  await fireEvent.click(screen.getByLabelText('Close'))
+  await fireEvent.click(screen.getByText('Cancel'))
+
+  expect(onClose).toHaveBeenCalledTimes(2)
+})
+
 test('Clear All empties the enabled tools', async () => {
   mockedAxios.get.mockImplementation((url) => {
     if (url === 'agent/config')

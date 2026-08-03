@@ -120,4 +120,65 @@ mod tests {
         // Runs of blank lines collapse to a single blank-line separator
         assert!(!result.contains("\n\n\n\n"));
     }
+
+    #[test]
+    fn test_format_text_as_markdown_exact_output() {
+        // Lines are trimmed, and a run of blank lines becomes a single "\n\n" -
+        // on top of the "\n" the preceding content line already added, which is
+        // why paragraphs come out separated by three newlines.
+        assert_eq!(
+            format_text_as_markdown("  A  \n\n\n  B  \nC"),
+            "A\n\n\nB\nC"
+        );
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_on_blank_input() {
+        assert_eq!(format_text_as_markdown(""), "");
+        assert_eq!(format_text_as_markdown("\n\n\n"), "");
+        assert_eq!(format_text_as_markdown("   \t  "), "");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_single_line_is_unchanged() {
+        assert_eq!(format_text_as_markdown("just one line"), "just one line");
+    }
+
+    #[test]
+    fn test_count_pdf_pages_reports_a_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let err = count_pdf_pages(&dir.path().join("absent.pdf")).unwrap_err();
+
+        // Either pdfinfo is missing entirely, or it ran and rejected the path -
+        // both surface as an error string rather than a panic.
+        assert!(
+            err.starts_with("Failed to execute pdfinfo:") || err.starts_with("pdfinfo failed:"),
+            "unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_count_pdf_pages_reports_a_file_that_is_not_a_pdf() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("not.pdf");
+        std::fs::write(&path, b"definitely not a PDF").unwrap();
+
+        let err = count_pdf_pages(&path).unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn test_extract_pdf_text_rejects_data_that_is_not_a_pdf() {
+        let err = extract_pdf_text(b"definitely not a PDF", None).unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn test_extract_pdf_text_rejects_a_page_range_over_invalid_data() {
+        // The page range only adds -f/-l flags; invalid input still fails.
+        let err = extract_pdf_text(b"not a pdf", Some((2, 5))).unwrap_err();
+        assert!(!err.is_empty());
+    }
 }

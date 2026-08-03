@@ -272,3 +272,79 @@ test('handles connection errors gracefully', () => {
   // Restore
   global.WebSocket = originalWebSocket
 })
+
+test('a second close while a reconnect is already pending replaces rather than stacks the timer', async () => {
+  const onOpen = vi.fn()
+  const onClose = vi.fn()
+  const options: WebSocketOptions = {
+    url: 'ws://localhost:8080',
+    onOpen,
+    onClose,
+    reconnectInterval: 40
+  }
+
+  const ws = useWebSocket(options)
+  ws.connect()
+
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(onOpen).toHaveBeenCalledTimes(1)
+
+  const socket = ws.socket
+  // Two closes in a row, both landing before the 40ms reconnect fires.
+  socket?.close()
+  await new Promise((resolve) => setTimeout(resolve, 5))
+  socket?.close()
+  await new Promise((resolve) => setTimeout(resolve, 5))
+
+  expect(onClose).toHaveBeenCalledTimes(2)
+  // The second close must have cleared the first pending timer...
+  expect(clearTimeout).toHaveBeenCalled()
+
+  await new Promise((resolve) => setTimeout(resolve, 80))
+
+  // ...so only ONE reconnect happens, not one per close event.
+  expect(onOpen).toHaveBeenCalledTimes(2)
+})
+
+test('disconnect cancels the reconnect scheduled by an earlier close', async () => {
+  const onOpen = vi.fn()
+  const options: WebSocketOptions = {
+    url: 'ws://localhost:8080',
+    onOpen,
+    reconnectInterval: 40
+  }
+
+  const ws = useWebSocket(options)
+  ws.connect()
+
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(onOpen).toHaveBeenCalledTimes(1)
+
+  // Close so a reconnect is queued, then disconnect before it fires.
+  ws.socket?.close()
+  await new Promise((resolve) => setTimeout(resolve, 5))
+
+  ws.disconnect()
+  expect(ws.socket).toBe(null)
+
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  // Known behaviour: disconnect() clears the queued reconnect, but its own
+  // ws.close() re-fires onclose, which queues a fresh one — so exactly one
+  // reconnect happens. Without the clear in disconnect() there would be two.
+  expect(onOpen).toHaveBeenCalledTimes(2)
+})
+
+test('disconnect is idempotent and safe before any connect', () => {
+  const onOpen = vi.fn()
+  const ws = useWebSocket({ url: 'ws://localhost:8080', onOpen })
+
+  expect(() => {
+    ws.disconnect()
+    ws.disconnect()
+  }).not.toThrow()
+
+  expect(ws.socket).toBe(null)
+  expect(ws.isConnected).toBe(false)
+  expect(onOpen).not.toHaveBeenCalled()
+})

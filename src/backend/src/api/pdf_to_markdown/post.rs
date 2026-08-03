@@ -277,4 +277,138 @@ mod tests {
         // Should return an error for invalid PDF
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_format_text_as_markdown_trims_leading_and_trailing_blank_lines() {
+        assert_eq!(format_text_as_markdown("\n\n  body  \n\n"), "body");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_collapses_runs_of_blank_lines() {
+        // A run of blank lines emits a single "\n\n", but the preceding content
+        // line already contributed its own trailing "\n", so paragraphs end up
+        // separated by three newlines rather than two.
+        assert_eq!(format_text_as_markdown("a\n\n\n\n\nb"), "a\n\n\nb");
+        assert_eq!(format_text_as_markdown("a\n\nb"), "a\n\n\nb");
+    }
+
+    #[test]
+    fn test_format_text_as_markdown_trims_each_line_independently() {
+        let markdown = format_text_as_markdown("   indented\n\t\ttabbed   ");
+        assert_eq!(markdown, "indented\ntabbed");
+    }
+}
+
+/// Endpoint-level tests live in their own module: importing `actix_web::test`
+/// shadows the built-in `#[test]` attribute used by the tests above.
+///
+/// These cover the request-validation paths only. Anything past validation calls
+/// out to the `pdftotext` binary, which is deliberately left alone here.
+#[cfg(test)]
+mod endpoint_tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    const BOUNDARY: &str = "----------------pdftest";
+
+    fn multipart_body(parts: &[(&str, Option<&str>, &[u8])]) -> Vec<u8> {
+        let mut body = Vec::new();
+        for (name, filename, content) in parts {
+            body.extend_from_slice(format!("--{}\r\n", BOUNDARY).as_bytes());
+            match filename {
+                Some(filename) => body.extend_from_slice(
+                    format!(
+                        "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n\
+                         Content-Type: application/octet-stream\r\n\r\n",
+                        name, filename
+                    )
+                    .as_bytes(),
+                ),
+                None => body.extend_from_slice(
+                    format!("Content-Disposition: form-data; name=\"{}\"\r\n\r\n", name).as_bytes(),
+                ),
+            }
+            body.extend_from_slice(content);
+            body.extend_from_slice(b"\r\n");
+        }
+        body.extend_from_slice(format!("--{}--\r\n", BOUNDARY).as_bytes());
+        body
+    }
+
+    async fn post(parts: &[(&str, Option<&str>, &[u8])]) -> (u16, serde_json::Value) {
+        let app = test::init_service(App::new().service(convert_pdf_to_markdown)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/pdf-to-markdown")
+            .insert_header((
+                "content-type",
+                format!("multipart/form-data; boundary={}", BOUNDARY),
+            ))
+            .set_payload(multipart_body(parts))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        let status = resp.status().as_u16();
+        (status, test::read_body_json(resp).await)
+    }
+
+    #[actix_web::test]
+    async fn test_no_file_field_is_rejected() {
+        let (status, body) = post(&[("count_tokens", None, b"false")]).await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "No file provided");
+    }
+
+    #[actix_web::test]
+    async fn test_form_whose_only_field_is_not_a_file_is_rejected() {
+        let (status, body) = post(&[("metadata", None, b"{}")]).await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "No file provided");
+    }
+
+    #[actix_web::test]
+    async fn test_zero_byte_file_is_rejected() {
+        let (status, body) = post(&[("file", Some("empty.pdf"), b"")]).await;
+
+        // Distinct from "No file provided": the field was there but carried nothing.
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "No file data received");
+    }
+
+    #[actix_web::test]
+    async fn test_non_pdf_filename_is_rejected() {
+        let (status, body) = post(&[("file", Some("notes.txt"), b"some text")]).await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "File must be a PDF");
+    }
+
+    #[actix_web::test]
+    async fn test_count_tokens_field_is_parsed_before_validation_fails() {
+        // Exercises the count_tokens branch of the multipart loop; the request
+        // still fails validation because the file is not a PDF.
+        for flag in ["true", "TRUE", "1", "false", "0", "nonsense"] {
+            let (status, body) = post(&[
+                ("count_tokens", None, flag.as_bytes()),
+                ("file", Some("notes.md"), b"# heading"),
+            ])
+            .await;
+
+            assert_eq!(status, 400, "flag {} should not change validation", flag);
+            assert_eq!(body["error"], "File must be a PDF");
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_unknown_fields_are_ignored() {
+        let (status, body) = post(&[
+            ("unexpected", None, b"whatever"),
+            ("file", Some("doc.docx"), b"binary"),
+        ])
+        .await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "File must be a PDF");
+    }
 }

@@ -397,3 +397,103 @@ test('selected state updates when selectedKey prop changes', async () => {
     expect(bananaItem).toHaveClass('selected')
   })
 })
+
+test('renders the empty message when the items prop is omitted entirely', () => {
+  // Exercises the `items = []` default rather than an explicitly-passed [].
+  render(SearchableList)
+
+  expect(screen.getByText('No items found')).toBeTruthy()
+  expect(screen.queryByRole('list')).not.toBeInTheDocument()
+})
+
+test('renders a star icon only for favorite items', () => {
+  const { container } = render(SearchableList, {
+    props: {
+      items: mockItems,
+      getItemFavorite: (item: { name: string }) => item.name === 'Banana'
+    }
+  })
+
+  const bananaRow = screen.getByText('Banana').closest('button')
+  const appleRow = screen.getByText('Apple').closest('button')
+
+  expect(bananaRow?.querySelector('.favorite-icon')).toBeTruthy()
+  expect(appleRow?.querySelector('.favorite-icon')).toBeNull()
+  expect(container.querySelectorAll('.favorite-icon')).toHaveLength(1)
+})
+
+test('renders one tag chip per tag and omits the block for empty tag lists', () => {
+  render(SearchableList, {
+    props: {
+      items: mockItems,
+      getItemTags: (item: { name: string }) =>
+        item.name === 'Apple' ? ['red', 'sweet'] : []
+    }
+  })
+
+  const appleRow = screen.getByText('Apple').closest('button')
+  const tags = Array.from(appleRow!.querySelectorAll('.tag')).map(
+    (t) => t.textContent
+  )
+  expect(tags).toEqual(['red', 'sweet'])
+
+  const bananaRow = screen.getByText('Banana').closest('button')
+  expect(bananaRow?.querySelector('.item-tags')).toBeNull()
+})
+
+test('does not render tag markup when getItemTags is not supplied', () => {
+  const { container } = render(SearchableList, {
+    props: { items: mockItems }
+  })
+
+  expect(container.querySelector('.item-tags')).toBeNull()
+})
+
+test('renders notes only for items that have a non-empty note', () => {
+  render(SearchableList, {
+    props: {
+      items: mockItems,
+      getItemNotes: (item: { name: string }) =>
+        item.name === 'Carrot' ? 'needs peeling' : ''
+    }
+  })
+
+  const carrotRow = screen.getByText('Carrot').closest('button')
+  expect(carrotRow?.querySelector('.item-notes')?.textContent).toBe(
+    'needs peeling'
+  )
+
+  const dogRow = screen.getByText('Dog').closest('button')
+  expect(dogRow?.querySelector('.item-notes')).toBeNull()
+})
+
+test('does not render note markup when getItemNotes is not supplied', () => {
+  const { container } = render(SearchableList, {
+    props: { items: mockItems }
+  })
+
+  expect(container.querySelector('.item-notes')).toBeNull()
+})
+
+test('tags and notes survive filtering and stay attached to the matching row', async () => {
+  render(SearchableList, {
+    props: {
+      items: mockItems,
+      getItemTags: () => ['tagged'],
+      getItemNotes: (item: { name: string }) => `note for ${item.name}`
+    }
+  })
+
+  const searchInput = screen.getByPlaceholderText('Search...')
+  await fireEvent.input(searchInput, { target: { value: 'carrot' } })
+
+  await waitFor(() => {
+    expect(screen.queryByText('Apple')).not.toBeInTheDocument()
+  })
+
+  const carrotRow = screen.getByText('Carrot').closest('button')
+  expect(carrotRow?.querySelector('.tag')?.textContent).toBe('tagged')
+  expect(carrotRow?.querySelector('.item-notes')?.textContent).toBe(
+    'note for Carrot'
+  )
+})

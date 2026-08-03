@@ -124,6 +124,22 @@ impl WebSocketState {
     }
 }
 
+/// Snapshots the buffered log entries in the shape the WebSocket protocol uses.
+fn snapshot_logs(log_buffer: &LogBuffer) -> Vec<LogLine> {
+    let buffer = log_buffer.lock().unwrap();
+    buffer
+        .iter()
+        .map(|entry| LogLine {
+            timestamp: entry.timestamp,
+            line: entry.line.clone(),
+            source: match entry.source {
+                LogSource::Stdout => "stdout".to_string(),
+                LogSource::Stderr => "stderr".to_string(),
+            },
+        })
+        .collect()
+}
+
 // Helper function to get status
 fn get_status(
     process: &web::Data<ProcessHandle>,
@@ -179,20 +195,7 @@ pub async fn logs_ws(
     let mut session_sender = session.clone();
 
     // Send initial logs batch
-    let logs: Vec<LogLine> = {
-        let buffer = state.log_buffer.lock().unwrap();
-        buffer
-            .iter()
-            .map(|entry| LogLine {
-                timestamp: entry.timestamp,
-                line: entry.line.clone(),
-                source: match entry.source {
-                    LogSource::Stdout => "stdout".to_string(),
-                    LogSource::Stderr => "stderr".to_string(),
-                },
-            })
-            .collect()
-    };
+    let logs = snapshot_logs(&state.log_buffer);
 
     if !logs.is_empty() {
         let message = serde_json::to_string(&WebSocketMessage::LogsBatch { logs }).unwrap();
@@ -295,4 +298,294 @@ pub async fn status_websocket(
     let state_clone = state.clone();
     actix_rt::spawn(status_ws(state_clone, session, msg_stream));
     Ok(res)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::llama_server::types::{LogEntry, ServerState};
+    use std::collections::VecDeque;
+    use std::process::{Command, Stdio};
+    use tokio::sync::mpsc::UnboundedReceiver;
+
+    /// A trivially cheap, short-lived process, used only so the status helper has
+    /// a real live `Child` to inspect. Never `llama-server`.
+    fn spawn_harmless_child(seconds: &str) -> std::process::Child {
+        Command::new("sleep")
+            .arg(seconds)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("`sleep` must be available to run these tests")
+    }
+
+    struct Fixture {
+        state: WebSocketState,
+        log_buffer: LogBuffer,
+        process: web::Data<ProcessHandle>,
+        server_state: ServerStateHandle,
+    }
+
+    fn fixture() -> Fixture {
+        let log_buffer: LogBuffer = Arc::new(Mutex::new(VecDeque::new()));
+        let process = ProcessHandle(Arc::new(Mutex::new(None)));
+        let server_state: ServerStateHandle = Arc::new(Mutex::new(ServerState {
+            is_ready: false,
+            generation: 0,
+        }));
+        let process_data = web::Data::new(process.clone());
+
+        Fixture {
+            state: WebSocketState::new(
+                web::Data::new(log_buffer.clone()),
+                process_data.clone(),
+                web::Data::new(server_state.clone()),
+            ),
+            log_buffer,
+            process: process_data,
+            server_state,
+        }
+    }
+
+    fn drain(rx: &mut UnboundedReceiver<String>) -> Vec<serde_json::Value> {
+        let mut out = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            out.push(serde_json::from_str(&msg).unwrap());
+        }
+        out
+    }
+
+    fn log_line(line: &str) -> LogLine {
+        LogLine {
+            timestamp: 1700000000,
+            line: line.to_string(),
+            source: "stdout".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_new_starts_with_no_registered_clients() {
+        let f = fixture();
+
+        assert!(f.state.logs_clients.lock().unwrap().is_empty());
+        assert!(f.state.status_clients.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_logs_clients_are_registered_and_removed_by_id() {
+        let f = fixture();
+        let (tx_a, _rx_a) = mpsc::unbounded_channel();
+        let (tx_b, _rx_b) = mpsc::unbounded_channel();
+
+        f.state.add_logs_client("a".to_string(), tx_a);
+        f.state.add_logs_client("b".to_string(), tx_b);
+        assert_eq!(f.state.logs_clients.lock().unwrap().len(), 2);
+
+        f.state.remove_logs_client("a");
+        let clients = f.state.logs_clients.lock().unwrap();
+        assert_eq!(clients.len(), 1);
+        assert!(clients.contains_key("b"));
+    }
+
+    #[test]
+    fn test_removing_an_unknown_logs_client_is_a_no_op() {
+        let f = fixture();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        f.state.add_logs_client("a".to_string(), tx);
+
+        f.state.remove_logs_client("does-not-exist");
+
+        assert_eq!(f.state.logs_clients.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_re_adding_the_same_logs_client_id_replaces_the_sender() {
+        let f = fixture();
+        let (tx_old, mut rx_old) = mpsc::unbounded_channel();
+        let (tx_new, mut rx_new) = mpsc::unbounded_channel();
+        f.state.add_logs_client("same".to_string(), tx_old);
+        f.state.add_logs_client("same".to_string(), tx_new);
+
+        f.state.broadcast_log(log_line("hello"));
+
+        assert_eq!(f.state.logs_clients.lock().unwrap().len(), 1);
+        assert!(drain(&mut rx_old).is_empty());
+        assert_eq!(drain(&mut rx_new).len(), 1);
+    }
+
+    #[test]
+    fn test_status_clients_are_registered_and_removed_by_id() {
+        let f = fixture();
+        let (tx, _rx) = mpsc::unbounded_channel();
+
+        f.state.add_status_client("s1".to_string(), tx);
+        assert_eq!(f.state.status_clients.lock().unwrap().len(), 1);
+
+        f.state.remove_status_client("s1");
+        assert!(f.state.status_clients.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_broadcast_log_reaches_every_logs_client() {
+        let f = fixture();
+        let (tx_a, mut rx_a) = mpsc::unbounded_channel();
+        let (tx_b, mut rx_b) = mpsc::unbounded_channel();
+        f.state.add_logs_client("a".to_string(), tx_a);
+        f.state.add_logs_client("b".to_string(), tx_b);
+
+        f.state.broadcast_log(LogLine {
+            timestamp: 42,
+            line: "loading model".to_string(),
+            source: "stderr".to_string(),
+        });
+
+        for rx in [&mut rx_a, &mut rx_b] {
+            let msgs = drain(rx);
+            assert_eq!(msgs.len(), 1);
+            assert_eq!(msgs[0]["type"], "log");
+            assert_eq!(msgs[0]["log"]["timestamp"], 42);
+            assert_eq!(msgs[0]["log"]["line"], "loading model");
+            assert_eq!(msgs[0]["log"]["source"], "stderr");
+        }
+    }
+
+    #[test]
+    fn test_broadcast_log_does_not_reach_status_clients() {
+        let f = fixture();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        f.state.add_status_client("s1".to_string(), tx);
+
+        f.state.broadcast_log(log_line("hello"));
+
+        assert!(drain(&mut rx).is_empty());
+    }
+
+    #[test]
+    fn test_broadcast_log_tolerates_a_dropped_receiver() {
+        let f = fixture();
+        let (tx_dead, rx_dead) = mpsc::unbounded_channel();
+        let (tx_live, mut rx_live) = mpsc::unbounded_channel();
+        f.state.add_logs_client("dead".to_string(), tx_dead);
+        f.state.add_logs_client("live".to_string(), tx_live);
+        drop(rx_dead);
+
+        f.state.broadcast_log(log_line("still delivered"));
+
+        assert_eq!(drain(&mut rx_live).len(), 1);
+        // The dead client is not evicted, only skipped.
+        assert_eq!(f.state.logs_clients.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_broadcast_status_reaches_every_status_client() {
+        let f = fixture();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        f.state.add_status_client("s1".to_string(), tx);
+
+        f.state.broadcast_status(true, 8099);
+
+        let msgs = drain(&mut rx);
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0]["type"], "status");
+        assert_eq!(msgs[0]["active"], true);
+        assert_eq!(msgs[0]["port"], 8099);
+    }
+
+    #[test]
+    fn test_broadcast_with_no_clients_is_harmless() {
+        let f = fixture();
+
+        f.state.broadcast_log(log_line("nobody listening"));
+        f.state.broadcast_status(false, 8080);
+
+        assert!(f.state.logs_clients.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_logs_batch_message_serialises_as_a_tagged_envelope() {
+        let json = serde_json::to_value(WebSocketMessage::LogsBatch {
+            logs: vec![log_line("first"), log_line("second")],
+        })
+        .unwrap();
+
+        assert_eq!(json["type"], "logs_batch");
+        assert_eq!(json["logs"].as_array().unwrap().len(), 2);
+        assert_eq!(json["logs"][1]["line"], "second");
+    }
+
+    #[test]
+    fn test_snapshot_logs_maps_the_buffer_and_labels_both_sources() {
+        let f = fixture();
+        {
+            let mut buffer = f.log_buffer.lock().unwrap();
+            buffer.push_back(LogEntry {
+                timestamp: 1,
+                line: "out".to_string(),
+                source: LogSource::Stdout,
+            });
+            buffer.push_back(LogEntry {
+                timestamp: 2,
+                line: "err".to_string(),
+                source: LogSource::Stderr,
+            });
+        }
+
+        let snapshot = snapshot_logs(&f.log_buffer);
+
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(snapshot[0].source, "stdout");
+        assert_eq!(snapshot[0].line, "out");
+        assert_eq!(snapshot[1].source, "stderr");
+        assert_eq!(snapshot[1].timestamp, 2);
+    }
+
+    #[test]
+    fn test_snapshot_logs_of_an_empty_buffer_is_empty() {
+        let f = fixture();
+
+        assert!(snapshot_logs(&f.log_buffer).is_empty());
+    }
+
+    #[test]
+    fn test_get_status_is_inactive_without_a_managed_process() {
+        let f = fixture();
+
+        let status = get_status(&f.process, &web::Data::new(f.server_state.clone()));
+
+        assert!(!status.active);
+        assert_eq!(status.port, 8080);
+    }
+
+    #[test]
+    fn test_get_status_is_active_for_a_live_process_that_reported_ready() {
+        let f = fixture();
+        *f.process.lock().unwrap() = Some(spawn_harmless_child("5"));
+        f.server_state.lock().unwrap().is_ready = true;
+
+        let status = get_status(&f.process, &web::Data::new(f.server_state.clone()));
+
+        assert!(status.active);
+
+        if let Some(child) = f.process.lock().unwrap().as_mut() {
+            let _ = child.kill();
+            let _ = child.wait();
+        };
+    }
+
+    #[test]
+    fn test_get_status_clears_the_handle_once_the_process_has_exited() {
+        let f = fixture();
+        let mut child = spawn_harmless_child("0");
+        let _ = child.wait();
+        *f.process.lock().unwrap() = Some(child);
+        f.server_state.lock().unwrap().is_ready = true;
+
+        let status = get_status(&f.process, &web::Data::new(f.server_state.clone()));
+
+        assert!(!status.active);
+        assert!(
+            f.process.lock().unwrap().is_none(),
+            "an exited process should be cleared from the handle"
+        );
+    }
 }

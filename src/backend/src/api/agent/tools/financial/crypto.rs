@@ -6,11 +6,17 @@ use reqwest;
 use serde_json::json;
 use std::env;
 
+/// The real Alpha Vantage query endpoint, used unless a test overrides it.
+const ALPHA_VANTAGE_URL: &str = "https://www.alphavantage.co/query";
+
 /// Crypto tool for fetching exchange rates and crypto history from Alpha Vantage API
 pub struct CryptoTool {
     metadata: ToolMetadata,
     client: reqwest::Client,
     api_key: Option<String>,
+    /// Query endpoint to talk to. Always the real Alpha Vantage one in
+    /// production; tests point it at a loopback mock instead.
+    base_url: String,
 }
 
 impl CryptoTool {
@@ -28,6 +34,19 @@ impl CryptoTool {
             },
             client: reqwest::Client::new(),
             api_key,
+            base_url: ALPHA_VANTAGE_URL.to_string(),
+        }
+    }
+
+    /// A tool with a canned API key pointed at `base_url` instead of the real
+    /// Alpha Vantage endpoint, so the request/response handling can be driven
+    /// without either the network or the `ALPHA_ADVANTAGE_KEY` env var.
+    #[cfg(test)]
+    pub(crate) fn with_base_url(base_url: impl Into<String>, api_key: Option<&str>) -> Self {
+        Self {
+            api_key: api_key.map(|key| key.to_string()),
+            base_url: base_url.into(),
+            ..Self::new()
         }
     }
 
@@ -43,7 +62,7 @@ impl CryptoTool {
             .as_ref()
             .context("ALPHA_ADVANTAGE_KEY environment variable not set")?;
 
-        let base_url = "https://www.alphavantage.co/query";
+        let base_url = &self.base_url;
         let mut url = format!("{}?function={}&apikey={}", base_url, function, api_key);
 
         if function == "CURRENCY_EXCHANGE_RATE" {
@@ -400,5 +419,441 @@ impl AgentTool for CryptoTool {
 
     fn is_available(&self) -> bool {
         self.api_key.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    /// Alpha Vantage's single endpoint, relative to the mock's root. Using the
+    /// real path shape means the recorded request is directly comparable to what
+    /// the live API would have received.
+    const QUERY_PATH: &str = "/query";
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_crypto".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "crypto_data".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    /// A tool talking to `api`, with a canned key so no env var is involved.
+    fn tool_for(api: &MockHttpApi) -> CryptoTool {
+        CryptoTool::with_base_url(api.url(QUERY_PATH), Some("test-key"))
+    }
+
+    fn exchange_rate_body() -> serde_json::Value {
+        json!({
+            "Realtime Currency Exchange Rate": {
+                "1. From_Currency Code": "BTC",
+                "2. From_Currency Name": "Bitcoin",
+                "3. To_Currency Code": "USD",
+                "4. To_Currency Name": "United States Dollar",
+                "5. Exchange Rate": "64000.10000000",
+                "6. Last Refreshed": "2026-08-03 12:00:00",
+                "8. Bid Price": "63999.00000000",
+                "9. Ask Price": "64001.00000000"
+            }
+        })
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_crypto_tool() {
+        let tool = CryptoTool::new();
+        assert_eq!(tool.metadata().id, "7");
+        assert_eq!(tool.metadata().category, ToolCategory::Financial);
+        assert_eq!(tool.metadata().tool_type, ToolType::Crypto);
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "crypto_data");
+        assert_eq!(
+            def["parameters"]["required"],
+            json!(["from_currency", "to_currency"])
+        );
+        assert_eq!(
+            def["parameters"]["properties"]["function"]["default"],
+            "CURRENCY_EXCHANGE_RATE"
+        );
+    }
+
+    #[test]
+    fn availability_follows_the_api_key() {
+        assert!(CryptoTool::with_base_url("http://unused", Some("k")).is_available());
+        assert!(!CryptoTool::with_base_url("http://unused", None).is_available());
+    }
+
+    #[tokio::test]
+    async fn exchange_rate_sends_currency_pair_and_formats_the_rate() {
+        let api =
+            MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(exchange_rate_body())).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"from_currency": "btc", "to_currency": "usd"}"#,
+            ))
+            .await
+            .expect("The exchange rate call should succeed");
+
+        // Exactly the query Alpha Vantage's CURRENCY_EXCHANGE_RATE expects, with
+        // both codes upper-cased by execute().
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, QUERY_PATH);
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("function".to_string(), "CURRENCY_EXCHANGE_RATE".to_string()),
+                ("apikey".to_string(), "test-key".to_string()),
+                ("from_currency".to_string(), "BTC".to_string()),
+                ("to_currency".to_string(), "USD".to_string()),
+            ]
+        );
+        assert_eq!(request.header("user-agent"), Some("ai_tools/1.0"));
+
+        assert_eq!(result.tool_name, "crypto_data");
+        assert!(result.tool_call_id.is_none());
+        assert!(result
+            .result
+            .contains("Exchange Rate: BTC (Bitcoin) to USD (United States Dollar)"));
+        assert!(result.result.contains("Rate: 64000.10000000"));
+        assert!(result
+            .result
+            .contains("Last Refreshed: 2026-08-03 12:00:00"));
+        assert!(result.result.contains("Bid: 63999.00000000"));
+        assert!(result.result.contains("Ask: 64001.00000000"));
+
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn exchange_rate_with_unrecognised_body_says_so() {
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(json!({}))).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect("An empty body is not an error, just unformattable");
+
+        assert_eq!(result.result, "No exchange rate data found in response.\n");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn daily_series_sends_symbol_and_market_and_honours_the_limit() {
+        let body = json!({
+            "Meta Data": {
+                "2. Digital Currency Code": "BTC",
+                "3. Digital Currency Name": "Bitcoin",
+                "4. Market Code": "EUR",
+                "6. Last Refreshed": "2026-08-03 00:00:00"
+            },
+            "Time Series (Digital Currency Daily)": {
+                "2026-08-01": {"1a. open (EUR)": "1.0", "2a. high (EUR)": "1.5", "3a. low (EUR)": "0.5", "4a. close (EUR)": "1.2", "5. volume": "100"},
+                "2026-08-02": {"1a. open (EUR)": "2.0", "2a. high (EUR)": "2.5", "3a. low (EUR)": "1.5", "4a. close (EUR)": "2.2", "5. volume": "200"},
+                "2026-08-03": {"1a. open (EUR)": "3.0", "2a. high (EUR)": "3.5", "3a. low (EUR)": "2.5", "4a. close (EUR)": "3.2", "5. volume": "300"}
+            }
+        });
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(body)).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"function": "DIGITAL_CURRENCY_DAILY", "from_currency": "btc", "to_currency": "eur", "limit": 2}"#,
+            ))
+            .await
+            .expect("The daily series call should succeed");
+
+        // Historical functions use symbol/market, not from_currency/to_currency.
+        let request = api.only_request();
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("function".to_string(), "DIGITAL_CURRENCY_DAILY".to_string()),
+                ("apikey".to_string(), "test-key".to_string()),
+                ("symbol".to_string(), "BTC".to_string()),
+                ("market".to_string(), "EUR".to_string()),
+            ]
+        );
+
+        assert!(result
+            .result
+            .contains("Crypto Data for BTC (Bitcoin) in EUR"));
+        assert!(result.result.contains("Recent 2 entries (Chronological):"));
+        // The two most recent entries, oldest first, and the third dropped.
+        let second = result
+            .result
+            .find("**2026-08-02**")
+            .expect("2026-08-02 shown");
+        let third = result
+            .result
+            .find("**2026-08-03**")
+            .expect("2026-08-03 shown");
+        assert!(
+            second < third,
+            "Entries must be chronological: {}",
+            result.result
+        );
+        assert!(!result.result.contains("2026-08-01"));
+        assert!(result.result.contains("_...and 1 more entries available_"));
+        assert!(result
+            .result
+            .contains("Open: 2.0 EUR | High: 2.5 | Low: 1.5 | Close: 2.2 | Vol: 200"));
+
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn series_falls_back_to_usd_then_plain_keys_when_market_keys_are_absent() {
+        // Alpha Vantage has shipped all three of these shapes; the formatter is
+        // meant to degrade from "(MARKET)" to "(USD)" to bare "1. open".
+        let body = json!({
+            "Time Series (Digital Currency Weekly)": {
+                "2026-07-27": {"1a. open (USD)": "9.0", "2a. high (USD)": "9.5", "3a. low (USD)": "8.5", "4a. close (USD)": "9.2"},
+                "2026-08-03": {"1. open": "7.0", "2. high": "7.5", "3. low": "6.5", "4. close": "7.2"}
+            }
+        });
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(body)).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"function": "DIGITAL_CURRENCY_WEEKLY", "from_currency": "BTC", "to_currency": "PLN"}"#,
+            ))
+            .await
+            .expect("The weekly series call should succeed");
+
+        assert!(result
+            .result
+            .contains("Open: 9.0 PLN | High: 9.5 | Low: 8.5 | Close: 9.2 | Vol: N/A"));
+        assert!(result
+            .result
+            .contains("Open: 7.0 PLN | High: 7.5 | Low: 6.5 | Close: 7.2 | Vol: N/A"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn limit_zero_shows_every_entry() {
+        let body = json!({
+            "Time Series (Digital Currency Monthly)": {
+                "2026-06-30": {"1. open": "1.0"},
+                "2026-07-31": {"1. open": "2.0"}
+            }
+        });
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(body)).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"function": "DIGITAL_CURRENCY_MONTHLY", "from_currency": "BTC", "to_currency": "USD", "limit": 0}"#,
+            ))
+            .await
+            .expect("The monthly series call should succeed");
+
+        assert!(result.result.contains("Recent 2 entries"));
+        assert!(!result.result.contains("more entries available"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn missing_time_series_says_so() {
+        let api = MockHttpApi::serving(
+            "GET",
+            QUERY_PATH,
+            MockResponse::json(json!({"Meta Data": {"2. Digital Currency Code": "BTC"}})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"function": "DIGITAL_CURRENCY_DAILY", "from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect("A metadata-only body is not an error");
+
+        assert!(result.result.contains("No time series data found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn http_error_status_is_reported_with_body() {
+        let api = MockHttpApi::serving(
+            "GET",
+            QUERY_PATH,
+            MockResponse::error(503, "upstream unavailable"),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect_err("A 503 must fail the call");
+
+        let message = error.to_string();
+        assert!(message.contains("503"), "{}", message);
+        assert!(message.contains("upstream unavailable"), "{}", message);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn api_level_error_message_is_surfaced() {
+        let api = MockHttpApi::serving(
+            "GET",
+            QUERY_PATH,
+            MockResponse::json(json!({"Error Message": "Invalid API call"})),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect_err("A 200 carrying Error Message must still fail");
+
+        assert_eq!(
+            error.to_string(),
+            "Alpha Vantage API error: Invalid API call"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn rate_limit_note_fails_but_other_notes_do_not() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            QUERY_PATH,
+            vec![
+                MockResponse::json(json!({"Note": "Thank you for using Alpha Vantage! Our standard API rate limit is 25 requests per day."})),
+                MockResponse::json(json!({
+                    "Note": "This is a purely informational note",
+                    "Realtime Currency Exchange Rate": {"5. Exchange Rate": "1.23"}
+                })),
+            ],
+        );
+        let tool = tool_for(&api);
+        let call = tool_call(r#"{"from_currency": "BTC", "to_currency": "USD"}"#);
+
+        let error = tool
+            .execute(&call)
+            .await
+            .expect_err("A rate-limit Note must fail the call");
+        assert!(
+            error
+                .to_string()
+                .starts_with("Alpha Vantage API limit reached:"),
+            "{}",
+            error
+        );
+
+        // A Note without "Thank you" is only a warning, so the call goes through.
+        let result = tool
+            .execute(&call)
+            .await
+            .expect("A non-rate-limit Note must not fail the call");
+        assert!(result.result.contains("Rate: 1.23"));
+
+        assert_eq!(api.call_count(), 2);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn malformed_json_is_reported_as_a_parse_failure() {
+        let api = MockHttpApi::serving(
+            "GET",
+            QUERY_PATH,
+            MockResponse::raw(200, "application/json", "{\"Realtime\": "),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect_err("A truncated body must fail the call");
+
+        assert_eq!(
+            error.to_string(),
+            "Failed to parse Alpha Vantage API response"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_missing_api_key_fails_before_any_request() {
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(json!({}))).await;
+        let tool = CryptoTool::with_base_url(api.url(QUERY_PATH), None);
+
+        let error = tool
+            .execute(&tool_call(
+                r#"{"from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect_err("Without a key the call must fail");
+
+        assert_eq!(
+            error.to_string(),
+            "ALPHA_ADVANTAGE_KEY environment variable not set"
+        );
+        assert_eq!(api.call_count(), 0, "No request should have been attempted");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_fail_before_any_request() {
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(json!({}))).await;
+        let tool = tool_for(&api);
+
+        let cases = [
+            ("not json at all", "Failed to parse crypto tool arguments"),
+            (
+                r#"{"to_currency": "USD"}"#,
+                "Missing required 'from_currency' parameter",
+            ),
+            (
+                r#"{"from_currency": "BTC"}"#,
+                "Missing required 'to_currency' parameter",
+            ),
+        ];
+        for (arguments, expected) in cases {
+            let error = tool
+                .execute(&tool_call(arguments))
+                .await
+                .expect_err(arguments);
+            assert_eq!(error.to_string(), expected, "for arguments {}", arguments);
+        }
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_unknown_function_fails_before_any_request() {
+        let api = MockHttpApi::serving("GET", QUERY_PATH, MockResponse::json(json!({}))).await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"function": "DIGITAL_CURRENCY_HOURLY", "from_currency": "BTC", "to_currency": "USD"}"#,
+            ))
+            .await
+            .expect_err("An unsupported function must fail");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with("Invalid function 'DIGITAL_CURRENCY_HOURLY'."),
+            "{}",
+            error
+        );
+        assert_eq!(api.call_count(), 0, "No request should have been attempted");
+        api.stop().await;
     }
 }

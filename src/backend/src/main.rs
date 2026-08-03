@@ -11,6 +11,8 @@ mod args;
 mod cors;
 mod markdown_utils;
 mod services;
+#[cfg(test)]
+mod test_support;
 mod utils;
 
 use dotenv::dotenv;

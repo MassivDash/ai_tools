@@ -165,7 +165,7 @@ pub fn transition_to_round3(state: &mut GameState) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::games::one_of_ten::types::{Contestant, GameState, Round};
+    use crate::api::games::one_of_ten::types::{AsyncAction, Contestant, GameState, Round};
     use std::collections::HashMap;
 
     fn create_test_state() -> GameState {
@@ -261,6 +261,262 @@ mod tests {
             deferred_action: None,
             winner_id: None,
         }
+    }
+
+    fn snapshot_of(
+        messages: &[OutgoingMessage],
+    ) -> &crate::api::games::one_of_ten::types::GameStateSnapshot {
+        assert_eq!(messages.len(), 1, "expected exactly one state update");
+        match &messages[0] {
+            OutgoingMessage::StateUpdate(snapshot) => snapshot,
+            other => panic!("Expected a StateUpdate, got {:?}", other),
+        }
+    }
+
+    fn add_player(state: &mut GameState, id: &str) {
+        state.contestants.insert(
+            id.to_string(),
+            Contestant {
+                id: id.to_string(),
+                session_id: id.to_string(),
+                name: id.to_string(),
+                age: "25".to_string(),
+                score: 10,
+                online: true,
+                ready: true,
+                lives: 3,
+                round1_misses: 0,
+                round1_questions: 0,
+                eliminated: false,
+            },
+        );
+        state.player_queue.push(id.to_string());
+    }
+
+    fn eliminate(state: &mut GameState, ids: &[&str]) {
+        for id in ids {
+            let c = state.contestants.get_mut(*id).expect("unknown contestant");
+            c.eliminated = true;
+            c.lives = 0;
+        }
+    }
+
+    #[test]
+    fn test_point_to_player_rejects_an_unknown_or_eliminated_target() {
+        let mut state = create_test_state();
+        state.decision_pending = true;
+        eliminate(&mut state, &["player3"]);
+
+        for target in ["ghost", "player3"] {
+            let messages = handle_point_to_player(&mut state, target);
+            assert_eq!(messages.len(), 1);
+            match &messages[0] {
+                OutgoingMessage::Error { message } => assert_eq!(message, "Invalid target player"),
+                other => panic!("Expected an error for {}, got {:?}", target, other),
+            }
+        }
+
+        assert_eq!(
+            state.active_player_id,
+            Some("player1".to_string()),
+            "a rejected pointing must not move control"
+        );
+        assert!(state.decision_pending, "the decision is still pending");
+    }
+
+    #[test]
+    fn test_point_to_player_clears_the_pending_decision_and_question() {
+        let mut state = create_test_state();
+        state.decision_pending = true;
+        state.current_question = Some(crate::api::games::one_of_ten::types::Question {
+            text: "2 + 2?".to_string(),
+            correct_answer: "4".to_string(),
+            options: None,
+        });
+        state.timer_start = Some(42);
+
+        let messages = handle_point_to_player(&mut state, "player2");
+
+        assert_eq!(state.active_player_id, Some("player2".to_string()));
+        assert!(!state.decision_pending);
+        assert!(state.current_question.is_none());
+        assert!(state.timer_start.is_none());
+        assert_eq!(
+            snapshot_of(&messages).active_player_id,
+            Some("player2".to_string())
+        );
+    }
+
+    #[test]
+    fn test_correct_answer_keeps_control_and_records_the_pointer() {
+        let mut state = create_test_state();
+        state.timer_start = Some(42);
+
+        let messages = handle_correct_answer(&mut state, "player2");
+
+        assert_eq!(state.active_player_id, Some("player2".to_string()));
+        assert_eq!(state.last_pointer_id, Some("player2".to_string()));
+        assert!(state.decision_pending);
+        assert!(state.timer_start.is_none());
+        assert_eq!(
+            state.contestants["player2"].score, 10,
+            "scoring is disabled in round 2, the seed score is untouched"
+        );
+        assert!(snapshot_of(&messages).decision_pending);
+    }
+
+    #[test]
+    fn test_correct_answer_transitions_to_round3_once_three_survive() {
+        let mut state = create_test_state();
+        eliminate(&mut state, &["player4"]);
+        // Give the survivors battle damage so the round 3 reset is observable
+        for id in ["player1", "player2", "player3"] {
+            state.contestants.get_mut(id).unwrap().lives = 1;
+        }
+
+        let messages = handle_correct_answer(&mut state, "player1");
+
+        assert_eq!(state.round, Round::Round3);
+        assert!(state.active_player_id.is_none());
+        assert!(!state.decision_pending);
+        assert!(state.last_pointer_id.is_none());
+        for id in ["player1", "player2", "player3"] {
+            assert_eq!(
+                state.contestants[id].lives, 3,
+                "{} should have their lives restored",
+                id
+            );
+        }
+        assert_eq!(
+            state.contestants["player4"].lives, 0,
+            "eliminated players are not revived"
+        );
+        assert_eq!(snapshot_of(&messages).round, Round::Round3);
+    }
+
+    #[test]
+    fn test_wrong_answer_returns_control_to_the_previous_pointer() {
+        let mut state = create_test_state();
+        state.last_pointer_id = Some("player1".to_string());
+        state.active_player_id = Some("player2".to_string());
+
+        let (messages, action) = handle_wrong_answer(&mut state, "player2");
+
+        assert_eq!(state.contestants["player2"].lives, 2);
+        assert!(!state.contestants["player2"].eliminated);
+        assert_eq!(state.active_player_id, Some("player1".to_string()));
+        assert!(
+            action.is_none(),
+            "the pointer asks the next question, so no question is generated"
+        );
+        assert_eq!(
+            snapshot_of(&messages).active_player_id,
+            Some("player1".to_string())
+        );
+    }
+
+    #[test]
+    fn test_wrong_answer_without_a_pointer_rotates_and_asks_for_a_question() {
+        let mut state = create_test_state();
+        state.active_player_id = Some("player1".to_string());
+
+        let (_messages, action) = handle_wrong_answer(&mut state, "player1");
+
+        assert_eq!(state.active_player_id, Some("player2".to_string()));
+        match action.expect("expected a GenerateQuestion action") {
+            AsyncAction::GenerateQuestion {
+                age,
+                past_questions,
+            } => {
+                assert_eq!(age, "25", "the question is tailored to the next player");
+                assert!(past_questions.is_empty());
+            }
+            other => panic!("Expected GenerateQuestion, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_wrong_answer_rotates_when_the_previous_pointer_is_eliminated() {
+        let mut state = create_test_state();
+        // A fifth seat keeps the survivor count above the round 3 threshold
+        add_player(&mut state, "player5");
+        state.last_pointer_id = Some("player4".to_string());
+        eliminate(&mut state, &["player4"]);
+        state.active_player_id = Some("player1".to_string());
+        state.past_questions = vec!["an old question".to_string()];
+
+        let (_messages, action) = handle_wrong_answer(&mut state, "player1");
+
+        assert_eq!(
+            state.active_player_id,
+            Some("player2".to_string()),
+            "control moves to the next surviving seat, not the dead pointer"
+        );
+        match action.expect("expected a GenerateQuestion action") {
+            AsyncAction::GenerateQuestion { past_questions, .. } => {
+                assert_eq!(past_questions, vec!["an old question"]);
+            }
+            other => panic!("Expected GenerateQuestion, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_wrong_answer_that_eliminates_a_player_can_trigger_round3() {
+        let mut state = create_test_state();
+        state.contestants.get_mut("player4").unwrap().lives = 1;
+        state.last_pointer_id = Some("player1".to_string());
+
+        let (messages, action) = handle_wrong_answer(&mut state, "player4");
+
+        assert!(state.contestants["player4"].eliminated);
+        assert_eq!(state.round, Round::Round3);
+        assert!(
+            action.is_none(),
+            "a queued question is dropped when the round changes"
+        );
+        assert!(state.active_player_id.is_none());
+        assert_eq!(snapshot_of(&messages).round, Round::Round3);
+    }
+
+    #[test]
+    fn test_select_next_rotation_player_walks_seat_order() {
+        let mut state = create_test_state();
+
+        assert_eq!(
+            select_next_rotation_player(&state, "player1"),
+            Some("player2".to_string())
+        );
+        assert_eq!(
+            select_next_rotation_player(&state, "player4"),
+            Some("player1".to_string()),
+            "the rotation wraps around"
+        );
+        assert_eq!(
+            select_next_rotation_player(&state, "ghost"),
+            Some("player1".to_string()),
+            "an unknown current player restarts at the first seat"
+        );
+
+        eliminate(&mut state, &["player2", "player3"]);
+        assert_eq!(
+            select_next_rotation_player(&state, "player1"),
+            Some("player4".to_string()),
+            "eliminated seats are skipped"
+        );
+
+        eliminate(&mut state, &["player1", "player4"]);
+        assert_eq!(select_next_rotation_player(&state, "player1"), None);
+    }
+
+    #[test]
+    fn test_check_survivors_counts_non_eliminated_players() {
+        let mut state = create_test_state();
+        assert_eq!(check_survivors(&state), 4);
+
+        eliminate(&mut state, &["player1", "player2"]);
+        assert_eq!(check_survivors(&state), 2);
+
+        assert_eq!(check_survivors(&GameState::new()), 0);
     }
 
     #[test]

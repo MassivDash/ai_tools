@@ -220,3 +220,245 @@ pub async fn get_model_capabilities(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    fn handle(config: AgentConfig) -> AgentConfigHandle {
+        Arc::new(Mutex::new(config))
+    }
+
+    #[actix_web::test]
+    async fn test_get_agent_status_reports_the_current_config() {
+        let config = handle(AgentConfig {
+            enabled_tools: vec![ToolType::Weather, ToolType::Stock],
+            debug_logging: true,
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config))
+                .service(get_agent_status),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/agent/status")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: AgentStatusResponse = test::read_body_json(resp).await;
+        assert!(
+            body.active,
+            "the agent service always reports itself active"
+        );
+        assert!(body.config.debug_logging);
+        assert_eq!(
+            body.config.enabled_tools,
+            vec![ToolType::Weather, ToolType::Stock]
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_get_agent_config_returns_the_defaults() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(handle(AgentConfig::default())))
+                .service(get_agent_config),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/agent/config")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: AgentConfig = test::read_body_json(resp).await;
+        assert!(body.enabled_tools.is_empty());
+        assert!(!body.debug_logging);
+    }
+
+    #[actix_web::test]
+    async fn test_post_agent_config_updates_both_fields() {
+        let config = handle(AgentConfig::default());
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_agent_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/agent/config")
+            .set_json(serde_json::json!({
+                "enabled_tools": ["weather", "stock"],
+                "debug_logging": true
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: AgentConfigResponse = test::read_body_json(resp).await;
+        assert!(body.success);
+        assert_eq!(body.message, "Agent configuration updated successfully");
+
+        let stored = config.lock().unwrap().clone();
+        assert_eq!(
+            stored.enabled_tools,
+            vec![ToolType::Weather, ToolType::Stock]
+        );
+        assert!(stored.debug_logging);
+    }
+
+    #[actix_web::test]
+    async fn test_post_agent_config_leaves_omitted_fields_alone() {
+        let config = handle(AgentConfig {
+            enabled_tools: vec![ToolType::Weather],
+            debug_logging: true,
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_agent_config),
+        )
+        .await;
+
+        // An empty body must not clear the existing configuration
+        let req = test::TestRequest::post()
+            .uri("/api/agent/config")
+            .set_json(serde_json::json!({}))
+            .to_request();
+        assert_eq!(test::call_service(&app, req).await.status().as_u16(), 200);
+        {
+            let stored = config.lock().unwrap();
+            assert_eq!(stored.enabled_tools, vec![ToolType::Weather]);
+            assert!(stored.debug_logging);
+        }
+
+        // Only debug_logging is changed here
+        let req = test::TestRequest::post()
+            .uri("/api/agent/config")
+            .set_json(serde_json::json!({ "debug_logging": false }))
+            .to_request();
+        assert_eq!(test::call_service(&app, req).await.status().as_u16(), 200);
+        {
+            let stored = config.lock().unwrap();
+            assert_eq!(stored.enabled_tools, vec![ToolType::Weather]);
+            assert!(!stored.debug_logging);
+        }
+
+        // An explicitly empty tool list does clear the tools
+        let req = test::TestRequest::post()
+            .uri("/api/agent/config")
+            .set_json(serde_json::json!({ "enabled_tools": [] }))
+            .to_request();
+        assert_eq!(test::call_service(&app, req).await.status().as_u16(), 200);
+        assert!(config.lock().unwrap().enabled_tools.is_empty());
+    }
+
+    #[actix_web::test]
+    async fn test_post_agent_config_rejects_an_unknown_tool_type() {
+        let config = handle(AgentConfig::default());
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(config.clone()))
+                .service(post_agent_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/agent/config")
+            .set_json(serde_json::json!({ "enabled_tools": ["not_a_tool"] }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        assert!(config.lock().unwrap().enabled_tools.is_empty());
+    }
+
+    #[actix_web::test]
+    async fn test_get_available_tools_describes_every_registered_tool() {
+        let app = test::init_service(App::new().service(get_available_tools)).await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/agent/tools")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let tools: Vec<ToolInfo> = test::read_body_json(resp).await;
+
+        // Which tools register depends on the credentials present in the
+        // environment, but `ask_human` needs none and is always there.
+        let ids: Vec<&str> = tools.iter().map(|t| t.id.as_str()).collect();
+        assert!(
+            ids.contains(&"ask_human"),
+            "ask_human should always be available, got {:?}",
+            ids
+        );
+        let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            names.contains(&"Website Reader"),
+            "the credential-free Website Reader should be available, got {:?}",
+            names
+        );
+
+        for tool in &tools {
+            assert!(!tool.id.is_empty(), "tool without an id: {:?}", tool);
+            assert!(!tool.name.is_empty(), "tool without a name: {:?}", tool);
+            assert!(
+                !tool.description.is_empty(),
+                "tool without a description: {:?}",
+                tool
+            );
+            assert_eq!(
+                tool.icon,
+                tool.category.icon_name(),
+                "icon should be derived from the category for {}",
+                tool.id
+            );
+        }
+
+        // Ids are unique - the registry is keyed by them
+        let mut unique = ids.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), ids.len(), "duplicate tool ids in {:?}", ids);
+    }
+
+    /// The happy path of `get_model_capabilities` needs a live llama server, but
+    /// the unreachable-server fallback (and the `0.0.0.0` host rewrite that
+    /// precedes the request) can be checked without one.
+    #[actix_web::test]
+    async fn test_get_model_capabilities_defaults_when_the_server_is_unreachable() {
+        let llama_config = Arc::new(Mutex::new(crate::api::llama_server::types::Config {
+            host: Some("0.0.0.0".to_string()),
+            port: Some(1),
+            ..Default::default()
+        }));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(llama_config))
+                .service(get_model_capabilities),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/agent/model-capabilities")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: ModelCapabilities = test::read_body_json(resp).await;
+        assert!(!body.vision);
+        assert!(!body.audio);
+    }
+}

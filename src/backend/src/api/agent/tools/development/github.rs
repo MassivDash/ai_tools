@@ -7,6 +7,9 @@ use reqwest::{header, Client};
 use serde_json::json;
 use std::env;
 
+/// The real GitHub REST API root, used unless a test overrides it.
+const GITHUB_API_URL: &str = "https://api.github.com";
+
 fn create_github_client(token: &str) -> Client {
     let mut headers = header::HeaderMap::new();
     if !token.is_empty() {
@@ -41,6 +44,9 @@ fn create_github_client(token: &str) -> Client {
 pub struct GitHubPublicTool {
     metadata: ToolMetadata,
     client: Client,
+    /// API root to talk to. Always the real GitHub one in production; tests point
+    /// it at a loopback mock instead.
+    base_url: String,
 }
 
 impl GitHubPublicTool {
@@ -67,16 +73,27 @@ impl GitHubPublicTool {
                 tool_type: ToolType::GitHubPublic,
             },
             client: create_github_client(&token),
+            base_url: GITHUB_API_URL.to_string(),
+        }
+    }
+
+    /// A tool pointed at `base_url` instead of the real GitHub API, so the
+    /// request/response handling can be driven without the network.
+    #[cfg(test)]
+    pub(crate) fn with_base_url(base_url: impl Into<String>) -> Self {
+        Self {
+            base_url: base_url.into(),
+            ..Self::new()
         }
     }
 
     async fn search_repos(&self, query: &str, sort: Option<&str>) -> Result<serde_json::Value> {
-        let url = "https://api.github.com/search/repositories";
+        let url = format!("{}/search/repositories", self.base_url);
         let sort_param = sort.unwrap_or("stars");
 
         let response = self
             .client
-            .get(url)
+            .get(&url)
             .query(&[("q", query), ("sort", sort_param), ("per_page", "5")])
             .send()
             .await
@@ -114,7 +131,7 @@ impl GitHubPublicTool {
     }
 
     async fn list_user_repos(&self, username: &str) -> Result<serde_json::Value> {
-        let url = format!("https://api.github.com/users/{}/repos", username);
+        let url = format!("{}/users/{}/repos", self.base_url, username);
         let response = self
             .client
             .get(&url)
@@ -269,6 +286,9 @@ pub struct GitHubAuthenticatedTool {
     client: Client,
     token: String,
     owner: String,
+    /// API root to talk to. Always the real GitHub one in production; tests point
+    /// it at a loopback mock instead.
+    base_url: String,
 }
 
 impl GitHubAuthenticatedTool {
@@ -301,6 +321,21 @@ impl GitHubAuthenticatedTool {
             client: create_github_client(&token),
             token,
             owner,
+            base_url: GITHUB_API_URL.to_string(),
+        }
+    }
+
+    /// A tool with a canned token and owner pointed at `base_url` instead of the
+    /// real GitHub API, so the authenticated paths can be driven without the
+    /// network and without `GITHUB_TOKEN`/`GITHUB_OWNER` being set.
+    #[cfg(test)]
+    pub(crate) fn with_base_url(base_url: impl Into<String>, token: &str, owner: &str) -> Self {
+        Self {
+            client: create_github_client(token),
+            token: token.to_string(),
+            owner: owner.to_string(),
+            base_url: base_url.into(),
+            ..Self::new()
         }
     }
 
@@ -310,10 +345,10 @@ impl GitHubAuthenticatedTool {
                 "GITHUB_TOKEN is required for notifications"
             ));
         }
-        let url = "https://api.github.com/notifications";
+        let url = format!("{}/notifications", self.base_url);
         let response = self
             .client
-            .get(url)
+            .get(&url)
             .query(&[("all", "false"), ("per_page", "10")])
             .send()
             .await
@@ -334,10 +369,10 @@ impl GitHubAuthenticatedTool {
                 "GITHUB_TOKEN is required to list your repositories"
             ));
         }
-        let url = "https://api.github.com/user/repos";
+        let url = format!("{}/user/repos", self.base_url);
         let response = self
             .client
-            .get(url)
+            .get(&url)
             .query(&[
                 ("sort", "updated"),
                 ("per_page", "100"),
@@ -368,7 +403,7 @@ impl GitHubAuthenticatedTool {
                 "GITHUB_TOKEN is required to list organization repositories"
             ));
         }
-        let url = format!("https://api.github.com/orgs/{}/repos", org);
+        let url = format!("{}/orgs/{}/repos", self.base_url, org);
         let response = self
             .client
             .get(&url)
@@ -392,10 +427,7 @@ impl GitHubAuthenticatedTool {
 
     async fn check_workflow_runs(&self, owner: &str, repo: &str) -> Result<serde_json::Value> {
         // Requires GITHUB_TOKEN for private repos or higher limits
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/actions/runs",
-            owner, repo
-        );
+        let url = format!("{}/repos/{}/{}/actions/runs", self.base_url, owner, repo);
         let response = self
             .client
             .get(&url)
@@ -419,7 +451,7 @@ impl GitHubAuthenticatedTool {
     }
 
     async fn list_issues(&self, owner: &str, repo: &str) -> Result<serde_json::Value> {
-        let url = format!("https://api.github.com/repos/{}/{}/issues", owner, repo);
+        let url = format!("{}/repos/{}/{}/issues", self.base_url, owner, repo);
         let response = self
             .client
             .get(&url)
@@ -435,7 +467,7 @@ impl GitHubAuthenticatedTool {
     }
 
     async fn list_events(&self, username: &str) -> Result<serde_json::Value> {
-        let url = format!("https://api.github.com/users/{}/events", username);
+        let url = format!("{}/users/{}/events", self.base_url, username);
         let response = self
             .client
             .get(&url)
@@ -451,7 +483,7 @@ impl GitHubAuthenticatedTool {
     }
 
     async fn list_pulls(&self, owner: &str, repo: &str) -> Result<serde_json::Value> {
-        let url = format!("https://api.github.com/repos/{}/{}/pulls", owner, repo);
+        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
         let response = self
             .client
             .get(&url)
@@ -477,10 +509,10 @@ impl GitHubAuthenticatedTool {
                 "GITHUB_TOKEN is required to check followers"
             ));
         }
-        let url = "https://api.github.com/user";
+        let url = format!("{}/user", self.base_url);
         let response = self
             .client
-            .get(url)
+            .get(&url)
             .send()
             .await
             .context("Failed to fetch authenticated user profile")?;
@@ -500,10 +532,10 @@ impl GitHubAuthenticatedTool {
         state: &str,
         page: u32,
     ) -> Result<serde_json::Value> {
-        let url = "https://api.github.com/issues";
+        let url = format!("{}/issues", self.base_url);
         let response = self
             .client
-            .get(url)
+            .get(&url)
             .query(&[
                 ("filter", filter),
                 ("state", state),
@@ -929,5 +961,1136 @@ mod tests {
         } else {
             assert!(tool.is_available());
         }
+    }
+
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    fn public_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_gh_public".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "github_public".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    fn auth_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_gh_auth".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "github_authenticated".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    /// An authenticated tool with a known token and default owner.
+    fn auth_tool(api: &MockHttpApi) -> GitHubAuthenticatedTool {
+        GitHubAuthenticatedTool::with_base_url(api.base_url(), "test-token", "default-owner")
+    }
+
+    fn repo(name: &str, stars: u64) -> serde_json::Value {
+        json!({
+            "full_name": name,
+            "description": format!("{} description", name),
+            "stargazers_count": stars,
+            "html_url": format!("https://github.example/{}", name),
+            "language": "Rust"
+        })
+    }
+
+    /// The three headers `create_github_client` always sets.
+    fn assert_standard_headers(request: &crate::test_support::MockRequest) {
+        assert_eq!(request.header("user-agent"), Some("ai-agent-tool/1.0"));
+        assert_eq!(
+            request.header("accept"),
+            Some("application/vnd.github.v3+json")
+        );
+        assert_eq!(request.header("x-github-api-version"), Some("2022-11-28"));
+    }
+
+    // ========================================================================
+    // Public tool
+    // ========================================================================
+
+    #[tokio::test]
+    async fn public_search_sends_the_query_and_renders_the_items() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/search/repositories",
+            MockResponse::json(json!({"items": [repo("rust-lang/rust", 95000)]})),
+        )
+        .await;
+
+        let result = GitHubPublicTool::with_base_url(api.base_url())
+            .execute(&public_call(
+                r#"{"action": "search", "query": "language:rust cli"}"#,
+            ))
+            .await
+            .expect("The search should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, "/search/repositories");
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("q".to_string(), "language:rust cli".to_string()),
+                ("sort".to_string(), "stars".to_string()),
+                ("per_page".to_string(), "5".to_string()),
+            ]
+        );
+        assert_standard_headers(&request);
+
+        assert_eq!(result.tool_name, "github_public");
+        assert!(result.tool_call_id.is_none());
+        assert!(result.result.starts_with("🔍 **GitHub Search Results**"));
+        assert!(result.result.contains(
+            "- **[rust-lang/rust](https://github.example/rust-lang/rust)** (⭐ 95000 | Rust)"
+        ));
+        assert!(result.result.contains("rust-lang/rust description"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_trending_filters_by_creation_date_and_language() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            "/search/repositories",
+            MockResponse::json(json!({"items": []})),
+        );
+        let tool = GitHubPublicTool::with_base_url(api.base_url());
+
+        let before = Utc::now();
+        for timeframe in ["daily", "weekly", "monthly", "hourly"] {
+            tool.execute(&public_call(
+                &json!({"action": "trending", "timeframe": timeframe, "language": "rust"})
+                    .to_string(),
+            ))
+            .await
+            .expect("Trending should succeed");
+        }
+        let after = Utc::now();
+
+        // An unknown timeframe falls back to the daily window.
+        let windows = [
+            chrono::Duration::days(1),
+            chrono::Duration::weeks(1),
+            chrono::Duration::days(30),
+            chrono::Duration::days(1),
+        ];
+        let requests = api.requests();
+        assert_eq!(requests.len(), 4);
+        for (request, window) in requests.iter().zip(windows) {
+            let query = request.query_param("q").expect("a q parameter");
+            // The date is computed from "now", so accept either side of a
+            // midnight rollover mid-test.
+            let acceptable = [
+                format!(
+                    "created:>{} language:rust",
+                    (before - window).format("%Y-%m-%d")
+                ),
+                format!(
+                    "created:>{} language:rust",
+                    (after - window).format("%Y-%m-%d")
+                ),
+            ];
+            assert!(
+                acceptable.contains(&query),
+                "{} not in {:?}",
+                query,
+                acceptable
+            );
+            assert_eq!(request.query_param("sort").as_deref(), Some("stars"));
+        }
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_trending_without_a_language_sends_only_the_date_filter() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/search/repositories",
+            MockResponse::json(json!({"items": []})),
+        )
+        .await;
+
+        let result = GitHubPublicTool::with_base_url(api.base_url())
+            .execute(&public_call(r#"{"action": "trending"}"#))
+            .await
+            .expect("Trending should succeed");
+
+        let query = api.only_request().query_param("q").expect("a q parameter");
+        assert!(query.starts_with("created:>"), "{}", query);
+        assert!(!query.contains("language:"), "{}", query);
+        // An empty item list is reported rather than rendered as nothing.
+        assert!(result.result.contains("No repositories found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_user_repos_reads_the_users_repo_list() {
+        // This endpoint returns a bare array rather than a search envelope.
+        let api = MockHttpApi::serving(
+            "GET",
+            "/users/octocat/repos",
+            MockResponse::json(json!([repo("octocat/hello", 12), {"full_name": "octocat/bare"}])),
+        )
+        .await;
+
+        let result = GitHubPublicTool::with_base_url(api.base_url())
+            .execute(&public_call(
+                r#"{"action": "user_repos", "username": "octocat"}"#,
+            ))
+            .await
+            .expect("Listing user repos should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.path, "/users/octocat/repos");
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "10".to_string()),
+            ]
+        );
+
+        assert!(result.result.starts_with("📂 **Repositories for octocat**"));
+        assert!(result.result.contains("octocat/hello"));
+        // Missing fields fall back rather than failing.
+        assert!(result
+            .result
+            .contains("**[octocat/bare]()** (⭐ 0 | Unknown)"));
+        assert!(result.result.contains("No description"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_non_list_payloads_report_no_repositories() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/search/repositories",
+            MockResponse::json(json!({"message": "something else"})),
+        )
+        .await;
+
+        let result = GitHubPublicTool::with_base_url(api.base_url())
+            .execute(&public_call(r#"{"action": "search", "query": "x"}"#))
+            .await
+            .expect("An unexpected shape is not an error");
+
+        assert!(result.result.contains("No repositories found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_http_errors_and_malformed_bodies_fail_the_call() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/search/repositories",
+            vec![
+                MockResponse::error(422, "Validation Failed"),
+                MockResponse::raw(200, "application/json", "{\"items\":"),
+            ],
+        );
+        api.on(
+            "GET",
+            "/users/ghost/repos",
+            MockResponse::error(404, "Not Found"),
+        );
+        let tool = GitHubPublicTool::with_base_url(api.base_url());
+
+        assert_eq!(
+            tool.execute(&public_call(r#"{"action": "search", "query": "x"}"#))
+                .await
+                .expect_err("A 422 must fail the call")
+                .to_string(),
+            "GitHub API error: 422 Unprocessable Entity"
+        );
+        assert_eq!(
+            tool.execute(&public_call(r#"{"action": "search", "query": "x"}"#))
+                .await
+                .expect_err("A truncated body must fail the call")
+                .to_string(),
+            "Failed to parse search response"
+        );
+        assert_eq!(
+            tool.execute(&public_call(
+                r#"{"action": "user_repos", "username": "ghost"}"#
+            ))
+            .await
+            .expect_err("A 404 must fail the call")
+            .to_string(),
+            "GitHub API error: 404 Not Found"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn public_bad_arguments_fail_before_any_request() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/search/repositories",
+            MockResponse::json(json!({"items": []})),
+        )
+        .await;
+        let tool = GitHubPublicTool::with_base_url(api.base_url());
+
+        assert_eq!(
+            tool.execute(&public_call("not json"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse arguments"
+        );
+        assert_eq!(
+            tool.execute(&public_call(r#"{"action": "delete_everything"}"#))
+                .await
+                .expect_err("An unknown action must fail")
+                .to_string(),
+            "Unknown action: delete_everything"
+        );
+        assert_eq!(
+            tool.execute(&public_call("{}"))
+                .await
+                .expect_err("A missing action must fail")
+                .to_string(),
+            "Unknown action: "
+        );
+        assert_eq!(
+            tool.execute(&public_call(r#"{"action": "search"}"#))
+                .await
+                .expect_err("Search without a query must fail")
+                .to_string(),
+            "'query' is required for search"
+        );
+        assert_eq!(
+            tool.execute(&public_call(r#"{"action": "user_repos"}"#))
+                .await
+                .expect_err("user_repos without a username must fail")
+                .to_string(),
+            "'username' is required for user_repos"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached GitHub");
+        api.stop().await;
+    }
+
+    // ========================================================================
+    // Authenticated tool
+    // ========================================================================
+
+    #[tokio::test]
+    async fn authenticated_tool_without_a_token_refuses_without_calling_out() {
+        let api = MockHttpApi::start().await;
+        let tool = GitHubAuthenticatedTool::with_base_url(api.base_url(), "", "");
+
+        assert!(!tool.is_available());
+        let result = tool
+            .execute(&auth_call(r#"{"action": "notifications"}"#))
+            .await
+            .expect("A tokenless call reports rather than errors");
+
+        assert_eq!(
+            result.result,
+            "GITHUB_TOKEN is not set. This tool requires authentication."
+        );
+        assert_eq!(api.call_count(), 0, "Nothing should have reached GitHub");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn notifications_are_fetched_with_the_bearer_token_and_rendered() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/notifications",
+            MockResponse::json(json!([{
+                "subject": {"title": "Fix the build", "type": "PullRequest"},
+                "repository": {"full_name": "acme/widgets"}
+            }])),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(r#"{"action": "notifications"}"#))
+            .await
+            .expect("Notifications should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.path, "/notifications");
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("all".to_string(), "false".to_string()),
+                ("per_page".to_string(), "10".to_string()),
+            ]
+        );
+        assert_eq!(request.header("authorization"), Some("Bearer test-token"));
+        assert_standard_headers(&request);
+
+        assert_eq!(result.tool_name, "github_authenticated");
+        assert!(result.result.starts_with("🔔 **Your Notifications**"));
+        assert!(result.result.contains("- **PullRequest**: Fix the build"));
+        assert!(result.result.contains("Repo: acme/widgets"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_empty_or_unexpected_notification_payload_is_described() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/notifications",
+            vec![
+                MockResponse::json(json!([])),
+                MockResponse::json(json!({"message": "not an array"})),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "notifications"}"#);
+
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty inbox is not an error")
+            .result
+            .contains("No new notifications! 🎉"));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A non-array payload is not an error")
+            .result
+            .contains("No notifications found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn list_my_repos_paginates_and_reports_a_403_as_a_scope_hint() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/user/repos",
+            vec![
+                MockResponse::json(json!([repo("me/one", 1)])),
+                MockResponse::error(403, "Forbidden"),
+            ],
+        );
+        let tool = auth_tool(&api);
+
+        let ok = tool
+            .execute(&auth_call(r#"{"action": "list_my_repos", "page": 3}"#))
+            .await
+            .expect("Listing repos should succeed");
+        assert!(ok
+            .result
+            .starts_with("📂 **Your Managed Repositories (Page 3)**"));
+        assert!(ok
+            .result
+            .contains("- **[me/one](https://github.example/me/one)** (⭐ 1)"));
+
+        let requests = api.requests();
+        assert_eq!(
+            requests[0].query_params(),
+            vec![
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "100".to_string()),
+                ("type".to_string(), "owner".to_string()),
+                ("page".to_string(), "3".to_string()),
+            ]
+        );
+
+        // Transport-level failures are folded into the result text, not returned
+        // as errors.
+        let forbidden = tool
+            .execute(&auth_call(r#"{"action": "list_my_repos"}"#))
+            .await
+            .expect("A 403 is reported in the result, not as an error");
+        assert!(
+            forbidden.result.contains("Failed: Access Forbidden (403)"),
+            "{}",
+            forbidden.result
+        );
+        assert!(forbidden.result.contains("'metadata' or 'contents' scope"));
+        // The default page is 1.
+        assert_eq!(api.requests()[1].query_param("page").as_deref(), Some("1"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn list_org_repos_requires_an_org_and_reports_api_errors() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/orgs/acme/repos",
+            vec![
+                MockResponse::json(json!([repo("acme/widgets", 7)])),
+                MockResponse::error(404, "Not Found"),
+            ],
+        );
+        let tool = auth_tool(&api);
+
+        let ok = tool
+            .execute(&auth_call(r#"{"action": "list_org_repos", "org": "acme"}"#))
+            .await
+            .expect("Listing org repos should succeed");
+        assert!(ok
+            .result
+            .starts_with("🏢 **Repositories for Organization: acme (Page 1)**"));
+        assert!(ok.result.contains("acme/widgets"));
+        assert_eq!(
+            api.only_request().query_params(),
+            vec![
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "100".to_string()),
+                ("page".to_string(), "1".to_string()),
+            ]
+        );
+
+        let failed = tool
+            .execute(&auth_call(r#"{"action": "list_org_repos", "org": "acme"}"#))
+            .await
+            .expect("A 404 is reported in the result");
+        assert!(
+            failed
+                .result
+                .contains("Failed: GitHub API error: 404 Not Found"),
+            "{}",
+            failed.result
+        );
+
+        assert_eq!(
+            tool.execute(&auth_call(r#"{"action": "list_org_repos"}"#))
+                .await
+                .expect_err("Without an org the call must fail")
+                .to_string(),
+            "'org' is required for list_org_repos"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn workflow_runs_use_the_configured_owner_and_render_every_conclusion() {
+        // No "owner" argument, so GITHUB_OWNER's stand-in is used.
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/default-owner/widgets/actions/runs",
+            MockResponse::json(json!({"workflow_runs": [
+                {"name": "ci", "status": "completed", "conclusion": "success", "html_url": "https://github.example/1"},
+                {"name": "release", "status": "completed", "conclusion": "failure", "html_url": "https://github.example/2"},
+                {"name": "nightly", "status": "completed", "conclusion": "cancelled", "html_url": "https://github.example/3"},
+                {"name": "queued", "status": "queued", "html_url": "https://github.example/4"},
+                {"name": "odd", "status": "completed", "conclusion": "neutral", "html_url": "https://github.example/5"}
+            ]})),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(r#"{"action": "actions", "repo": "widgets"}"#))
+            .await
+            .expect("Reading workflow runs should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.path, "/repos/default-owner/widgets/actions/runs");
+        assert_eq!(
+            request.query_params(),
+            vec![("per_page".to_string(), "5".to_string())]
+        );
+
+        assert!(result
+            .result
+            .starts_with("🏃 **Workflows for default-owner/widgets**"));
+        assert!(result
+            .result
+            .contains("- ✅ **[ci](https://github.example/1)**"));
+        assert!(result
+            .result
+            .contains("Status: completed | Result: success"));
+        assert!(result.result.contains("- ❌ **[release]"));
+        assert!(result.result.contains("- 🚫 **[nightly]"));
+        // A run with no conclusion yet reads as pending.
+        assert!(result.result.contains("- ⏳ **[queued]"));
+        assert!(result.result.contains("Result: pending"));
+        assert!(result.result.contains("- ❓ **[odd]"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn workflow_runs_report_403s_and_empty_payloads() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/repos/o/r/actions/runs",
+            vec![
+                MockResponse::error(403, "Forbidden"),
+                MockResponse::json(json!({"workflow_runs": []})),
+                MockResponse::json(json!({})),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "actions", "owner": "o", "repo": "r"}"#);
+
+        let forbidden = tool.execute(&call).await.expect("A 403 is reported");
+        assert!(
+            forbidden
+                .result
+                .contains("ensure your GITHUB_TOKEN has the 'actions' scope"),
+            "{}",
+            forbidden.result
+        );
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty run list is not an error")
+            .result
+            .contains("No workflow runs found."));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A payload without workflow_runs is not an error")
+            .result
+            .contains("No workflow runs found."));
+
+        // With neither an argument nor a configured owner there is nothing to ask
+        // about, and the call fails outright.
+        let ownerless = GitHubAuthenticatedTool::with_base_url(api.base_url(), "test-token", "");
+        assert_eq!(
+            ownerless
+                .execute(&auth_call(r#"{"action": "actions", "repo": "r"}"#))
+                .await
+                .expect_err("Without an owner the call must fail")
+                .to_string(),
+            "Owner and repo required (add GITHUB_OWNER to .env if owner omitted)"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn issues_come_from_the_repo_when_one_is_named() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/issues",
+            MockResponse::json(json!([
+                {"number": 7, "title": "Broken", "html_url": "https://github.example/i/7", "user": {"login": "jane"}},
+                {}
+            ])),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "issues", "owner": "acme", "repo": "widgets"}"#,
+            ))
+            .await
+            .expect("Listing repo issues should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.path, "/repos/acme/widgets/issues");
+        assert_eq!(
+            request.query_params(),
+            vec![
+                ("state".to_string(), "open".to_string()),
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "5".to_string()),
+            ]
+        );
+
+        assert!(result.result.starts_with("🐛 **Issues for acme/widgets**"));
+        assert!(result
+            .result
+            .contains("- **#7 [Broken](https://github.example/i/7)** by @jane"));
+        assert!(result.result.contains("- **#0 [No title]()** by @unknown"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn issues_fall_back_to_the_authenticated_users_list() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/issues",
+            vec![
+                MockResponse::json(json!([{"number": 1, "title": "Mine", "html_url": "https://github.example/i/1", "user": {"login": "me"}}])),
+                MockResponse::json(json!([])),
+                MockResponse::json(json!({"message": "not an array"})),
+                MockResponse::error(500, "boom"),
+            ],
+        );
+        let tool = auth_tool(&api);
+
+        // An owner is configured but no repo, so this is the "my issues" path.
+        let mine = tool
+            .execute(&auth_call(
+                r#"{"action": "issues", "filter": "created", "state": "closed", "page": 2}"#,
+            ))
+            .await
+            .expect("Listing my issues should succeed");
+        assert!(mine
+            .result
+            .starts_with("🐛 **Issues (created, closed) Page 2**"));
+        assert!(mine.result.contains("- **#1 [Mine]"));
+        assert_eq!(
+            api.only_request().query_params(),
+            vec![
+                ("filter".to_string(), "created".to_string()),
+                ("state".to_string(), "closed".to_string()),
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "100".to_string()),
+                ("page".to_string(), "2".to_string()),
+            ]
+        );
+
+        // Defaults: assigned + open + page 1.
+        let defaults = tool
+            .execute(&auth_call(r#"{"action": "issues"}"#))
+            .await
+            .expect("Listing my issues should succeed");
+        assert!(defaults
+            .result
+            .starts_with("🐛 **Issues (assigned, open) Page 1**"));
+        assert!(defaults.result.contains("No issues found."));
+
+        assert!(tool
+            .execute(&auth_call(r#"{"action": "issues"}"#))
+            .await
+            .expect("A non-array payload is not an error")
+            .result
+            .contains("No issues found."));
+        assert!(tool
+            .execute(&auth_call(r#"{"action": "issues"}"#))
+            .await
+            .expect("A 500 is reported in the result")
+            .result
+            .contains("Failed: GitHub API error: 500 Internal Server Error"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn events_need_a_username_and_render_the_date_only() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/users/octocat/events",
+            vec![
+                MockResponse::json(json!([
+                    {"type": "PushEvent", "repo": {"name": "octocat/hello"}, "created_at": "2026-08-01T10:00:00Z"},
+                    {}
+                ])),
+                MockResponse::json(json!([])),
+                MockResponse::json(json!({"message": "not an array"})),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "events", "username": "octocat"}"#);
+
+        let result = tool.execute(&call).await.expect("Events should succeed");
+        assert_eq!(
+            api.only_request().query_params(),
+            vec![("per_page".to_string(), "5".to_string())]
+        );
+        assert!(result.result.starts_with("📅 **Events for octocat**"));
+        assert!(result.result.contains("- **PushEvent** at octocat/hello"));
+        // Only the date part of created_at is shown.
+        assert!(result.result.contains("Date: 2026-08-01"));
+        assert!(result.result.contains("- **Event** at unknown"));
+
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty event list is not an error")
+            .result
+            .contains("No events found."));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A non-array payload is not an error")
+            .result
+            .contains("No events found."));
+
+        assert_eq!(
+            tool.execute(&auth_call(r#"{"action": "events"}"#))
+                .await
+                .expect_err("Without a username the call must fail")
+                .to_string(),
+            "Username required for events"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pulls_come_from_the_repo_when_one_is_named() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/repos/acme/widgets/pulls",
+            vec![
+                MockResponse::json(json!([
+                    {"title": "Add feature", "html_url": "https://github.example/p/1", "user": {"login": "jane"}}
+                ])),
+                MockResponse::json(json!([])),
+                MockResponse::json(json!({"message": "not an array"})),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "pulls", "owner": "acme", "repo": "widgets"}"#);
+
+        let result = tool.execute(&call).await.expect("Pulls should succeed");
+        assert_eq!(
+            api.only_request().query_params(),
+            vec![
+                ("state".to_string(), "open".to_string()),
+                ("per_page".to_string(), "5".to_string()),
+                ("sort".to_string(), "updated".to_string()),
+                ("direction".to_string(), "desc".to_string()),
+            ]
+        );
+        assert!(result
+            .result
+            .starts_with("🔃 **Pull Requests for acme/widgets**"));
+        assert!(result
+            .result
+            .contains("- **[Add feature](https://github.example/p/1)** by @jane"));
+
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty pull list is not an error")
+            .result
+            .contains("No pull requests found."));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A non-array payload is not an error")
+            .result
+            .contains("No pull requests found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pulls_without_a_repo_fall_back_to_the_issues_endpoint() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/issues",
+            vec![
+                MockResponse::json(json!([{"number": 4, "title": "Mine", "html_url": "https://github.example/i/4", "user": {"login": "me"}}])),
+                MockResponse::error(500, "boom"),
+            ],
+        );
+        let tool = auth_tool(&api);
+
+        let result = tool
+            .execute(&auth_call(r#"{"action": "pulls", "page": 5}"#))
+            .await
+            .expect("The fallback should succeed");
+
+        assert!(result
+            .result
+            .starts_with("🔃 **Your Pull Requests & Issues**"));
+        assert!(result.result.contains("- **#4 [Mine]"));
+        // The fallback always asks for assigned+open, but honours the page.
+        assert_eq!(
+            api.only_request().query_params(),
+            vec![
+                ("filter".to_string(), "assigned".to_string()),
+                ("state".to_string(), "open".to_string()),
+                ("sort".to_string(), "updated".to_string()),
+                ("per_page".to_string(), "100".to_string()),
+                ("page".to_string(), "5".to_string()),
+            ]
+        );
+
+        assert!(tool
+            .execute(&auth_call(r#"{"action": "pulls"}"#))
+            .await
+            .expect("A 500 is reported in the result")
+            .result
+            .contains("Failed: GitHub API error: 500 Internal Server Error"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn followers_come_from_the_authenticated_user_profile() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/user",
+            vec![
+                MockResponse::json(json!({"login": "octocat", "followers": 12, "following": 3})),
+                MockResponse::json(json!({})),
+                MockResponse::error(401, "Bad credentials"),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "followers"}"#);
+
+        let result = tool.execute(&call).await.expect("Followers should succeed");
+        let request = api.only_request();
+        assert_eq!(request.path, "/user");
+        assert_eq!(request.query, "");
+        assert!(result.result.starts_with("👥 **Followers**"));
+        assert!(result
+            .result
+            .contains("**@octocat** has **12** followers (following 3)."));
+
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty profile is not an error")
+            .result
+            .contains("**@unknown** has **0** followers (following 0)."));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A 401 is reported in the result")
+            .result
+            .contains("Failed: GitHub API error: 401 Unauthorized"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn authenticated_bad_arguments_fail_before_any_request() {
+        let api = MockHttpApi::start().await;
+        let tool = auth_tool(&api);
+
+        assert_eq!(
+            tool.execute(&auth_call("{{"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse arguments"
+        );
+        assert_eq!(
+            tool.execute(&auth_call(r#"{"action": "merge_everything"}"#))
+                .await
+                .expect_err("An unknown action must fail")
+                .to_string(),
+            "Unknown action: merge_everything"
+        );
+        assert_eq!(api.call_count(), 0, "Nothing should have reached GitHub");
+        api.stop().await;
+    }
+
+    #[test]
+    fn the_authenticated_function_definition_advertises_every_action() {
+        let def = GitHubAuthenticatedTool::new().get_function_definition();
+        assert_eq!(def["name"], "github_authenticated");
+        assert_eq!(def["parameters"]["required"], json!(["action"]));
+        assert_eq!(
+            def["parameters"]["properties"]["action"]["enum"],
+            json!([
+                "notifications",
+                "list_my_repos",
+                "list_org_repos",
+                "actions",
+                "issues",
+                "events",
+                "pulls",
+                "followers"
+            ])
+        );
+        for parameter in [
+            "owner", "repo", "org", "username", "page", "filter", "state",
+        ] {
+            assert!(
+                def["parameters"]["properties"].get(parameter).is_some(),
+                "{} should be documented",
+                parameter
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn the_per_method_token_guards_never_call_out() {
+        // execute() already refuses a tokenless call, so these guards are
+        // defensive only - they are checked directly here so the refusal is
+        // pinned down rather than left untested.
+        let api = MockHttpApi::start().await;
+        let tool = GitHubAuthenticatedTool::with_base_url(api.base_url(), "", "owner");
+
+        assert_eq!(
+            tool.check_notifications()
+                .await
+                .expect_err("notifications must refuse")
+                .to_string(),
+            "GITHUB_TOKEN is required for notifications"
+        );
+        assert_eq!(
+            tool.list_my_repos(1)
+                .await
+                .expect_err("list_my_repos must refuse")
+                .to_string(),
+            "GITHUB_TOKEN is required to list your repositories"
+        );
+        assert_eq!(
+            tool.list_org_repos("acme", 1)
+                .await
+                .expect_err("list_org_repos must refuse")
+                .to_string(),
+            "GITHUB_TOKEN is required to list organization repositories"
+        );
+        assert_eq!(
+            tool.get_my_profile()
+                .await
+                .expect_err("get_my_profile must refuse")
+                .to_string(),
+            "GITHUB_TOKEN is required to check followers"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached GitHub");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn repo_scoped_endpoints_report_their_own_http_errors() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            "/repos/acme/widgets/issues",
+            MockResponse::error(404, "Not Found"),
+        );
+        api.on(
+            "GET",
+            "/users/ghost/events",
+            MockResponse::error(404, "Not Found"),
+        );
+        api.on(
+            "GET",
+            "/repos/acme/widgets/pulls",
+            MockResponse::error(451, "Repository unavailable"),
+        );
+        let tool = auth_tool(&api);
+
+        for (arguments, expected) in [
+            (
+                r#"{"action": "issues", "owner": "acme", "repo": "widgets"}"#,
+                "Failed: GitHub API error: 404 Not Found",
+            ),
+            (
+                r#"{"action": "events", "username": "ghost"}"#,
+                "Failed: GitHub API error: 404 Not Found",
+            ),
+            (
+                r#"{"action": "pulls", "owner": "acme", "repo": "widgets"}"#,
+                "Failed: GitHub API error: 451 Unavailable For Legal Reasons",
+            ),
+        ] {
+            let result = tool
+                .execute(&auth_call(arguments))
+                .await
+                .expect("Transport failures are reported in the result");
+            assert!(
+                result.result.contains(expected),
+                "{} -> {}",
+                arguments,
+                result.result
+            );
+        }
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn the_authenticated_repo_formatter_handles_envelopes_and_empty_lists() {
+        let api = MockHttpApi::start().await;
+        api.on_sequence(
+            "GET",
+            "/user/repos",
+            vec![
+                // A search-style envelope rather than a bare array.
+                MockResponse::json(json!({"items": [repo("me/enveloped", 4)]})),
+                MockResponse::json(json!([])),
+                MockResponse::json(json!({"message": "not a list at all"})),
+            ],
+        );
+        let tool = auth_tool(&api);
+        let call = auth_call(r#"{"action": "list_my_repos"}"#);
+
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An enveloped payload should render")
+            .result
+            .contains("- **[me/enveloped](https://github.example/me/enveloped)** (⭐ 4)"));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("An empty list is not an error")
+            .result
+            .contains("No repositories found."));
+        assert!(tool
+            .execute(&call)
+            .await
+            .expect("A non-list payload is not an error")
+            .result
+            .contains("No repositories found."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn non_forbidden_failures_are_reported_for_every_authenticated_endpoint() {
+        let api = MockHttpApi::start().await;
+        api.on("GET", "/notifications", MockResponse::error(500, "boom"));
+        api.on(
+            "GET",
+            "/user/repos",
+            MockResponse::error(502, "bad gateway"),
+        );
+        api.on(
+            "GET",
+            "/repos/o/r/actions/runs",
+            MockResponse::error(404, "Not Found"),
+        );
+        let tool = auth_tool(&api);
+
+        for (arguments, expected) in [
+            (
+                r#"{"action": "notifications"}"#,
+                "Failed: GitHub API error: 500 Internal Server Error",
+            ),
+            (
+                r#"{"action": "list_my_repos"}"#,
+                "Failed: GitHub API error: 502 Bad Gateway",
+            ),
+            (
+                r#"{"action": "actions", "owner": "o", "repo": "r"}"#,
+                "Failed: GitHub API error: 404 Not Found",
+            ),
+        ] {
+            let result = tool
+                .execute(&auth_call(arguments))
+                .await
+                .expect("Transport failures are reported in the result");
+            assert!(
+                result.result.contains(expected),
+                "{} -> {}",
+                arguments,
+                result.result
+            );
+        }
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn list_org_repos_honours_an_explicit_page() {
+        let api =
+            MockHttpApi::serving("GET", "/orgs/acme/repos", MockResponse::json(json!([]))).await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "list_org_repos", "org": "acme", "page": 4}"#,
+            ))
+            .await
+            .expect("Listing org repos should succeed");
+
+        assert!(result
+            .result
+            .starts_with("🏢 **Repositories for Organization: acme (Page 4)**"));
+        assert_eq!(api.only_request().query_param("page").as_deref(), Some("4"));
+        api.stop().await;
     }
 }

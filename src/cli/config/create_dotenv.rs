@@ -174,4 +174,41 @@ mod tests {
         // Cleanup
         std::fs::remove_file(dotenv_path).unwrap();
     }
+
+    #[test]
+    fn test_create_dotenv_frontend_survives_an_unwritable_path() {
+        // A folder that does not exist cannot be written to, the cli reports it
+        // and carries on instead of panicking
+        let dotenv_path = "./no-such-folder/.env";
+
+        create_dotenv_frontend("https://api.example.com", None, dotenv_path);
+
+        assert!(!std::path::Path::new(dotenv_path).exists());
+    }
+
+    #[test]
+    fn test_create_dotenv_frontend_keeps_an_existing_llama_url_up_to_date() {
+        let dotenv_path = "./src/frontend/.test-update-llama-env";
+
+        {
+            let mut file = File::create(dotenv_path).unwrap();
+            file.write_all(b"PUBLIC_LLAMA_URL=old_llama\nPUBLIC_API_URL=old_api\n")
+                .unwrap();
+        }
+
+        create_dotenv_frontend(
+            "https://api.example.com",
+            Some("https://llama.example.com"),
+            dotenv_path,
+        );
+
+        // Both keys are replaced in place, no duplicates are appended
+        let contents = std::fs::read_to_string(dotenv_path).unwrap();
+        assert_eq!(
+            contents,
+            "PUBLIC_LLAMA_URL=https://llama.example.com\nPUBLIC_API_URL=https://api.example.com\n"
+        );
+
+        std::fs::remove_file(dotenv_path).unwrap();
+    }
 }

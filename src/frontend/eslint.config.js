@@ -41,7 +41,10 @@ export default [
         alert: 'readonly',
         prompt: 'readonly',
         // DOM types
+        Document: 'readonly',
         HTMLElement: 'readonly',
+        HTMLAnchorElement: 'readonly',
+        HTMLButtonElement: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
         HTMLSelectElement: 'readonly',

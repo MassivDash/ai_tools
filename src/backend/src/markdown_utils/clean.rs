@@ -235,4 +235,64 @@ adjust [SVG ImageSVG Image Navigate back](/ "Navigate")
         // Should preserve valid links
         assert!(cleaned.contains("[about me](/about)"));
     }
+
+    #[test]
+    fn test_clean_markdown_artifacts_drops_links_with_repeated_words() {
+        // Two identical consecutive words (longer than one char) in the link text
+        // mark the link as an artifact and drop it entirely.
+        let cleaned = clean_markdown_artifacts("start [Logo Logo](/logo) end");
+        assert!(!cleaned.contains("/logo"));
+        assert!(cleaned.contains("start"));
+        assert!(cleaned.contains("end"));
+    }
+
+    #[test]
+    fn test_clean_markdown_artifacts_keeps_single_char_repeats() {
+        // Repeated single-character words are not treated as duplicates.
+        let cleaned = clean_markdown_artifacts("[a a](/page)");
+        assert!(cleaned.contains("[a a](/page)"));
+    }
+
+    #[test]
+    fn test_clean_markdown_artifacts_drops_links_whose_text_is_doubled() {
+        // "HomepageXHomepageX" splits into two identical halves, which marks the
+        // link as a duplicated-text artifact.
+        let cleaned = clean_markdown_artifacts("[abcdefabcdef](/dup)");
+        assert!(!cleaned.contains("/dup"));
+    }
+
+    #[test]
+    fn test_clean_markdown_artifacts_removes_empty_links() {
+        let cleaned = clean_markdown_artifacts("keep [](/nowhere) and [text]() done");
+        assert!(!cleaned.contains("/nowhere"));
+        assert!(!cleaned.contains("[text]()"));
+        assert!(cleaned.contains("keep"));
+        assert!(cleaned.contains("done"));
+    }
+
+    #[test]
+    fn test_clean_markdown_artifacts_collapses_blank_lines_and_trims() {
+        let cleaned = clean_markdown_artifacts("first\n\n\n\n   second   \n\nthird");
+        assert_eq!(cleaned, "first\nsecond\nthird");
+    }
+
+    #[test]
+    fn test_clean_markdown_artifacts_removes_orphan_bracket_lines() {
+        let cleaned = clean_markdown_artifacts("real content\n[orphan]\n(also orphan)\nmore");
+        assert!(!cleaned.contains("orphan"));
+        assert!(cleaned.contains("real content"));
+        assert!(cleaned.contains("more"));
+    }
+
+    #[test]
+    fn test_strip_data_uri_images_leaves_non_image_data_uris() {
+        // Only image data URIs are targeted.
+        let markdown = "[download](data:text/plain;base64,aGk=)";
+        assert_eq!(strip_data_uri_images(markdown), markdown);
+    }
+
+    #[test]
+    fn test_clean_markdown_on_empty_input() {
+        assert_eq!(clean_markdown(""), "");
+    }
 }

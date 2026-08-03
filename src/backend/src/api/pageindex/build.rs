@@ -629,6 +629,78 @@ pub async fn build_index(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::pageindex::websocket::PageIndexWebSocketState;
+    use crate::test_support::{MockLlm, MockLlmConfig, UNREACHABLE_LLM_URL};
+
+    fn node(id: &str, title: &str, children: Vec<PageIndexNode>) -> PageIndexNode {
+        PageIndexNode {
+            id: id.to_string(),
+            title: title.to_string(),
+            page_start: 1,
+            page_end: 2,
+            summary: String::new(),
+            children,
+        }
+    }
+
+    /// A websocket state with one attached client, plus that client's receiver.
+    fn ws_with_client() -> (
+        PageIndexWebSocketState,
+        tokio::sync::mpsc::UnboundedReceiver<String>,
+    ) {
+        let ws = PageIndexWebSocketState::new();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        ws.add_client("test-client".to_string(), tx);
+        (ws, rx)
+    }
+
+    #[test]
+    fn test_truncate_chars_leaves_short_text_alone() {
+        assert_eq!(truncate_chars("hello", 10), "hello");
+        assert_eq!(truncate_chars("hello", 5), "hello");
+        assert_eq!(truncate_chars("", 5), "");
+    }
+
+    #[test]
+    fn test_truncate_chars_cuts_at_the_limit() {
+        assert_eq!(truncate_chars("abcdefgh", 3), "abc");
+    }
+
+    #[test]
+    fn test_truncate_chars_backs_off_to_a_char_boundary() {
+        // "é" is two bytes, so a cut at byte 1 would split it.
+        let text = "aéb";
+        assert_eq!(truncate_chars(text, 2), "a");
+        assert_eq!(truncate_chars(text, 3), "aé");
+    }
+
+    #[test]
+    fn test_extract_json_object_returns_none_without_a_complete_object() {
+        assert!(extract_json_object("no braces here").is_none());
+        assert!(extract_json_object("{ unterminated").is_none());
+        assert!(extract_json_object("} before {").is_none());
+    }
+
+    #[test]
+    fn test_extract_json_object_keeps_the_outermost_braces() {
+        let raw = r#"prose {"a":{"b":1}} trailing"#;
+        assert_eq!(extract_json_object(raw).unwrap(), r#"{"a":{"b":1}}"#);
+    }
+
+    #[test]
+    fn test_llm_section_level_defaults_to_one() {
+        let parsed: LlmSectionsResponse = serde_json::from_str(
+            r#"{"sections":[{"title":"A","page_start":1},{"title":"B","page_start":4,"level":2}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.sections.len(), 2);
+        assert_eq!(parsed.sections[0].level, default_level());
+        assert_eq!(parsed.sections[0].level, 1);
+        assert_eq!(parsed.sections[1].level, 2);
+        assert_eq!(parsed.sections[1].title, "B");
+        assert_eq!(parsed.sections[1].page_start, 4);
+    }
 
     #[test]
     fn test_derive_title_from_filename() {
@@ -683,5 +755,373 @@ mod tests {
             }],
         }];
         assert_eq!(count_nodes(&tree), 2);
+    }
+
+    #[test]
+    fn test_count_nodes_of_an_empty_tree_is_zero() {
+        assert_eq!(count_nodes(&[]), 0);
+    }
+
+    #[test]
+    fn test_derive_title_from_filename_edge_cases() {
+        // No extension, and a path with directories.
+        assert_eq!(derive_title_from_filename("notes"), "Notes");
+        assert_eq!(derive_title_from_filename("/tmp/a_b-c.pdf"), "A B C");
+        // Runs of separators collapse rather than producing empty words.
+        assert_eq!(derive_title_from_filename("a__b--c.pdf"), "A B C");
+        // A leading dot makes the whole name the stem (it looks like a hidden file).
+        assert_eq!(derive_title_from_filename(".pdf"), ".pdf");
+        assert_eq!(derive_title_from_filename(""), "");
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_prefers_the_progress_channel() {
+        let (ws, mut ws_rx) = ws_with_client();
+        let (tx, mut rx) = mpsc::channel::<Value>(4);
+
+        broadcast(&tx, &ws, "doc-1", "processing", "halfway", None).await;
+
+        let msg = rx.recv().await.unwrap();
+        assert_eq!(msg["status"], "processing");
+        assert_eq!(msg["message"], "halfway");
+        assert_eq!(msg["document_id"], "doc-1");
+        assert!(msg.get("success").is_none());
+
+        // The websocket is only used as a fallback, so nothing was sent there.
+        assert!(ws_rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_includes_success_when_supplied() {
+        let (ws, _ws_rx) = ws_with_client();
+        let (tx, mut rx) = mpsc::channel::<Value>(4);
+
+        broadcast(&tx, &ws, "doc-1", "completed", "done", Some(true)).await;
+
+        let msg = rx.recv().await.unwrap();
+        assert_eq!(msg["success"], true);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_falls_back_to_the_websocket_when_the_receiver_is_gone() {
+        let (ws, mut ws_rx) = ws_with_client();
+        let (tx, rx) = mpsc::channel::<Value>(4);
+        drop(rx);
+
+        broadcast(&tx, &ws, "doc-9", "error", "it broke", Some(false)).await;
+
+        let raw = ws_rx.try_recv().expect("expected a websocket fallback");
+        let msg: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(msg["status"], "error");
+        assert_eq!(msg["message"], "it broke");
+        assert_eq!(msg["document_id"], "doc-9");
+        assert_eq!(msg["success"], false);
+    }
+
+    #[actix_web::test]
+    async fn test_check_llama_reachable_accepts_a_healthy_server() {
+        let llm = MockLlm::start(MockLlmConfig::replying("ok")).await;
+
+        assert!(check_llama_reachable(&llm.base_url).await.is_ok());
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_check_llama_reachable_reports_an_error_status() {
+        let mut config = MockLlmConfig::replying("ok");
+        config.props_status = 503;
+        let llm = MockLlm::start(config).await;
+
+        let err = check_llama_reachable(&llm.base_url).await.unwrap_err();
+        assert!(err.contains("responded with an error"));
+        assert!(err.contains("503"));
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_check_llama_reachable_reports_an_unreachable_server() {
+        let err = check_llama_reachable(UNREACHABLE_LLM_URL)
+            .await
+            .unwrap_err();
+
+        assert!(err.contains("Could not reach the local LLM server"));
+        assert!(err.contains(UNREACHABLE_LLM_URL));
+    }
+
+    #[actix_web::test]
+    async fn test_call_llm_returns_the_assistant_content() {
+        let llm = MockLlm::start(MockLlmConfig::replying("a tidy summary")).await;
+        let client = Client::new();
+
+        let text = call_llm(
+            &client,
+            &format!("{}/v1/chat/completions", llm.base_url),
+            "test-model",
+            "summarize this",
+            128,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(text, "a tidy summary");
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_call_llm_surfaces_a_server_error_status() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_status = 500;
+        config.chat_body = "engine exploded".to_string();
+        let llm = MockLlm::start(config).await;
+        let client = Client::new();
+
+        let err = call_llm(
+            &client,
+            &format!("{}/v1/chat/completions", llm.base_url),
+            "test-model",
+            "prompt",
+            128,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.starts_with("LLM server error (500"));
+        assert!(err.contains("engine exploded"));
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_call_llm_surfaces_an_unparseable_body() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_body = "definitely not json".to_string();
+        let llm = MockLlm::start(config).await;
+        let client = Client::new();
+
+        let err = call_llm(
+            &client,
+            &format!("{}/v1/chat/completions", llm.base_url),
+            "test-model",
+            "prompt",
+            128,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.starts_with("Failed to parse LLM response:"));
+        assert!(err.contains("definitely not json"));
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_call_llm_rejects_a_response_without_choices() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_body = serde_json::json!({
+            "id": "x", "object": "chat.completion", "created": 0,
+            "model": "test-model", "choices": []
+        })
+        .to_string();
+        let llm = MockLlm::start(config).await;
+        let client = Client::new();
+
+        let err = call_llm(
+            &client,
+            &format!("{}/v1/chat/completions", llm.base_url),
+            "test-model",
+            "prompt",
+            128,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err, "LLM response had no choices");
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_call_llm_surfaces_a_transport_failure() {
+        let client = Client::new();
+
+        let err = call_llm(
+            &client,
+            &format!("{}/v1/chat/completions", UNREACHABLE_LLM_URL),
+            "test-model",
+            "prompt",
+            128,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.starts_with("LLM request failed:"));
+    }
+
+    #[actix_web::test]
+    async fn test_summarize_parent_summarizes_from_its_children() {
+        let llm = MockLlm::start(MockLlmConfig::replying("  chapter level summary  ")).await;
+        let client = Client::new();
+        let (ws, _ws_rx) = ws_with_client();
+        let (tx, _rx) = mpsc::channel::<Value>(8);
+        let progress = AtomicUsize::new(0);
+
+        let mut child = node("n2", "1.1 Intro", vec![]);
+        child.summary = "covers the basics".to_string();
+        let parent = node("n1", "Chapter 1", vec![child]);
+
+        let ctx = SummarizeCtx {
+            client: &client,
+            llama_url: &format!("{}/v1/chat/completions", llm.base_url),
+            model: "test-model",
+            pdf_bytes: b"",
+            total_nodes: 2,
+            progress: &progress,
+            progress_tx: &tx,
+            ws: &ws,
+            document_id: "doc-1",
+        };
+
+        // The returned summary is trimmed.
+        assert_eq!(
+            summarize_parent(&parent, &ctx).await,
+            "chapter level summary"
+        );
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_summarize_parent_degrades_gracefully_on_an_llm_error() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_status = 500;
+        let llm = MockLlm::start(config).await;
+        let client = Client::new();
+        let (ws, _ws_rx) = ws_with_client();
+        let (tx, _rx) = mpsc::channel::<Value>(8);
+        let progress = AtomicUsize::new(0);
+
+        let parent = node("n1", "Chapter 1", vec![node("n2", "1.1", vec![])]);
+        let ctx = SummarizeCtx {
+            client: &client,
+            llama_url: &format!("{}/v1/chat/completions", llm.base_url),
+            model: "test-model",
+            pdf_bytes: b"",
+            total_nodes: 2,
+            progress: &progress,
+            progress_tx: &tx,
+            ws: &ws,
+            document_id: "doc-1",
+        };
+
+        assert_eq!(
+            summarize_parent(&parent, &ctx).await,
+            "(Summary unavailable due to an LLM error.)"
+        );
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_summarize_nodes_fills_every_summary_and_reports_progress() {
+        let llm = MockLlm::start(MockLlmConfig::replying("summary text")).await;
+        let client = Client::new();
+        let (ws, _ws_rx) = ws_with_client();
+        let (tx, mut rx) = mpsc::channel::<Value>(32);
+        let progress = AtomicUsize::new(0);
+
+        // One chapter with two sections: three nodes in total.
+        let mut tree = vec![node(
+            "n1",
+            "Chapter 1",
+            vec![node("n2", "1.1", vec![]), node("n3", "1.2", vec![])],
+        )];
+
+        let ctx = SummarizeCtx {
+            client: &client,
+            llama_url: &format!("{}/v1/chat/completions", llm.base_url),
+            model: "test-model",
+            // Not a real PDF: the leaf summaries fall back to a placeholder,
+            // which is exactly the degraded path this asserts on.
+            pdf_bytes: b"not a pdf",
+            total_nodes: 3,
+            progress: &progress,
+            progress_tx: &tx,
+            ws: &ws,
+            document_id: "doc-1",
+        };
+
+        summarize_nodes(&mut tree, &ctx).await;
+
+        // Children are summarized before their parent, and nothing is left blank.
+        assert!(!tree[0].summary.is_empty());
+        assert!(tree[0].children.iter().all(|c| !c.summary.is_empty()));
+
+        // One progress tick per node, in child-first order.
+        assert_eq!(progress.load(Ordering::SeqCst), 3);
+        let mut titles = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            assert_eq!(msg["status"], "processing");
+            titles.push(msg["message"].as_str().unwrap().to_string());
+        }
+        assert_eq!(titles.len(), 3);
+        assert!(titles[0].starts_with("Summarizing section 1/3: 1.1"));
+        assert!(titles[1].starts_with("Summarizing section 2/3: 1.2"));
+        assert!(titles[2].starts_with("Summarizing section 3/3: Chapter 1"));
+
+        llm.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_build_index_marks_the_document_as_errored_for_an_unreadable_pdf() {
+        let storage = Arc::new(PageIndexStorage::new(":memory:").await.unwrap());
+        let id = format!("test-{}", uuid::Uuid::new_v4());
+        storage
+            .insert_pending(&id, "broken.pdf", "Broken")
+            .await
+            .unwrap();
+
+        let (ws, _ws_rx) = ws_with_client();
+        let (tx, mut rx) = mpsc::channel::<Value>(64);
+
+        build_index(
+            id.clone(),
+            "broken.pdf".to_string(),
+            b"this is not a pdf".to_vec(),
+            storage.clone(),
+            ws,
+            UNREACHABLE_LLM_URL.to_string(),
+            "test-model".to_string(),
+            tx,
+        )
+        .await;
+
+        // The source PDF is written before page counting, then counting fails.
+        let doc_dir = PathBuf::from("./public/pageindex").join(&id);
+        assert!(doc_dir.join("source.pdf").exists());
+        assert!(!doc_dir.join("tree.json").exists());
+
+        let doc = storage.get_document(&id).await.unwrap().unwrap();
+        assert_eq!(doc.status, "error");
+        assert!(doc.error.is_some());
+
+        // The failure is reported on the progress channel with success = false.
+        let mut messages = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            messages.push(msg);
+        }
+        let failure = messages
+            .iter()
+            .find(|m| m["status"] == "error")
+            .expect("expected an error message");
+        assert_eq!(failure["success"], false);
+        assert_eq!(failure["document_id"], id);
+        assert!(messages
+            .iter()
+            .any(|m| m["message"].as_str().unwrap().contains("Counting pages")));
+
+        std::fs::remove_dir_all(&doc_dir).unwrap();
     }
 }

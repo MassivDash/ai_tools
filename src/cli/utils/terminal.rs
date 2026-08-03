@@ -134,7 +134,7 @@ pub fn warning(string: &str) {
     .unwrap();
 }
 
-pub fn dev_info(host: &String, port: &u16) {
+pub fn dev_info(host: &str, port: u16) {
     execute!(
         stdout(),
         SetForegroundColor(Color::Green),
@@ -249,7 +249,25 @@ mod tests {
         // Test the output of dev_info function
         let host = String::from("localhost");
         let port = 8080;
-        dev_info(&host, &port);
+        dev_info(&host, port);
+    }
+
+    #[test]
+    fn test_do_server_log() {
+        // Test the output of do_server_log function
+        do_server_log("actix log line\n");
+    }
+
+    #[test]
+    fn test_do_front_log() {
+        // Test the output of do_front_log function
+        do_front_log("astro log line\n");
+    }
+
+    #[test]
+    fn test_do_chromadb_log() {
+        // Test the output of do_chromadb_log function
+        do_chromadb_log("chromadb log line\n");
     }
 
     #[test]

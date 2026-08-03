@@ -128,4 +128,94 @@ mod tests {
         assert_eq!(args.env, "prod");
         assert_eq!(args.cors_url, "spaceout.pl");
     }
+
+    #[test]
+    fn test_collect_optional_args_are_none_by_default() {
+        let args = collect_args(vec!["--env=dev".to_string()]);
+
+        assert!(args.chroma_address.is_none());
+        assert!(args.llama_host.is_none());
+        assert!(args.llama_port.is_none());
+    }
+
+    #[test]
+    fn test_collect_chroma_and_llama_args() {
+        let args = collect_args(vec![
+            "--chroma_address=http://localhost:8000".to_string(),
+            "--llama_host=0.0.0.0".to_string(),
+            "--llama_port=8090".to_string(),
+        ]);
+
+        assert_eq!(
+            args.chroma_address,
+            Some("http://localhost:8000".to_string())
+        );
+        assert_eq!(args.llama_host, Some("0.0.0.0".to_string()));
+        assert_eq!(args.llama_port, Some(8090));
+    }
+
+    #[test]
+    fn test_empty_optional_values_are_ignored() {
+        let args = collect_args(vec![
+            "--chroma_address=".to_string(),
+            "--llama_host=".to_string(),
+        ]);
+
+        assert!(args.chroma_address.is_none());
+        assert!(args.llama_host.is_none());
+    }
+
+    #[test]
+    fn test_unparseable_llama_port_is_ignored() {
+        let args = collect_args(vec!["--llama_port=not-a-number".to_string()]);
+
+        assert!(args.llama_port.is_none());
+    }
+
+    #[test]
+    fn test_llama_port_out_of_u16_range_is_ignored() {
+        let args = collect_args(vec!["--llama_port=99999".to_string()]);
+
+        assert!(args.llama_port.is_none());
+    }
+
+    #[test]
+    fn test_values_containing_extra_equals_are_ignored() {
+        // The parser splits on every '=' and only accepts exactly two parts,
+        // so a value containing '=' is dropped and the default is kept.
+        let args = collect_args(vec![
+            "--host=a=b".to_string(),
+            "--chroma_address=http://x/?a=b".to_string(),
+        ]);
+
+        assert_eq!(args.host, "127.0.0.1");
+        assert!(args.chroma_address.is_none());
+    }
+
+    #[test]
+    fn test_last_occurrence_of_a_flag_wins() {
+        let args = collect_args(vec![
+            "--port=4000".to_string(),
+            "--port=5000".to_string(),
+            "--llama_port=1".to_string(),
+            "--llama_port=2".to_string(),
+        ]);
+
+        assert_eq!(args.port, "5000");
+        assert_eq!(args.llama_port, Some(2));
+    }
+
+    #[test]
+    fn test_unrelated_args_do_not_change_defaults() {
+        let args = collect_args(vec![
+            "target/debug/backend".to_string(),
+            "--nonsense".to_string(),
+            "host=1.2.3.4".to_string(),
+        ]);
+
+        assert_eq!(args.host, "127.0.0.1");
+        assert_eq!(args.port, "8080");
+        assert_eq!(args.env, "dev");
+        assert_eq!(args.cors_url, "astrox.spaceout.pl");
+    }
 }

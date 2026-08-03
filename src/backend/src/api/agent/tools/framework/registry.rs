@@ -135,3 +135,21 @@ impl Default for ToolRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_default_registry_is_empty() {
+        let registry = ToolRegistry::default();
+        assert_eq!(registry.count(), 0);
+        assert!(registry.get_all_tools().is_empty());
+        assert!(registry.get_all_tool_ids().is_empty());
+        assert!(!registry.is_registered("anything"));
+        assert!(registry
+            .build_tool_definitions()
+            .expect("An empty registry builds an empty definition list")
+            .is_empty());
+    }
+}

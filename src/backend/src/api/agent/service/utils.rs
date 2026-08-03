@@ -79,3 +79,90 @@ pub fn clean_response(text: &str) -> String {
 
     cleaned.trim().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_plain_text_is_only_trimmed() {
+        assert_eq!(clean_response("  Hello world  "), "Hello world");
+        assert_eq!(clean_response(""), "");
+    }
+
+    #[test]
+    fn test_think_and_redacted_reasoning_markers_are_removed() {
+        assert_eq!(
+            clean_response("<think>internal</think>The answer"),
+            "internalThe answer"
+        );
+        assert_eq!(clean_response("<|redacted_reasoning|>visible"), "visible");
+    }
+
+    #[test]
+    fn test_deepseek_tool_markers_are_removed() {
+        let raw = "<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>weather<｜tool▁sep｜>args\
+                   <｜tool▁call▁end｜><｜tool▁calls▁end｜>\
+                   <｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>sunny\
+                   <｜tool▁output▁end｜><｜tool▁outputs▁end｜>";
+
+        assert_eq!(clean_response(raw), "weatherargssunny");
+    }
+
+    #[test]
+    fn test_answer_marker_keeps_only_the_final_answer() {
+        assert_eq!(
+            clean_response("Thought: I should check the weather\nAnswer: It is sunny"),
+            "It is sunny"
+        );
+        // The *last* Answer: wins
+        assert_eq!(
+            clean_response("Answer: first\nAction: more work\nAnswer: second"),
+            "second"
+        );
+        // Lowercase spelling is handled too
+        assert_eq!(
+            clean_response("Observation: it rained\nanswer: bring an umbrella"),
+            "bring an umbrella"
+        );
+    }
+
+    #[test]
+    fn test_reasoning_lines_are_dropped_when_no_answer_marker_exists() {
+        let raw = "Here is the summary.\nThought: I should double check\nAction: search\nObservation: found it";
+
+        assert_eq!(clean_response(raw), "Here is the summary.");
+    }
+
+    #[test]
+    fn test_scaffolding_prefixes_are_dropped() {
+        let raw = "Result line\nCurrent task: do something\nYou are in a new chain\nThought: hmm";
+
+        assert_eq!(clean_response(raw), "Result line");
+    }
+
+    #[test]
+    fn test_uppercase_answer_line_resumes_output_after_reasoning() {
+        // "Answer:"/"answer:" are absent, so the line filter runs and the
+        // case-insensitive "ANSWER:" line switches output back on.
+        let raw = "Thought: hmm\nANSWER: forty two\nand some detail";
+
+        assert_eq!(clean_response(raw), "forty two\nand some detail");
+    }
+
+    #[test]
+    fn test_reasoning_only_text_is_left_untouched() {
+        // Every line is filtered out, so the function falls back to the original
+        // text rather than returning an empty string.
+        let raw = "Thought: hmm\nAction: search";
+
+        assert_eq!(clean_response(raw), raw);
+    }
+
+    #[test]
+    fn test_remaining_html_like_tags_are_stripped() {
+        assert_eq!(clean_response("a <b>c</b> d"), "a c d");
+        assert_eq!(clean_response("unclosed <tag"), "unclosed");
+        assert_eq!(clean_response("stray > angle"), "stray > angle");
+    }
+}

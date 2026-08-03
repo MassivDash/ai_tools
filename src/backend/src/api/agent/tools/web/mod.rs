@@ -22,3 +22,39 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with(tools: Vec<ToolType>) -> AgentConfig {
+        AgentConfig {
+            enabled_tools: tools,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn nothing_is_registered_for_an_empty_configuration() {
+        let mut registry = ToolRegistry::new();
+        register(&mut registry, &config_with(vec![]));
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn both_web_tools_register_and_a_second_pass_is_a_no_op() {
+        let mut registry = ToolRegistry::new();
+        let config = config_with(vec![ToolType::WebsiteCheck, ToolType::GoogleBooks]);
+
+        register(&mut registry, &config);
+        assert!(registry.is_registered("3"), "Website Check should register");
+        assert!(
+            registry.is_registered("google_books"),
+            "Google Books should register"
+        );
+
+        // The second pass hits the duplicate-id branch and is simply logged.
+        register(&mut registry, &config);
+        assert_eq!(registry.count(), 2);
+    }
+}

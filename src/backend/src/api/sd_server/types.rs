@@ -147,3 +147,148 @@ impl Default for SDConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sd_config_default_cli_and_context_options() {
+        let config = SDConfig::default();
+
+        assert_eq!(config.output_path, "./public");
+        assert!(config.preview_path.is_none());
+        assert!(config.preview_interval.is_none());
+        assert!(config.output_begin_idx.is_none());
+        assert!(!config.canny);
+        assert!(config.verbose);
+        assert!(config.color);
+        assert!(config.mode.is_none());
+        assert!(config.preview_method.is_none());
+
+        assert_eq!(config.diffusion_model, "z_image_turbo-Q8_0.gguf");
+        assert!(config.model.is_none());
+        assert_eq!(
+            config.llm.as_deref(),
+            Some("Qwen3-4B-Instruct-2507-Q8_0.gguf")
+        );
+        assert_eq!(config.vae.as_deref(), Some("ae.safetensors"));
+        assert_eq!(config.threads, -1);
+        assert_eq!(config.models_path, "./sd_models");
+        assert_eq!(config.rng, "std_default");
+    }
+
+    #[test]
+    fn test_sd_config_default_is_tuned_for_low_vram() {
+        let config = SDConfig::default();
+
+        assert!(config.offload_to_cpu);
+        assert!(config.diffusion_fa);
+        assert!(config.control_net_cpu);
+        assert!(config.clip_on_cpu);
+        assert!(config.vae_on_cpu);
+        assert!(config.vae_tiling);
+        // Tile sizes are left to sd.cpp unless explicitly overridden.
+        assert!(config.vae_tile_size.is_none());
+        assert!(config.vae_relative_tile_size.is_none());
+    }
+
+    #[test]
+    fn test_sd_config_default_generation_options() {
+        let config = SDConfig::default();
+
+        assert_eq!(config.prompt, "A beautiful landscape");
+        assert_eq!(config.negative_prompt, "");
+        assert_eq!(config.width, 1024);
+        assert_eq!(config.height, 1024);
+        assert_eq!(config.cfg_scale, 1.0);
+        // Everything the CLI has its own default for stays unset.
+        assert!(config.steps.is_none());
+        assert!(config.batch_count.is_none());
+        assert!(config.guidance.is_none());
+        assert!(config.strength.is_none());
+        assert!(config.seed.is_none());
+        assert!(config.sampling_method.is_none());
+        assert!(config.scheduler.is_none());
+        assert!(config.init_img.is_none());
+        assert!(config.mask.is_none());
+        assert!(config.control_image.is_none());
+    }
+
+    #[test]
+    fn test_sd_config_survives_a_json_round_trip() {
+        let config = SDConfig {
+            prompt: "a fox in snow".to_string(),
+            steps: Some(28),
+            seed: Some(-1),
+            cfg_scale: 4.5,
+            vae_relative_tile_size: Some(0.25),
+            ..SDConfig::default()
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: SDConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored.prompt, "a fox in snow");
+        assert_eq!(restored.steps, Some(28));
+        assert_eq!(restored.seed, Some(-1));
+        assert_eq!(restored.cfg_scale, 4.5);
+        assert_eq!(restored.vae_relative_tile_size, Some(0.25));
+        assert_eq!(restored.diffusion_model, config.diffusion_model);
+    }
+
+    #[test]
+    fn test_log_source_equality() {
+        assert_eq!(LogSource::Stdout, LogSource::Stdout);
+        assert_ne!(LogSource::Stdout, LogSource::Stderr);
+    }
+
+    #[test]
+    fn test_log_entry_and_state_are_cloneable_snapshots() {
+        let entry = LogEntry {
+            timestamp: 1700000000,
+            line: "loading model".to_string(),
+            source: LogSource::Stderr,
+        };
+        let cloned = entry.clone();
+        assert_eq!(cloned.timestamp, 1700000000);
+        assert_eq!(cloned.line, "loading model");
+        assert_eq!(cloned.source, LogSource::Stderr);
+
+        let state = SDState {
+            is_generating: true,
+            current_output_file: Some("/public/a.png".to_string()),
+            pending_filename: Some("a.png".to_string()),
+        };
+        let cloned_state = state.clone();
+        assert!(cloned_state.is_generating);
+        assert_eq!(
+            cloned_state.current_output_file.as_deref(),
+            Some("/public/a.png")
+        );
+        assert_eq!(cloned_state.pending_filename.as_deref(), Some("a.png"));
+    }
+
+    #[test]
+    fn test_shared_handles_alias_the_same_state() {
+        let buffer: LogBuffer = Arc::new(Mutex::new(VecDeque::new()));
+        let state: SDStateHandle = Arc::new(Mutex::new(SDState {
+            is_generating: false,
+            current_output_file: None,
+            pending_filename: None,
+        }));
+
+        let buffer_clone = buffer.clone();
+        let state_clone = state.clone();
+
+        buffer_clone.lock().unwrap().push_back(LogEntry {
+            timestamp: 1,
+            line: "x".to_string(),
+            source: LogSource::Stdout,
+        });
+        state_clone.lock().unwrap().is_generating = true;
+
+        assert_eq!(buffer.lock().unwrap().len(), 1);
+        assert!(state.lock().unwrap().is_generating);
+    }
+}
