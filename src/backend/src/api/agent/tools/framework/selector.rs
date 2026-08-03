@@ -76,6 +76,9 @@ impl ToolSelector {
 
         prompt.push_str(
             "GUIDELINES:
+- BE DECISIVE: if a tool's parameters describe a default or fallback (e.g. \"falls back to X if omitted\"), trust it and proceed - do not ask the user to repeat information the tool can already resolve itself.
+- If a tool call fails, read the error message and correct your arguments before trying again or telling the user you cannot do something. Only ask the user a clarifying question when the request is genuinely ambiguous or the action is destructive/irreversible - never as a substitute for attempting the tool call.
+- NEVER CLAIM AN ACTION SUCCEEDED (e.g. \"I have updated X\", \"I've sent Y\") unless the tool's own returned result confirms it. If the result contains an error, failure message, or anything you are unsure about, tell the user it failed and quote or paraphrase the actual error - do not describe a summary of what you intended to do as if it happened.
 - Use tools iteratively: call tools, analyze results, call again if needed, then provide final answer
 - Don't use tools for greetings or small talk
 - Respond naturally without explaining tool usage or internal processes
@@ -174,6 +177,25 @@ mod tests {
         assert!(prompt.contains("**Reason, Don't Match Keywords:**"));
         assert!(prompt.contains("**Read Before Answering:**"));
         assert!(!prompt.contains("**KNOWLEDGE BASE & RAG ALWAYS:**"));
+    }
+
+    #[test]
+    fn the_guidelines_tell_the_model_to_act_decisively_and_retry_before_giving_up() {
+        let prompt = ToolSelector::new(Arc::new(ToolRegistry::new())).build_system_prompt();
+
+        assert!(prompt.contains("BE DECISIVE"));
+        assert!(prompt.contains("trust it and proceed"));
+        assert!(prompt.contains("do not ask the user to repeat information"));
+        assert!(prompt.contains("read the error message and correct your arguments"));
+    }
+
+    #[test]
+    fn the_guidelines_forbid_claiming_success_the_tool_result_does_not_confirm() {
+        let prompt = ToolSelector::new(Arc::new(ToolRegistry::new())).build_system_prompt();
+
+        assert!(prompt.contains("NEVER CLAIM AN ACTION SUCCEEDED"));
+        assert!(prompt.contains("unless the tool's own returned result confirms it"));
+        assert!(prompt.contains("contains an error"));
     }
 
     #[test]
