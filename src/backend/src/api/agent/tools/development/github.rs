@@ -286,6 +286,9 @@ pub struct GitHubAuthenticatedTool {
     client: Client,
     token: String,
     owner: String,
+    /// Default repository used when an action's `repo` argument is omitted,
+    /// mirroring `owner`'s `GITHUB_OWNER` fallback. Empty means "no default".
+    repo: String,
     /// API root to talk to. Always the real GitHub one in production; tests point
     /// it at a loopback mock instead.
     base_url: String,
@@ -300,6 +303,11 @@ impl GitHubAuthenticatedTool {
             .to_string();
 
         let owner = env::var("GITHUB_OWNER")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        let repo = env::var("GITHUB_REPO")
             .unwrap_or_default()
             .trim()
             .to_string();
@@ -321,22 +329,33 @@ impl GitHubAuthenticatedTool {
             client: create_github_client(&token),
             token,
             owner,
+            repo,
             base_url: GITHUB_API_URL.to_string(),
         }
     }
 
     /// A tool with a canned token and owner pointed at `base_url` instead of the
     /// real GitHub API, so the authenticated paths can be driven without the
-    /// network and without `GITHUB_TOKEN`/`GITHUB_OWNER` being set.
+    /// network and without `GITHUB_TOKEN`/`GITHUB_OWNER` being set. `repo` starts
+    /// empty (not read from the real `GITHUB_REPO`) so tests stay hermetic; use
+    /// [`Self::with_repo`] to opt into a default explicitly.
     #[cfg(test)]
     pub(crate) fn with_base_url(base_url: impl Into<String>, token: &str, owner: &str) -> Self {
         Self {
             client: create_github_client(token),
             token: token.to_string(),
             owner: owner.to_string(),
+            repo: String::new(),
             base_url: base_url.into(),
             ..Self::new()
         }
+    }
+
+    /// Sets the default repo, as if `GITHUB_REPO` had been configured.
+    #[cfg(test)]
+    pub(crate) fn with_repo(mut self, repo: impl Into<String>) -> Self {
+        self.repo = repo.into();
+        self
     }
 
     async fn check_notifications(&self) -> Result<serde_json::Value> {
@@ -501,6 +520,173 @@ impl GitHubAuthenticatedTool {
             return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
         }
         response.json().await.context("Failed to parse pulls")
+    }
+
+    /// Resolve `owner`/`repo`/`pr_number` shared by all the `pr_*`/`update_pr` actions.
+    /// `owner` falls back to `GITHUB_OWNER`; `repo` and `pr_number` are always required.
+    fn resolve_pr_target<'a>(
+        &'a self,
+        args: &'a serde_json::Value,
+    ) -> Result<(&'a str, &'a str, u64)> {
+        let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
+        if owner.is_empty() {
+            owner = &self.owner;
+        }
+        let mut repo = args.get("repo").and_then(|v| v.as_str()).unwrap_or("");
+        if repo.is_empty() {
+            repo = &self.repo;
+        }
+        let pr_number = args.get("pr_number").and_then(|v| v.as_u64());
+
+        if owner.is_empty() || repo.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Owner and repo required (add GITHUB_OWNER to .env if owner omitted)"
+            ));
+        }
+        let pr_number =
+            pr_number.ok_or_else(|| anyhow::anyhow!("'pr_number' is required for this action"))?;
+
+        Ok((owner, repo, pr_number))
+    }
+
+    async fn get_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: u64,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to fetch pull request")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse pull request")
+    }
+
+    async fn list_pull_commits(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: u64,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/commits",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("per_page", "100")])
+            .send()
+            .await
+            .context("Failed to fetch pull request commits")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse pull request commits")
+    }
+
+    async fn get_combined_status(
+        &self,
+        owner: &str,
+        repo: &str,
+        sha: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/status",
+            self.base_url, owner, repo, sha
+        );
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to fetch combined status")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse combined status")
+    }
+
+    async fn get_check_runs(
+        &self,
+        owner: &str,
+        repo: &str,
+        sha: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/check-runs",
+            self.base_url, owner, repo, sha
+        );
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to fetch check runs")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response.json().await.context("Failed to parse check runs")
+    }
+
+    async fn update_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: u64,
+        title: Option<&str>,
+        body: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+
+        let mut payload = serde_json::Map::new();
+        if let Some(title) = title {
+            payload.insert("title".to_string(), json!(title));
+        }
+        if let Some(body) = body {
+            payload.insert("body".to_string(), json!(body));
+        }
+
+        let response = self
+            .client
+            .patch(&url)
+            .json(&payload)
+            .send()
+            .await
+            .context("Failed to update pull request")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse updated pull request")
     }
 
     async fn get_my_profile(&self) -> Result<serde_json::Value> {
@@ -702,6 +888,119 @@ impl GitHubAuthenticatedTool {
         }
         output
     }
+
+    fn format_pr_details(&self, data: &serde_json::Value) -> String {
+        let title = data["title"].as_str().unwrap_or("No title");
+        let state = data["state"].as_str().unwrap_or("unknown");
+        let draft = data["draft"].as_bool().unwrap_or(false);
+        let state_label = if draft {
+            format!("{} (draft)", state)
+        } else {
+            state.to_string()
+        };
+        let url = data["html_url"].as_str().unwrap_or("");
+        let author = data["user"]["login"].as_str().unwrap_or("unknown");
+        let head = data["head"]["ref"].as_str().unwrap_or("?");
+        let base = data["base"]["ref"].as_str().unwrap_or("?");
+        let body = data["body"]
+            .as_str()
+            .map(|b| b.trim())
+            .filter(|b| !b.is_empty())
+            .unwrap_or("No description.");
+
+        format!(
+            "**{}** ({})\n{}\nby @{}: `{}` → `{}`\n\n{}",
+            title, state_label, url, author, head, base, body
+        )
+    }
+
+    fn format_pr_checks(&self, status: &serde_json::Value, checks: &serde_json::Value) -> String {
+        let overall = status["state"].as_str().unwrap_or("unknown");
+        let statuses = status["statuses"].as_array();
+        let check_runs = checks["check_runs"].as_array();
+
+        let statuses_empty = statuses.map(|s| s.is_empty()).unwrap_or(true);
+        let checks_empty = check_runs.map(|c| c.is_empty()).unwrap_or(true);
+        if statuses_empty && checks_empty {
+            return format!(
+                "Overall status: **{}**\n\nNo status checks or check runs found.",
+                overall
+            );
+        }
+
+        let mut output = format!("Overall status: **{}**\n\n", overall);
+
+        if let Some(statuses) = statuses.filter(|s| !s.is_empty()) {
+            output.push_str("**Status checks:**\n");
+            for s in statuses {
+                let context = s["context"].as_str().unwrap_or("unknown");
+                let state = s["state"].as_str().unwrap_or("unknown");
+                let description = s["description"].as_str().unwrap_or("");
+                let icon = match state {
+                    "success" => "✅",
+                    "failure" | "error" => "❌",
+                    "pending" => "⏳",
+                    _ => "❓",
+                };
+                output.push_str(&format!(
+                    "- {} **{}**: {} — {}\n",
+                    icon, context, state, description
+                ));
+            }
+            output.push('\n');
+        }
+
+        if let Some(runs) = check_runs.filter(|c| !c.is_empty()) {
+            output.push_str("**Check runs:**\n");
+            for run in runs {
+                let name = run["name"].as_str().unwrap_or("unnamed");
+                let run_status = run["status"].as_str().unwrap_or("unknown");
+                let conclusion = run["conclusion"].as_str().unwrap_or("pending");
+                let icon = match conclusion {
+                    "success" => "✅",
+                    "failure" => "❌",
+                    "cancelled" => "🚫",
+                    "pending" => "⏳",
+                    _ => "❓",
+                };
+                output.push_str(&format!(
+                    "- {} **{}**: {} ({})\n",
+                    icon, name, run_status, conclusion
+                ));
+            }
+        }
+
+        output.trim_end().to_string()
+    }
+
+    fn format_pr_commits(&self, data: &serde_json::Value) -> String {
+        let items = match data.as_array() {
+            Some(i) => i,
+            None => return "No commits found.".to_string(),
+        };
+        if items.is_empty() {
+            return "No commits found.".to_string();
+        }
+
+        let mut output = String::new();
+        for item in items {
+            let sha = item["sha"].as_str().unwrap_or("???");
+            let short_sha = &sha[..sha.len().min(7)];
+            let message = item["commit"]["message"]
+                .as_str()
+                .and_then(|m| m.lines().next())
+                .unwrap_or("");
+            let author = item["commit"]["author"]["name"]
+                .as_str()
+                .unwrap_or("unknown");
+            let url = item["html_url"].as_str().unwrap_or("");
+            output.push_str(&format!(
+                "- **[{}]({})** {} — {}\n",
+                short_sha, url, message, author
+            ));
+        }
+        output
+    }
 }
 
 #[async_trait]
@@ -713,17 +1012,17 @@ impl AgentTool for GitHubAuthenticatedTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "github_authenticated",
-            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, events, pull requests, and follower count. REQUIRED: GITHUB_TOKEN env variable.",
+            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, events, pull requests (list, view details, check CI status/checks, list commits, edit title/description), and follower count. REQUIRED: GITHUB_TOKEN env variable.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls", "followers"],
+                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls", "followers", "pr_details", "pr_checks", "pr_commits", "update_pr"],
                         "description": "The action to perform."
                     },
                     "owner": { "type": "string", "description": "Repository owner (optional, falls back to GITHUB_OWNER in .env)." },
-                    "repo": { "type": "string", "description": "Repository name (optional for issues/pulls)." },
+                    "repo": { "type": "string", "description": "Repository name (optional for issues/pulls; for pr_details/pr_checks/pr_commits/update_pr, falls back to GITHUB_REPO in .env if omitted)." },
                     "org": { "type": "string", "description": "Organization name (required for list_org_repos)." },
                     "username": { "type": "string", "description": "Username for events check." },
                     "page": { "type": "integer", "description": "Page number for pagination (default: 1)." },
@@ -736,7 +1035,10 @@ impl AgentTool for GitHubAuthenticatedTool {
                         "type": "string",
                         "enum": ["open", "closed", "all"],
                         "description": "State of issues to return (default: open)."
-                    }
+                    },
+                    "pr_number": { "type": "integer", "description": "Pull request number. Required for pr_details, pr_checks, pr_commits, and update_pr." },
+                    "title": { "type": "string", "description": "New PR title (optional, for update_pr)." },
+                    "description": { "type": "string", "description": "New PR description/body (optional, for update_pr). At least one of title/description is required." }
                 },
                 "required": ["action"]
             }
@@ -906,6 +1208,80 @@ impl AgentTool for GitHubAuthenticatedTool {
                 Ok(data) => format!("👥 **Followers**\n\n{}", self.format_followers(&data)),
                 Err(e) => format!("Failed: {}", e),
             },
+            "pr_details" => {
+                let (owner, repo, pr_number) = self.resolve_pr_target(&args)?;
+                match self.get_pull_request(owner, repo, pr_number).await {
+                    Ok(data) => format!(
+                        "🔃 **PR #{} for {}/{}**\n\n{}",
+                        pr_number,
+                        owner,
+                        repo,
+                        self.format_pr_details(&data)
+                    ),
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
+            "pr_checks" => {
+                let (owner, repo, pr_number) = self.resolve_pr_target(&args)?;
+                match self.get_pull_request(owner, repo, pr_number).await {
+                    Ok(pr) => {
+                        let sha = pr["head"]["sha"].as_str().unwrap_or("").to_string();
+                        if sha.is_empty() {
+                            "Failed: could not determine the PR's head commit SHA".to_string()
+                        } else {
+                            let status = self.get_combined_status(owner, repo, &sha).await;
+                            let checks = self.get_check_runs(owner, repo, &sha).await;
+                            match (status, checks) {
+                                (Ok(status), Ok(checks)) => format!(
+                                    "✅ **CI Status for PR #{} ({}/{})**\n\n{}",
+                                    pr_number,
+                                    owner,
+                                    repo,
+                                    self.format_pr_checks(&status, &checks)
+                                ),
+                                (Err(e), _) | (_, Err(e)) => format!("Failed: {}", e),
+                            }
+                        }
+                    }
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
+            "pr_commits" => {
+                let (owner, repo, pr_number) = self.resolve_pr_target(&args)?;
+                match self.list_pull_commits(owner, repo, pr_number).await {
+                    Ok(data) => format!(
+                        "📜 **Commits for PR #{} ({}/{})**\n\n{}",
+                        pr_number,
+                        owner,
+                        repo,
+                        self.format_pr_commits(&data)
+                    ),
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
+            "update_pr" => {
+                let (owner, repo, pr_number) = self.resolve_pr_target(&args)?;
+                let title = args.get("title").and_then(|v| v.as_str());
+                let description = args.get("description").and_then(|v| v.as_str());
+                if title.is_none() && description.is_none() {
+                    return Err(anyhow::anyhow!(
+                        "At least one of 'title' or 'description' is required for update_pr"
+                    ));
+                }
+                match self
+                    .update_pull_request(owner, repo, pr_number, title, description)
+                    .await
+                {
+                    Ok(data) => format!(
+                        "✏️ **Updated PR #{} ({}/{})**\n\n{}",
+                        pr_number,
+                        owner,
+                        repo,
+                        self.format_pr_details(&data)
+                    ),
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
             _ => return Err(anyhow::anyhow!("Unknown action: {}", action)),
         };
 
@@ -1891,11 +2267,24 @@ mod tests {
                 "issues",
                 "events",
                 "pulls",
-                "followers"
+                "followers",
+                "pr_details",
+                "pr_checks",
+                "pr_commits",
+                "update_pr"
             ])
         );
         for parameter in [
-            "owner", "repo", "org", "username", "page", "filter", "state",
+            "owner",
+            "repo",
+            "org",
+            "username",
+            "page",
+            "filter",
+            "state",
+            "pr_number",
+            "title",
+            "description",
         ] {
             assert!(
                 def["parameters"]["properties"].get(parameter).is_some(),
@@ -2091,6 +2480,373 @@ mod tests {
             .result
             .starts_with("🏢 **Repositories for Organization: acme (Page 4)**"));
         assert_eq!(api.only_request().query_param("page").as_deref(), Some("4"));
+        api.stop().await;
+    }
+
+    // ---------------------------------------------------------------------
+    // pr_details / pr_checks / pr_commits / update_pr
+    // ---------------------------------------------------------------------
+
+    fn pull_request_fixture() -> serde_json::Value {
+        json!({
+            "number": 42,
+            "title": "Add feature",
+            "body": "This adds a feature.",
+            "state": "open",
+            "draft": false,
+            "html_url": "https://github.example/p/42",
+            "user": {"login": "jane"},
+            "head": {"ref": "feature-branch", "sha": "abc123"},
+            "base": {"ref": "main"}
+        })
+    }
+
+    #[tokio::test]
+    async fn pr_details_renders_title_state_branches_and_description() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::json(pull_request_fixture()),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_details", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("Fetching PR details should succeed");
+
+        assert!(result.result.starts_with("🔃 **PR #42 for acme/widgets**"));
+        assert!(result.result.contains("Add feature"));
+        assert!(result.result.contains("open"));
+        assert!(result.result.contains("feature-branch"));
+        assert!(result.result.contains("main"));
+        assert!(result.result.contains("jane"));
+        assert!(result.result.contains("This adds a feature."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_details_reports_a_missing_pr() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/pulls/999",
+            MockResponse::error(404, r#"{"message": "Not Found"}"#),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_details", "owner": "acme", "repo": "widgets", "pr_number": 999}"#,
+            ))
+            .await
+            .expect("A 404 is reported in the result, not an Err");
+
+        assert!(result.result.contains("Failed: GitHub API error: 404"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_details_requires_a_pr_number() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_details", "owner": "acme", "repo": "widgets"}"#,
+            ))
+            .await
+            .expect_err("A missing pr_number must be rejected before any request");
+
+        assert!(err.to_string().contains("pr_number"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_checks_combines_combined_status_and_check_runs() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::json(pull_request_fixture()),
+        );
+        api.on(
+            "GET",
+            "/repos/acme/widgets/commits/abc123/status",
+            MockResponse::json(json!({
+                "state": "failure",
+                "statuses": [
+                    {"context": "ci/build", "state": "success", "description": "Build passed"},
+                    {"context": "ci/lint", "state": "failure", "description": "Lint failed"}
+                ]
+            })),
+        );
+        api.on(
+            "GET",
+            "/repos/acme/widgets/commits/abc123/check-runs",
+            MockResponse::json(json!({
+                "check_runs": [
+                    {"name": "test-suite", "status": "completed", "conclusion": "success"}
+                ]
+            })),
+        );
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_checks", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("Fetching PR checks should succeed");
+
+        assert!(result.result.contains("failure"));
+        assert!(result.result.contains("ci/build"));
+        assert!(result.result.contains("Build passed"));
+        assert!(result.result.contains("ci/lint"));
+        assert!(result.result.contains("Lint failed"));
+        assert!(result.result.contains("test-suite"));
+        assert_eq!(api.call_count(), 3);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_checks_reports_no_status_or_checks_found() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::json(pull_request_fixture()),
+        );
+        api.on(
+            "GET",
+            "/repos/acme/widgets/commits/abc123/status",
+            MockResponse::json(json!({"state": "pending", "statuses": []})),
+        );
+        api.on(
+            "GET",
+            "/repos/acme/widgets/commits/abc123/check-runs",
+            MockResponse::json(json!({"check_runs": []})),
+        );
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_checks", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("An empty status/checks payload is not an error");
+
+        assert!(result
+            .result
+            .contains("No status checks or check runs found"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_checks_fails_if_the_pr_itself_cannot_be_fetched() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::error(404, r#"{"message": "Not Found"}"#),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_checks", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("A failed PR lookup is reported in the result");
+
+        assert!(result.result.contains("Failed: GitHub API error: 404"));
+        // Never got far enough to ask for status/checks.
+        assert_eq!(api.call_count(), 1);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_commits_renders_the_commit_list() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/pulls/42/commits",
+            MockResponse::json(json!([
+                {
+                    "sha": "abc1234567890",
+                    "html_url": "https://github.example/c/abc1234567890",
+                    "commit": {
+                        "message": "Fix the bug\n\nLonger description here.",
+                        "author": {"name": "Jane Doe"}
+                    }
+                }
+            ])),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_commits", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("Fetching PR commits should succeed");
+
+        assert!(result.result.contains("abc1234"));
+        assert!(result.result.contains("Fix the bug"));
+        assert!(result.result.contains("Jane Doe"));
+        // Only the first line of a multi-line commit message is rendered.
+        assert!(!result.result.contains("Longer description here."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_commits_reports_an_empty_list() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/pulls/42/commits",
+            MockResponse::json(json!([])),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "pr_commits", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect("An empty commit list is not an error");
+
+        assert!(result.result.contains("No commits found"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn update_pr_sends_title_and_description_and_reports_success() {
+        let api = MockHttpApi::serving(
+            "PATCH",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::json(json!({
+                "number": 42,
+                "title": "New title",
+                "body": "New description.",
+                "state": "open",
+                "draft": false,
+                "html_url": "https://github.example/p/42",
+                "user": {"login": "jane"},
+                "head": {"ref": "feature-branch", "sha": "abc123"},
+                "base": {"ref": "main"}
+            })),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "update_pr", "owner": "acme", "repo": "widgets", "pr_number": 42, "title": "New title", "description": "New description."}"#,
+            ))
+            .await
+            .expect("Updating a PR should succeed");
+
+        let sent = api.only_request().json();
+        assert_eq!(sent["title"], "New title");
+        assert_eq!(sent["body"], "New description.");
+        assert!(result
+            .result
+            .starts_with("✏️ **Updated PR #42 (acme/widgets)**"));
+        assert!(result.result.contains("New title"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn update_pr_can_update_only_the_description() {
+        let api = MockHttpApi::serving(
+            "PATCH",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::json(pull_request_fixture()),
+        )
+        .await;
+
+        auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "update_pr", "owner": "acme", "repo": "widgets", "pr_number": 42, "description": "Only the body changes."}"#,
+            ))
+            .await
+            .expect("Updating just the description should succeed");
+
+        let sent = api.only_request().json();
+        assert_eq!(sent["body"], "Only the body changes.");
+        // 'title' must be entirely absent, not sent as null/empty, so GitHub
+        // doesn't interpret it as "clear the title".
+        assert!(sent.get("title").is_none());
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn update_pr_requires_at_least_title_or_description() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "update_pr", "owner": "acme", "repo": "widgets", "pr_number": 42}"#,
+            ))
+            .await
+            .expect_err("Neither title nor description must be rejected before any request");
+
+        assert!(err.to_string().contains("title") || err.to_string().contains("description"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_details_falls_back_to_the_configured_default_repo_when_omitted() {
+        // auth_tool() configures owner "default-owner" (see its definition above);
+        // this test only omits `repo`, exercising the new GITHUB_REPO-equivalent
+        // fallback via `.with_repo(...)`.
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/default-owner/widgets/pulls/42",
+            MockResponse::json(pull_request_fixture()),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .with_repo("widgets")
+            .execute(&auth_call(r#"{"action": "pr_details", "pr_number": 42}"#))
+            .await
+            .expect("The configured default repo should be used when 'repo' is omitted");
+
+        assert!(result
+            .result
+            .starts_with("🔃 **PR #42 for default-owner/widgets**"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pr_details_requires_a_repo_when_none_is_configured() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(r#"{"action": "pr_details", "pr_number": 42}"#))
+            .await
+            .expect_err("With no 'repo' argument and no configured default, this must fail");
+
+        assert!(err.to_string().contains("Owner and repo required"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn update_pr_reports_a_github_error() {
+        let api = MockHttpApi::serving(
+            "PATCH",
+            "/repos/acme/widgets/pulls/42",
+            MockResponse::error(422, r#"{"message": "Validation Failed"}"#),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "update_pr", "owner": "acme", "repo": "widgets", "pr_number": 42, "title": "x"}"#,
+            ))
+            .await
+            .expect("A 422 is reported in the result, not an Err");
+
+        assert!(result.result.contains("Failed: GitHub API error: 422"));
         api.stop().await;
     }
 }
