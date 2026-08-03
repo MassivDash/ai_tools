@@ -620,7 +620,13 @@ mod tests {
 
     #[test]
     fn test_resolve_output_dir_keeps_an_absolute_path_untouched() {
-        assert_eq!(resolve_output_dir("/var/tmp/images"), "/var/tmp/images");
+        // A Unix-style literal like "/var/tmp/images" is not `Path::is_absolute()`
+        // on Windows (which requires a drive letter/UNC prefix), so build an
+        // absolute path from the current directory instead of hardcoding one -
+        // this is absolute on every platform the tests run on.
+        let already_absolute = std::env::current_dir().unwrap().join("images");
+        let input = already_absolute.to_string_lossy().to_string();
+        assert_eq!(resolve_output_dir(&input), input);
     }
 
     #[test]

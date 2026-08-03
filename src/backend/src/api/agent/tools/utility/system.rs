@@ -195,8 +195,15 @@ impl AgentTool for SystemCommandTool {
                     });
                 }
                 let mut cmd = Command::new("ping");
-                // -c 4: four probes and stop (don't run forever); -W 2: 2s per-reply wait.
-                cmd.args(["-c", "4", "-W", "2"]).arg(query);
+                if cfg!(windows) {
+                    // -n 4: four probes; -w 2000: 2000ms per-reply wait (Windows'
+                    // ping takes milliseconds and uses different flag letters
+                    // than the Unix/BSD/GNU ping below).
+                    cmd.args(["-n", "4", "-w", "2000"]).arg(query);
+                } else {
+                    // -c 4: four probes and stop (don't run forever); -W 2: 2s per-reply wait.
+                    cmd.args(["-c", "4", "-W", "2"]).arg(query);
+                }
                 let raw = timeout(timeout_duration, cmd.output()).await;
                 // Like find/grep, ping exits non-zero on 100% packet loss even
                 // though it already printed a useful summary to stdout - trust
@@ -222,7 +229,9 @@ impl AgentTool for SystemCommandTool {
 /// look for a directory actually named `~`.
 fn expand_path(path: &str) -> String {
     if path == "~" || path.starts_with("~/") {
-        if let Ok(home) = std::env::var("HOME") {
+        // HOME is the Unix/macOS convention; Windows sets USERPROFILE instead
+        // (and typically doesn't set HOME at all).
+        if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
             return path.replacen('~', &home, 1);
         }
     }
@@ -390,7 +399,10 @@ mod tests {
 
     #[test]
     fn expand_path_resolves_tilde_using_home_env_var() {
-        let home = std::env::var("HOME").expect("HOME must be set to run this test");
+        // HOME on Unix/macOS, USERPROFILE on Windows - mirrors expand_path itself.
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .expect("HOME or USERPROFILE must be set to run this test");
         assert_eq!(expand_path("~"), home);
         assert_eq!(
             expand_path("~/Git/androStore"),
@@ -401,6 +413,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
+    // search_file shells out to GNU/BSD `find -iname`, which doesn't exist on
+    // Windows (there is no equivalent flag-for-flag substitute), so this
+    // command is Unix-only in the current implementation. Tracked as a real
+    // gap for the CI matrix's Windows runner, not something to fake pass.
     async fn search_file_finds_match_with_bare_non_glob_query() {
         let dir = tempfile::tempdir().unwrap();
         let file_path = dir.path().join("spaceghost.jks");
