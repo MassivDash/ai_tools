@@ -1,6 +1,7 @@
 use crate::api::chromadb::client::ChromaDBClient;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::chromadb::types::AddDocumentsRequest;
+use crate::api::shared::pdf::{extract_pdf_text, format_text_as_markdown};
 use actix_multipart::Multipart;
 use actix_web::{post, web, HttpResponse};
 use futures_util::TryStreamExt;
@@ -222,7 +223,7 @@ pub async fn upload_documents(
             }
 
             let (text, metadata, final_filename) = if filename.ends_with(".pdf") {
-                match parse_pdf(&file_data) {
+                match extract_pdf_text(&file_data, None) {
                     Ok((raw_text, meta)) => {
                         let md_text = format_text_as_markdown(&raw_text);
                         let md_filename = format!("{}.md", filename);
@@ -393,46 +394,6 @@ pub async fn upload_documents(
 
     Ok(HttpResponse::Accepted()
         .json(serde_json::json!({"success": true, "message": "Upload process started"})))
-}
-
-// PDF parser using pdftotext (external tool)
-fn parse_pdf(data: &[u8]) -> Result<(String, std::collections::HashMap<String, String>), String> {
-    use std::io::Write;
-    use std::process::Command;
-    use tempfile::NamedTempFile;
-
-    // Create a temporary file to write the PDF data to
-    let mut temp_file =
-        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
-    temp_file
-        .write_all(data)
-        .map_err(|e| format!("Failed to write PDF data: {}", e))?;
-
-    let temp_path = temp_file.path().to_owned();
-
-    // Call pdftotext
-    let output = Command::new("pdftotext")
-        .arg("-layout") // Maintain layout
-        .arg("-enc")
-        .arg("UTF-8")
-        .arg(&temp_path)
-        .arg("-") // Output to stdout
-        .output()
-        .map_err(|e| format!("Failed to execute pdftotext: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("pdftotext failed: {}", stderr));
-    }
-
-    let text = String::from_utf8(output.stdout)
-        .map_err(|e| format!("Invalid UTF-8 output from pdftotext: {}", e))?;
-
-    let mut metadata = std::collections::HashMap::new();
-    metadata.insert("file_type".to_string(), "pdf".to_string());
-    metadata.insert("parser".to_string(), "pdftotext".to_string());
-
-    Ok((text, metadata))
 }
 
 // Text/Markdown parser
@@ -913,29 +874,4 @@ fn chunk_text_fallback(text: &str, chunk_size: usize, overlap: usize) -> Vec<Str
     }
 
     chunks
-}
-
-/// Formats plain text as markdown
-fn format_text_as_markdown(text: &str) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut markdown = String::new();
-    let mut prev_empty = false;
-
-    for line in lines {
-        let trimmed = line.trim();
-
-        if trimmed.is_empty() {
-            if !prev_empty {
-                markdown.push_str("\n\n");
-                prev_empty = true;
-            }
-        } else {
-            // Preserve the line, but ensure proper spacing
-            markdown.push_str(trimmed);
-            markdown.push('\n');
-            prev_empty = false;
-        }
-    }
-
-    markdown.trim().to_string()
 }

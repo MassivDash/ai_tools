@@ -13,20 +13,20 @@ You MUST follow a Test-Driven Development (TDD) approach when developing feature
 ## Verification Pipeline
 After completing any feature, bug fix, or codebase modification, you MUST run the verification pipeline to ensure everything is building, formatted, linted, and tested. Set `set -e` to exit immediately if any command fails.
 
-Run the following commands in the workspace root:
+Run the following commands in the workspace root, in this exact order, every time you finish a piece of work (a feature, a fix, or any codebase modification) — before reporting the task as done:
 
 ```bash
-# 1. Verify CLI Runner
+set -e
+
 echo '🧪 running cli cargo test...'
 cargo test
 
-echo '🧹 running cli runner cargo fmt...'
-cargo fmt 
+echo '🧹 running cargo fmt...'
+cargo fmt
 
-echo '🔍 running cli cargo clippy...'
+echo '🔍 running cargo clippy...'
 cargo clippy -- -D warnings
 
-# 2. Verify Backend (Actix Web)
 echo '🧪 running backend cargo test...'
 cargo test --manifest-path src/backend/Cargo.toml
 
@@ -36,17 +36,18 @@ cargo fmt --manifest-path src/backend/Cargo.toml
 echo '🔍 running backend cargo clippy...'
 cargo clippy --manifest-path src/backend/Cargo.toml -- -D warnings
 
-# 3. Verify Frontend (Astro/Svelte)
 echo '🧹 running frontend project lint...'
-npm run lint:all --prefix src/frontend/
+npm run lint:staged --prefix src/frontend/
 
-echo '🧪 running frontend vitest...'
-npm run test --prefix src/frontend/
+echo '🧪 running related frontend vitest...'
+npm run test:related --prefix src/frontend/
 
-echo '🧪 running astro check...'
-npm run build --prefix src/frontend/
-
-echo '------ Done ------'
+echo '----- Done -----'
 ```
+
+Notes:
+- `set -e` means the script stops at the first failing command — fix it and rerun the whole pipeline from the top, don't skip ahead.
+- `lint:staged` only checks files that are `git add`ed (staged); `git add` the files you touched before running the pipeline, or this step will silently pass without checking anything.
+- `test:related` (`vitest related --run`) only runs tests related to changed files, not the full suite — it relies on the working tree diff, so run it before staging is strictly necessary but after your edits are saved.
 
 Do not mark the task as complete or present the changes for final review until all verification steps execute successfully with zero warnings/errors.

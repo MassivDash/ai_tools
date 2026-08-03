@@ -143,6 +143,27 @@ export interface AgentChatResponse {
   tool_calls?: ToolCallResult[]
 }
 
+export interface ToolGroup {
+  id: number
+  name: string
+  tool_types: string[]
+  created_at: number
+  updated_at: number
+}
+
+export interface ToolGroupRequest {
+  name: string
+  tool_types: string[]
+}
+
+export interface ToolGroupsResponse {
+  groups: ToolGroup[]
+}
+
+export interface ToolGroupResponse {
+  group: ToolGroup
+}
+
 export interface TestSuite {
   id: string
   name: string

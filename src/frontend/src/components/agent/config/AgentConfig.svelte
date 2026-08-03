@@ -3,12 +3,14 @@
   import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
   import type { AgentConfig, AgentConfigResponse } from '@types'
   import ToolsConfigSection from './ToolsConfigSection.svelte'
+  import ToolGroupsConfigSection from './ToolGroupsConfigSection.svelte'
   import CheckboxWithHelp from '@ui/CheckboxWithHelp.svelte'
   import MaterialIcon from '@ui/MaterialIcon.svelte'
   export let isOpen: boolean = false
   export let onClose: () => void
   export let onSave: () => void
 
+  let activeTab: 'tools' | 'groups' = 'tools'
   let enabledTools: string[] = []
   let debugLogging = false
   let savingConfig = false
@@ -38,13 +40,13 @@
     }
   }
 
-  const handleSave = async () => {
-    savingConfig = true
+  // Persists the current enabledTools/debugLogging immediately. Used both by the
+  // footer's Save button and by group Apply/Remove/Clear All, which must take real
+  // effect right away rather than only being staged until Save is clicked.
+  const persistConfig = async (): Promise<boolean> => {
     error = ''
 
     try {
-      // Ensure enabled_tools are in the correct format (snake_case matching ToolType enum)
-      // Backend expects: ['financial_data', 'website_check', 'chromadb'] etc.
       const payload = {
         enabled_tools: enabledTools, // Already in correct format from tool.tool_type
         debug_logging: debugLogging
@@ -59,10 +61,10 @@
         await loadConfig()
         // Store update will be handled by parent component via onSave callback
         onSave()
-        onClose()
-      } else {
-        error = response.data.message
+        return true
       }
+      error = response.data.message
+      return false
     } catch (err: any) {
       console.error('Failed to save agent config:', err)
       error =
@@ -70,8 +72,32 @@
         err.response?.data?.message ||
         err.message ||
         'Failed to save agent config'
-    } finally {
-      savingConfig = false
+      return false
+    }
+  }
+
+  const handleApplyGroup = (toolTypes: string[]) => {
+    enabledTools = Array.from(new Set([...enabledTools, ...toolTypes]))
+    persistConfig()
+  }
+
+  const handleRemoveGroup = (toolTypes: string[]) => {
+    enabledTools = enabledTools.filter((tool) => !toolTypes.includes(tool))
+    persistConfig()
+  }
+
+  const handleClearAll = () => {
+    enabledTools = []
+    persistConfig()
+  }
+
+  const handleSave = async () => {
+    savingConfig = true
+    const success = await persistConfig()
+    savingConfig = false
+
+    if (success) {
+      onClose()
     }
   }
 </script>
@@ -99,7 +125,42 @@
       />
     </div>
 
-    <ToolsConfigSection {enabledTools} onToggle={handleToolToggle} />
+    <div class="tab-bar">
+      <div class="tab-buttons">
+        <Button
+          variant={activeTab === 'tools' ? 'primary' : 'secondary'}
+          size="small"
+          onclick={() => (activeTab = 'tools')}
+        >
+          Tools
+        </Button>
+        <Button
+          variant={activeTab === 'groups' ? 'primary' : 'secondary'}
+          size="small"
+          onclick={() => (activeTab = 'groups')}
+        >
+          Groups
+        </Button>
+      </div>
+      <Button
+        variant="ghost"
+        size="small"
+        onclick={handleClearAll}
+        disabled={enabledTools.length === 0}
+      >
+        Clear All
+      </Button>
+    </div>
+
+    {#if activeTab === 'tools'}
+      <ToolsConfigSection {enabledTools} onToggle={handleToolToggle} />
+    {:else}
+      <ToolGroupsConfigSection
+        {enabledTools}
+        onApply={handleApplyGroup}
+        onRemove={handleRemoveGroup}
+      />
+    {/if}
   </div>
   <div class="config-footer">
     <Button variant="secondary" onclick={onClose}>Cancel</Button>
@@ -183,6 +244,19 @@
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
+  }
+
+  .tab-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tab-buttons {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .config-footer {

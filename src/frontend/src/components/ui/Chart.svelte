@@ -22,6 +22,19 @@
   let chartInstance: Chart | null = null
   let observer: MutationObserver | null = null
 
+  // Fixed-order categorical palette, used only when a chart has 2+ series.
+  // Order matters (colorblind-safe adjacency) - never cycle/reassign it.
+  const CATEGORICAL_PALETTE: Array<{ light: string; dark: string }> = [
+    { light: '#2a78d6', dark: '#3987e5' }, // blue
+    { light: '#eb6834', dark: '#d95926' }, // orange
+    { light: '#1baf7a', dark: '#199e70' }, // aqua
+    { light: '#eda100', dark: '#c98500' }, // yellow
+    { light: '#e87ba4', dark: '#d55181' }, // magenta
+    { light: '#008300', dark: '#008300' }, // green
+    { light: '#4a3aa7', dark: '#9085e9' }, // violet
+    { light: '#e34948', dark: '#e66767' } // red
+  ]
+
   // Helpers to get CSS variable values
   const getCssVar = (name: string, fallback: string) => {
     if (typeof getComputedStyle === 'undefined') return fallback
@@ -29,6 +42,20 @@
       .getPropertyValue(name)
       .trim()
     return value || fallback
+  }
+
+  // A single series keeps the app's primary brand color (current default).
+  // Multiple series each get a distinct color from the fixed palette, unless
+  // the series itself provides a custom color.
+  const getSeriesColor = (
+    index: number,
+    total: number,
+    isDark: boolean,
+    primaryColor: string
+  ) => {
+    if (total <= 1) return primaryColor
+    const step = CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length]
+    return isDark ? step.dark : step.light
   }
 
   const updateChartTheme = () => {
@@ -73,12 +100,14 @@
     }
 
     // Update datasets colors
+    const total = data.series.length
     chartInstance.data.datasets.forEach((dataset, i) => {
       // Only update if the original data didn't specify a color
       const originalSeries = data.series[i]
       if (!originalSeries?.color) {
-        dataset.borderColor = primaryColor
-        dataset.backgroundColor = primaryColor + '33'
+        const color = getSeriesColor(i, total, isDark, primaryColor)
+        dataset.borderColor = color
+        dataset.backgroundColor = color + '33'
       }
     })
 
@@ -91,10 +120,12 @@
 
     // Initial color fetch
     const primaryColor = getCssVar('--md-primary', '#2196f3')
+    const isDark = document.documentElement.classList.contains('dark')
+    const total = data.series.length
 
-    const datasets = data.series.map((s) => {
-      // Use series color if provided, otherwise use primary color
-      const color = s.color || primaryColor
+    const datasets = data.series.map((s, i) => {
+      // Use series color if provided, otherwise auto-assign from the palette
+      const color = s.color || getSeriesColor(i, total, isDark, primaryColor)
 
       return {
         label: s.name,

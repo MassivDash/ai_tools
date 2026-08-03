@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/Layout.astro'
+import PageIndexManager from '../components/pageindex/PageIndexManager.svelte'
+---
+
+<Layout title='PageIndex - Book Navigation'>
+  <main transition:animate='fade'>
+    <PageIndexManager client:load />
+  </main>
+</Layout>

@@ -20,6 +20,7 @@ use crate::api::agent::memory::sqlite_memory::SqliteConversationMemory;
 use crate::api::agent::service::config::AgentConfigHandle;
 use crate::api::agent::service::websocket::{agent_websocket, AgentWebSocketState};
 use crate::api::agent::testing::storage::TestingStorage;
+use crate::api::agent::tool_groups::ToolGroupsStorage;
 use crate::api::chromadb::config::types::ChromaDBConfig;
 use crate::api::chromadb::websocket::ChromaWebSocketState;
 use crate::api::default_configs::DefaultConfigsStorage;
@@ -29,6 +30,8 @@ use crate::api::llama_server::types::{
 };
 use crate::api::llama_server::websocket::{logs_websocket, status_websocket, WebSocketState};
 use crate::api::model_notes::ModelNotesStorage;
+use crate::api::pageindex::storage::PageIndexStorage;
+use crate::api::pageindex::websocket::PageIndexWebSocketState;
 use crate::api::sd_server::types::{
     LogBuffer as SDLogBuffer, SDConfig, SDConfigHandle, SDProcessHandle, SDState as SDServerState,
     SDStateHandle as SDServerStateHandle,
@@ -41,7 +44,9 @@ use crate::services::converters::configure_converter_services;
 use crate::services::games::configure_games_services;
 use crate::services::llama_server::configure_llama_server_services;
 use crate::services::model_notes::configure_model_notes_services;
+use crate::services::pageindex::configure_pageindex_services;
 use crate::services::sd_server::configure_sd_server_services;
+use crate::services::tool_groups::configure_tool_groups_services;
 
 use std::sync::{Arc, Mutex};
 
@@ -76,6 +81,11 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Failed to initialize default configs storage"),
     );
+    let pageindex_storage: Arc<PageIndexStorage> = Arc::new(
+        PageIndexStorage::new("./data/conversations.db")
+            .await
+            .expect("Failed to initialize pageindex storage"),
+    );
 
     use sqlx::sqlite::SqlitePoolOptions;
     let db_pool = SqlitePoolOptions::new()
@@ -86,6 +96,10 @@ async fn main() -> std::io::Result<()> {
     let testing_storage = TestingStorage::new(db_pool.clone())
         .await
         .expect("Failed to initialize testing storage");
+
+    let tool_groups_storage = ToolGroupsStorage::new(db_pool.clone())
+        .await
+        .expect("Failed to initialize tool groups storage");
 
     let mut llama_config_init = Config::default();
     if let Ok(Some(default_config)) = default_configs_storage.get_llama_default().await {
@@ -130,6 +144,7 @@ async fn main() -> std::io::Result<()> {
     }
     let chromadb_config: Arc<Mutex<ChromaDBConfig>> = Arc::new(Mutex::new(chromadb_config_init));
     let chromadb_ws_state = web::Data::new(ChromaWebSocketState::new());
+    let pageindex_ws_state = web::Data::new(PageIndexWebSocketState::new());
 
     // Shared state for agent config
     let agent_config: AgentConfigHandle = Arc::new(Mutex::new(AgentConfig::default()));
@@ -305,6 +320,8 @@ async fn main() -> std::io::Result<()> {
     let sqlite_memory_data = web::Data::new(sqlite_memory.clone());
     let model_notes_storage_data = web::Data::new(model_notes_storage.clone());
     let default_configs_storage_data = web::Data::new(default_configs_storage.clone());
+    let pageindex_storage_data = web::Data::new(pageindex_storage.clone());
+    let tool_groups_storage_data = web::Data::new(tool_groups_storage.clone());
     let active_generations_data = web::Data::new(active_generations.clone());
     let sd_config_data = sd_config.clone();
     let sd_process_data = sd_process.clone();
@@ -338,12 +355,15 @@ async fn main() -> std::io::Result<()> {
             .app_data(chroma_address_data.clone())
             .app_data(web::Data::new(chromadb_config_data.clone()))
             .app_data(chromadb_ws_state.clone())
+            .app_data(pageindex_storage_data.clone())
+            .app_data(pageindex_ws_state.clone())
             .app_data(web::Data::new(agent_config_data.clone()))
             .app_data(sqlite_memory_data.clone())
             .app_data(model_notes_storage_data.clone())
             .app_data(default_configs_storage_data.clone())
             .app_data(active_generations_data.clone())
             .app_data(web::Data::new(testing_storage.clone()))
+            .app_data(tool_groups_storage_data.clone())
             .app_data(web::Data::new(sd_config_data.clone()))
             .app_data(web::Data::new(sd_process_data.clone()))
             .app_data(web::Data::new(sd_logs_data.clone()))
@@ -381,9 +401,11 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_converter_services)
             .configure(configure_llama_server_services)
             .configure(configure_chromadb_services)
+            .configure(configure_pageindex_services)
             .configure(configure_agent_services)
             .configure(configure_games_services)
             .configure(configure_model_notes_services)
+            .configure(configure_tool_groups_services)
             .configure(configure_sd_server_services)
             .service(Files::new("/public", &images_path_str).show_files_listing())
             .service(

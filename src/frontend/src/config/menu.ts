@@ -46,6 +46,12 @@ export const menuConfig: MenuConfig = {
       icon: 'database'
     },
     {
+      label: 'PageIndex',
+      href: '/pageindex',
+      id: 'pageindex-link',
+      icon: 'file-tree'
+    },
+    {
       label: 'Model Notes',
       href: '/model-notes',
       id: 'model-notes-link',
@@ -85,6 +91,11 @@ export const menuConfig: MenuConfig = {
       label: 'Vector Database',
       href: '/database',
       id: 'footer-rag-link'
+    },
+    {
+      label: 'PageIndex',
+      href: '/pageindex',
+      id: 'footer-pageindex-link'
     },
     {
       label: 'Model Notes',

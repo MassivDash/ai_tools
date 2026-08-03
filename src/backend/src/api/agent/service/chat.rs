@@ -13,6 +13,7 @@ use crate::api::agent::tools::{
     framework::{registry::ToolRegistry, selector::ToolSelector},
 };
 use crate::api::llama_server::types::Config;
+use crate::api::pageindex::storage::PageIndexStorage;
 use actix_web::{post, web, HttpResponse, Responder, Result as ActixResult};
 use futures::StreamExt;
 use reqwest::Client;
@@ -28,6 +29,7 @@ pub async fn agent_chat(
     _chromadb_config: web::Data<Arc<Mutex<crate::api::chromadb::config::types::ChromaDBConfig>>>,
     llama_config: web::Data<Arc<Mutex<Config>>>,
     sqlite_memory: web::Data<Arc<SqliteConversationMemory>>,
+    pageindex_storage: web::Data<Arc<PageIndexStorage>>,
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
@@ -87,9 +89,12 @@ pub async fn agent_chat(
         vec![]
     };
 
+    let available_page_indexes = pageindex_storage.list_summaries().await.unwrap_or_default();
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
         available_collections: &available_collections,
+        available_page_indexes: &available_page_indexes,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
@@ -396,6 +401,7 @@ pub async fn agent_chat_stream(
     sqlite_memory: web::Data<Arc<SqliteConversationMemory>>,
     agent_ws_state: web::Data<Arc<AgentWebSocketState>>,
     active_generations: web::Data<ActiveGenerations>,
+    pageindex_storage: web::Data<Arc<PageIndexStorage>>,
 ) -> ActixResult<HttpResponse> {
     let config = agent_config.lock().unwrap().clone();
 
@@ -453,9 +459,12 @@ pub async fn agent_chat_stream(
         vec![]
     };
 
+    let available_page_indexes = pageindex_storage.list_summaries().await.unwrap_or_default();
+
     let context = tools::RegisterContext {
         chroma_address: Some(chroma_address.as_str()),
         available_collections: &available_collections,
+        available_page_indexes: &available_page_indexes,
     };
     tools::register_all(&mut tool_registry, &config, &context);
 
