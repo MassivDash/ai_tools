@@ -424,12 +424,15 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn search_file_returns_matches_even_when_find_hits_a_permission_denied_subdir() {
         // Reproduces the real failure: `find` exits with status 1 whenever it
         // can't descend into some subdirectory (e.g. searching from `/` hits
         // `/root`, `/etc/sssd`, etc.), even though it already printed real
         // matches to stdout. The old code discarded stdout on any non-zero
         // exit status, so a genuine match got reported as "no files found".
+        // Unix-only: relies on POSIX permission bits (`find` behaves
+        // differently on Windows and there's no direct equivalent).
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().unwrap();
