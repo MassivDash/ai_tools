@@ -1,12 +1,7 @@
 <script lang="ts">
   interface Props {
     variant?:
-      | 'primary'
-      | 'secondary'
-      | 'success'
-      | 'danger'
-      | 'info'
-      | 'warning'
+      'primary' | 'secondary' | 'success' | 'danger' | 'info' | 'warning'
     class?: string
     children?: import('svelte').Snippet
   }
