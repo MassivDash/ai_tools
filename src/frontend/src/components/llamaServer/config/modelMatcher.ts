@@ -98,7 +98,10 @@ export function normalizeModelName(name: string): {
     'qwen'
   ]
   for (const knownOwner of knownOwners) {
-    if (clean.startsWith(knownOwner + '_') || clean.startsWith(knownOwner + '-')) {
+    if (
+      clean.startsWith(knownOwner + '_') ||
+      clean.startsWith(knownOwner + '-')
+    ) {
       if (!owner) owner = knownOwner
       clean = clean.substring(knownOwner.length + 1)
     }
@@ -183,7 +186,11 @@ export function modelsMatch(
     normModelPath,
     normModelHf,
     normModelLegacy
-  ].filter(Boolean) as { base: string; quant: string | null; owner: string | null }[]
+  ].filter(Boolean) as {
+    base: string
+    quant: string | null
+    owner: string | null
+  }[]
   const normNotes = [normNoteName, normNotePath].filter(Boolean) as {
     base: string
     quant: string | null

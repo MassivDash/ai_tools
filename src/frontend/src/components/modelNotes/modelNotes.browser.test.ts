@@ -3,7 +3,13 @@
  */
 
 /// <reference types="@testing-library/jest-dom" />
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte'
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within
+} from '@testing-library/svelte'
 import { expect, test, vi, beforeEach } from 'vitest'
 import ModelNotes from './modelNotes.svelte'
 import { axiosBackendInstance } from '@axios/axiosBackendInstance.ts'
@@ -97,9 +103,7 @@ test('favoriting the 12B model does not also favorite the similarly-named 5B mod
   await renderPage()
 
   const twelveBCard = cardFor(twelveB.hf_format)
-  await fireEvent.click(
-    within(twelveBCard).getByTitle('Add to favorites')
-  )
+  await fireEvent.click(within(twelveBCard).getByTitle('Add to favorites'))
 
   // The note must be keyed by the model's exact file path, not the guessed
   // hf_format string - that's what keeps it from colliding with the 5B repo.
@@ -167,7 +171,9 @@ test('unfavoriting a model with a pre-existing legacy-keyed note updates the car
 
   mockGets([existingNote], [legacyModel])
   mockedAxios.post.mockImplementation((_url: string, body: unknown) =>
-    Promise.resolve({ data: { note: { ...existingNote, ...(body as object) } } })
+    Promise.resolve({
+      data: { note: { ...existingNote, ...(body as object) } }
+    })
   )
 
   await renderPage([legacyModel.hf_format])
@@ -248,7 +254,9 @@ test('deleting a note asks for confirmation once, even though several legacy key
     if (url === `model-notes/llama/${encodeURIComponent(model.path)}`) {
       return Promise.resolve({ data: { success: true } })
     }
-    return Promise.reject({ response: { status: 404, data: { error: 'Model note not found' } } })
+    return Promise.reject({
+      response: { status: 404, data: { error: 'Model note not found' } }
+    })
   })
 
   await renderPage([model.hf_format])
@@ -280,7 +288,12 @@ test('marking a brand-new note-less model as default persists its hf_format, not
   mockedAxios.post.mockImplementation((_url: string, body: unknown) =>
     Promise.resolve({
       data: {
-        note: { platform: 'llama', is_favorite: false, tags: [], ...(body as object) }
+        note: {
+          platform: 'llama',
+          is_favorite: false,
+          tags: [],
+          ...(body as object)
+        }
       }
     })
   )

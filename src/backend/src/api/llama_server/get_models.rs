@@ -317,9 +317,7 @@ mod tests {
         // Mirrors the real ~/.cache/huggingface/hub layout: one content-addressed
         // blob, symlinked from two snapshot dirs (e.g. an old commit and "main").
         let dir = tempfile::tempdir().unwrap();
-        let repo_dir = dir
-            .path()
-            .join("models--NobodyWho--Google_Gemma4-12B-GGUF");
+        let repo_dir = dir.path().join("models--NobodyWho--Google_Gemma4-12B-GGUF");
         let blobs_dir = repo_dir.join("blobs");
         fs::create_dir_all(&blobs_dir).unwrap();
         let blob_path = blobs_dir.join("43fec98c5102b1c4");
@@ -332,11 +330,8 @@ mod tests {
 
         #[cfg(unix)]
         {
-            std::os::unix::fs::symlink(
-                &blob_path,
-                old_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"),
-            )
-            .unwrap();
+            std::os::unix::fs::symlink(&blob_path, old_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
+                .unwrap();
             std::os::unix::fs::symlink(
                 &blob_path,
                 main_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"),
