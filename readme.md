@@ -39,8 +39,8 @@ Before using AI Tools, you need to install the following dependencies separately
 ## Getting Started
 
 To start developing with AI Tools, you will need:
-- `rustc` > 1.74
-- `node` > 20.9.0
+- `rustc` > 1.90
+- `node` > 24.0.0
 
 Clone the project and execute:
 
