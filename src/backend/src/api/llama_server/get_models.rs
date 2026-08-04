@@ -334,11 +334,8 @@ mod tests {
 
         std::os::unix::fs::symlink(&blob_path, old_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
             .unwrap();
-        std::os::unix::fs::symlink(
-            &blob_path,
-            main_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"),
-        )
-        .unwrap();
+        std::os::unix::fs::symlink(&blob_path, main_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
+            .unwrap();
 
         let mut models = Vec::new();
         scan_directory_for_gguf(&dir.path().to_path_buf(), &mut models, &mut HashSet::new())
