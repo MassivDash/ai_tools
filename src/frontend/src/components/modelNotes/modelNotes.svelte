@@ -70,6 +70,7 @@
       model = llamaModels.find(
         (m) =>
           m.name === modelName ||
+          m.path === modelName ||
           m.hf_format === modelName ||
           m.legacy_hf_format === modelName
       )
@@ -165,24 +166,16 @@
       const response = await axiosBackendInstance.get<{ notes: ModelNote[] }>(
         'model-notes'
       )
+      // Keyed only by each note's own model_name. Looking up a note for a
+      // specific model goes through getNote's fallback (finds the real
+      // model object, then findNoteForModel's owner-aware matching) rather
+      // than a bare-filename shortcut here - a shared generic filename
+      // (common across GGUF repos, e.g. "model-Q4_K_M.gguf") must not let
+      // two different models' notes collide.
       const newNotes = new Map<string, ModelNote>()
       for (const note of response.data.notes) {
-        // Store by model_name (which is hf_format for llama defaults, or filename for others)
         const key = getModelKey(note.platform, note.model_name)
         newNotes.set(key, note)
-        // Also store by filename for llama models if we have both (for backward compatibility)
-        if (note.platform === 'llama' && note.model_path) {
-          // Extract filename from path for lookup
-          const filename =
-            note.model_path.split(/[/\\]/).pop() || note.model_name
-          if (filename !== note.model_name) {
-            const filenameKey = getModelKey(note.platform, filename)
-            // Only set if not already set (prefer hf_format key)
-            if (!newNotes.has(filenameKey)) {
-              newNotes.set(filenameKey, note)
-            }
-          }
-        }
       }
       modelNotesData = newNotes
       modelNotesKey++
@@ -213,7 +206,11 @@
         'model-notes',
         noteRequest
       )
-      const key = getModelKey(platform, modelName)
+      // Key by the model_name the backend actually stored the row under
+      // (it may differ from `modelName` here, e.g. an older note kept under
+      // its original key) - otherwise this creates a second, stale-shadowed
+      // entry instead of updating the one that was really persisted.
+      const key = getModelKey(platform, response.data.note.model_name)
       modelNotesData.set(key, response.data.note)
       modelNotesData = new Map(modelNotesData)
       modelNotesKey++
@@ -232,13 +229,12 @@
     modelPath?: string,
     hfFormat?: string
   ) => {
-    // For llama models, check if there's a note by hf_format first
-    let note = null
-    if (platform === 'llama' && hfFormat) {
+    // modelName is the model's exact path (for llama) or name (for ollama) -
+    // check that first. Fall back to hf_format for notes saved under the
+    // older hf_format-based key (e.g. an existing "default model" note).
+    let note = getNote(platform, modelName)
+    if (!note && platform === 'llama' && hfFormat) {
       note = getNote(platform, hfFormat)
-    }
-    if (!note) {
-      note = getNote(platform, modelName)
     }
 
     // For llama default models, use hf_format as model_name
@@ -276,10 +272,13 @@
     // For llama default models, ensure we use hf_format if available
     let finalModelName = editingNote.model_name
     if (editingIsDefault && editingNote.platform === 'llama') {
-      // Find the model to get its hf_format
+      // Find the model to get its hf_format. editingNote.model_name may be
+      // the model's exact path (its identity when no note exists yet), so
+      // that has to be checked too, not just name/hf_format.
       const model = llamaModels.find(
         (m) =>
           m.name === editingNote.model_name ||
+          m.path === editingNote.model_name ||
           m.hf_format === editingNote.model_name
       )
       if (model?.hf_format) {
@@ -299,7 +298,6 @@
       notes: editingNotes.trim() || undefined
     }
 
-    const modelName = editingNote.model_name
     const platform = editingNote.platform
 
     try {
@@ -307,7 +305,12 @@
         'model-notes',
         noteRequest
       )
-      const key = getModelKey(platform, modelName)
+      // Key by the model_name the backend actually stored the row under
+      // (finalModelName may differ from editingNote.model_name, e.g. when
+      // switching a note to "default" swaps it to hf_format) - otherwise
+      // this creates a stale-shadowed duplicate instead of updating the row
+      // that was really persisted.
+      const key = getModelKey(platform, response.data.note.model_name)
       modelNotesData.set(key, response.data.note)
       modelNotesData = new Map(modelNotesData)
       modelNotesKey++
@@ -328,21 +331,44 @@
     editingIsDefault = false
   }
 
-  const deleteNote = async (platform: string, modelName: string) => {
-    if (!confirm(`Delete notes for ${modelName}?`)) return
+  // A model may have a note saved under any of several historical keys
+  // (path, hf_format, bare name) - try each, but ask for confirmation only
+  // once, and only surface a real error if every attempt failed for a
+  // reason other than "no note exists under that particular key" (404).
+  const deleteNote = async (platform: string, modelNames: string[]) => {
+    if (modelNames.length === 0) return
+    if (!confirm(`Delete notes for ${modelNames[0]}?`)) return
 
-    try {
-      await axiosBackendInstance.delete(
-        `model-notes/${platform}/${encodeURIComponent(modelName)}`
-      )
-      const key = getModelKey(platform, modelName)
-      modelNotesData.delete(key)
+    let anySucceeded = false
+    let realError: any = null
+
+    for (const modelName of modelNames) {
+      try {
+        await axiosBackendInstance.delete(
+          `model-notes/${platform}/${encodeURIComponent(modelName)}`
+        )
+        modelNotesData.delete(getModelKey(platform, modelName))
+        anySucceeded = true
+      } catch (err: any) {
+        if (err.response?.status !== 404) {
+          realError = err
+        }
+      }
+    }
+
+    if (anySucceeded) {
       modelNotesData = new Map(modelNotesData)
       modelNotesKey++
-    } catch (err: any) {
-      console.error('Failed to delete note:', err)
+    }
+
+    if (realError) {
+      console.error('Failed to delete note:', realError)
       error =
-        err.response?.data?.error || err.message || 'Failed to delete note'
+        realError.response?.data?.error ||
+        realError.message ||
+        'Failed to delete note'
+    } else if (anySucceeded) {
+      error = ''
     }
   }
 

@@ -10,13 +10,40 @@ export interface ModelInfo {
 export function normalizeModelName(name: string): {
   base: string
   quant: string | null
+  owner: string | null
 } {
-  if (!name) return { base: '', quant: null }
+  if (!name) return { base: '', quant: null, owner: null }
 
   let clean = name.toLowerCase()
+  let owner: string | null = null
 
-  // 1. If it's a path, get only the last component (filename)
-  clean = clean.split(/[/\\]/).pop() || clean
+  // 1. If it's a path, get only the last component (filename), and remember
+  // a candidate owner. The HF hub cache lays files out as
+  // .../models--<owner>--<repo>/snapshots/<hash>/<file>, so the immediate
+  // parent directory is a content hash, not the owner - check for that
+  // "models--" segment first. Otherwise, treat the parent as an owner only
+  // for a plain two-segment "owner/repo" id (e.g. hf_format-style strings) -
+  // a real multi-segment filesystem path's immediate parent is just a
+  // directory name (e.g. "models", "llama.cpp", "storageA"), never a real
+  // owner, and treating it as one causes false owner mismatches.
+  const pathSegments = clean.split(/[/\\]/)
+  const isSimpleOwnerRepoPair = pathSegments.length === 2
+  const hfCacheSegment = pathSegments.find((segment) =>
+    segment.startsWith('models--')
+  )
+  if (hfCacheSegment) {
+    const hfCacheParts = hfCacheSegment.split('--')
+    if (hfCacheParts[1]) {
+      owner = hfCacheParts[1]
+    }
+  }
+  const lastSegment = pathSegments.pop()
+  if (lastSegment) {
+    clean = lastSegment
+    if (!owner && isSimpleOwnerRepoPair && pathSegments[0]) {
+      owner = pathSegments[0]
+    }
+  }
 
   // 2. Remove extension like .gguf
   if (clean.endsWith('.gguf')) {
@@ -36,10 +63,13 @@ export function normalizeModelName(name: string): {
   }
 
   // 4. Clean up owner prefix from hf_format if present (e.g. "unsloth/glm..." -> "glm...")
+  // Only reached when step 1 above couldn't isolate a filename (e.g. a
+  // trailing slash), so it also needs to capture the owner if not set yet.
   const slashIndex = clean.indexOf('/')
   if (slashIndex !== -1) {
     const rest = clean.substring(slashIndex + 1)
     if (rest.length >= 3 && !/^\d+$/.test(rest)) {
+      if (!owner) owner = clean.substring(0, slashIndex)
       clean = rest
     }
   }
@@ -67,9 +97,10 @@ export function normalizeModelName(name: string): {
     'mistralai',
     'qwen'
   ]
-  for (const owner of knownOwners) {
-    if (clean.startsWith(owner + '_') || clean.startsWith(owner + '-')) {
-      clean = clean.substring(owner.length + 1)
+  for (const knownOwner of knownOwners) {
+    if (clean.startsWith(knownOwner + '_') || clean.startsWith(knownOwner + '-')) {
+      if (!owner) owner = knownOwner
+      clean = clean.substring(knownOwner.length + 1)
     }
   }
 
@@ -113,7 +144,7 @@ export function normalizeModelName(name: string): {
   // Clean up any remaining trailing/leading dashes/underscores/dots
   clean = clean.replace(/^[-_.]+|[-_.]+$|\.gguf$/g, '').trim()
 
-  return { base: clean, quant }
+  return { base: clean, quant, owner }
 }
 
 export function modelsMatch(
@@ -130,16 +161,11 @@ export function modelsMatch(
   if (model.legacy_hf_format && model.legacy_hf_format === noteModelName)
     return true
 
-  // Check filename matching for note's model path
-  if (noteModelPath && model.path) {
-    const modelFilename = model.path.split(/[/\\]/).pop()
-    const noteFilename = noteModelPath.split(/[/\\]/).pop()
-    if (modelFilename && noteFilename && modelFilename === noteFilename) {
-      return true
-    }
-  }
-
-  // 2. Fuzzy normalized matching
+  // 2. Fuzzy normalized matching. (Matching on the note's path by bare
+  // filename alone - regardless of directory - used to be an exact-tier
+  // shortcut here, but GGUF repos commonly reuse the same generic filename
+  // across unrelated models, so it's handled below instead, where the
+  // owner-aware check can tell those apart.)
   const normModelName = normalizeModelName(model.name)
   const normModelPath = model.path ? normalizeModelName(model.path) : null
   const normModelHf = model.hf_format
@@ -157,11 +183,24 @@ export function modelsMatch(
     normModelPath,
     normModelHf,
     normModelLegacy
-  ].filter(Boolean) as { base: string; quant: string | null }[]
+  ].filter(Boolean) as { base: string; quant: string | null; owner: string | null }[]
   const normNotes = [normNoteName, normNotePath].filter(Boolean) as {
     base: string
     quant: string | null
+    owner: string | null
   }[]
+
+  // Different explicit owners (e.g. two different HF orgs/users) must never
+  // fuzzy-match just because a repo/base name coincides - even if the one
+  // representation that happens to line up on base+quant doesn't itself
+  // carry owner info (e.g. a bare filename has no owner, but the same
+  // model's hf_format or HF-cache path does). Compare on whichever
+  // representation of each side has an owner, not per-pairing.
+  const modelOwner = normModels.map((m) => m.owner).find(Boolean) ?? null
+  const noteOwner = normNotes.map((n) => n.owner).find(Boolean) ?? null
+  if (modelOwner && noteOwner && modelOwner !== noteOwner) {
+    return false
+  }
 
   for (const m of normModels) {
     for (const n of normNotes) {
@@ -169,9 +208,17 @@ export function modelsMatch(
       if (m.quant && n.quant && m.quant !== n.quant) {
         continue
       }
-      // If one base name contains the other, we consider it a fuzzy match
+      // If one base name contains the other, we consider it a fuzzy match -
+      // unless both sides have a known owner, in which case containment is
+      // too loose: two different repos from the same owner routinely differ
+      // only by a size suffix (e.g. "Foo" vs "Foo-12B"), which containment
+      // would wrongly treat as the same model. With both owners already
+      // confirmed equal (checked above), require the repo name itself to
+      // match exactly instead.
       if (m.base && n.base) {
         if (m.base.length < 3 || n.base.length < 3) {
+          if (m.base === n.base) return true
+        } else if (m.owner && n.owner) {
           if (m.base === n.base) return true
         } else if (m.base.includes(n.base) || n.base.includes(m.base)) {
           return true
