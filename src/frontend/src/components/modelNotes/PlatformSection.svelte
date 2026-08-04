@@ -32,7 +32,7 @@
       _modelPath?: string,
       _hfFormat?: string
     ) => void
-    deleteNote: (_platform: string, _modelName: string) => void
+    deleteNote: (_platform: string, _modelNames: string[]) => void
     modelNotesKey: number
   }
 
@@ -61,12 +61,15 @@
     </h3>
     <div class="models-grid">
       {#each models as model, index (model.path || `${model.name}-${index}`)}
-        {#key `${model.name}-${modelNotesKey}`}
-          {@const note = getNote(platform, model.name)}
-          {@const isFav = isFavorite(platform, model.name)}
-          {@const isDef = isDefault(platform, model.name)}
-          {@const tags = getTags(platform, model.name)}
-          {@const notes = getNotes(platform, model.name)}
+        {#key `${model.path || model.name}-${modelNotesKey}`}
+          {@const modelPath = platform === 'llama' ? model.path : undefined}
+          {@const hfFormat = platform === 'llama' ? model.hf_format : undefined}
+          {@const identifier = modelPath || model.name}
+          {@const note = getNote(platform, identifier)}
+          {@const isFav = isFavorite(platform, identifier)}
+          {@const isDef = isDefault(platform, identifier)}
+          {@const tags = getTags(platform, identifier)}
+          {@const notes = getNotes(platform, identifier)}
           <ModelCard
             {model}
             {platform}
@@ -76,33 +79,20 @@
             {tags}
             {notes}
             onToggleFavorite={() => {
-              // For llama, use hf_format if available; for ollama, just use name
-              const identifier =
-                platform === 'llama' && model.hf_format
-                  ? model.hf_format
-                  : model.name
-              // Only pass path for llama models (ollama models don't have path)
-              const modelPath = platform === 'llama' ? model.path : undefined
               toggleFavorite(platform, identifier, modelPath)
             }}
             onEdit={() => {
-              // For llama models, pass hf_format if available; for ollama, just use name
-              const identifier =
-                platform === 'llama' && model.hf_format
-                  ? model.hf_format
-                  : model.name
-              // Only pass path for llama models (ollama models don't have path)
-              const modelPath = platform === 'llama' ? model.path : undefined
-              const hfFormat =
-                platform === 'llama' ? model.hf_format : undefined
               startEditing(platform, identifier, modelPath, hfFormat)
             }}
             onDelete={() => {
-              // For llama, try both hf_format and name; for ollama, just use name
-              if (platform === 'llama' && model.hf_format) {
-                deleteNote(platform, model.hf_format)
-              }
-              deleteNote(platform, model.name)
+              // Try every identifier a note for this model could have been
+              // saved under (current path-based keying, and the older
+              // hf_format/name keying) so deleting still works either way -
+              // deleteNote confirms once, then tries each in turn.
+              const candidates = [modelPath, hfFormat, model.name].filter(
+                (value): value is string => Boolean(value)
+              )
+              deleteNote(platform, candidates)
             }}
           />
         {/key}

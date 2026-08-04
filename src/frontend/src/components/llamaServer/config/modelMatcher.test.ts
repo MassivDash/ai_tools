@@ -19,43 +19,52 @@ const note = (
 
 describe('normalizeModelName', () => {
   test('returns an empty result for an empty name', () => {
-    expect(normalizeModelName('')).toEqual({ base: '', quant: null })
+    expect(normalizeModelName('')).toEqual({
+      base: '',
+      quant: null,
+      owner: null
+    })
   })
 
-  test('keeps only the filename of a posix path, drops .gguf and extracts quant', () => {
+  test('keeps only the filename of a posix path, drops .gguf and extracts quant, and does not treat the generic parent directory as an owner', () => {
     expect(normalizeModelName('/models/Qwen3-4B-Instruct-Q4_K_M.gguf')).toEqual(
       {
         base: 'qwen3-4b',
-        quant: 'q4km'
+        quant: 'q4km',
+        owner: null
       }
     )
   })
 
-  test('keeps only the filename of a windows path', () => {
+  test('keeps only the filename of a windows path, and does not treat the generic parent directory as an owner', () => {
     expect(normalizeModelName('C:\\models\\phi-4-Q5_K_S.gguf')).toEqual({
       base: 'phi-4',
-      quant: 'q5ks'
+      quant: 'q5ks',
+      owner: null
     })
   })
 
   test('strips the owner segment of an HF repo id', () => {
     expect(normalizeModelName('unsloth/GLM-4.5-Air-GGUF')).toEqual({
       base: 'glm-4.5-air',
-      quant: null
+      quant: null,
+      owner: 'unsloth'
     })
   })
 
   test('strips a known owner prefix joined with an underscore', () => {
     expect(normalizeModelName('unsloth_Qwen3-8B-Q8_0.gguf')).toEqual({
       base: 'qwen3-8b',
-      quant: 'q80'
+      quant: 'q80',
+      owner: 'unsloth'
     })
   })
 
   test('strips a known owner prefix joined with a dash', () => {
     expect(normalizeModelName('google-gemma-3-4b.gguf')).toEqual({
       base: 'gemma-3-4b',
-      quant: null
+      quant: null,
+      owner: 'google'
     })
   })
 
@@ -67,7 +76,8 @@ describe('normalizeModelName', () => {
   test('strips owner both from the directory and from the filename', () => {
     expect(normalizeModelName('ggml-org/ggml-org-whisper-base.gguf')).toEqual({
       base: 'whisper-base',
-      quant: null
+      quant: null,
+      owner: 'ggml-org'
     })
   })
 
@@ -77,7 +87,11 @@ describe('normalizeModelName', () => {
     ['model.IQ4_XS.gguf', 'iq4xs'],
     ['model:Q8_0', 'q80']
   ])('extracts quantization %s -> %s', (name, quant) => {
-    expect(normalizeModelName(name)).toEqual({ base: 'model', quant })
+    expect(normalizeModelName(name)).toEqual({
+      base: 'model',
+      quant,
+      owner: null
+    })
   })
 
   test('returns a null quant when no quantization marker is present', () => {
@@ -97,14 +111,25 @@ describe('normalizeModelName', () => {
   })
 
   test('normalizes to an empty base when the name is only a suffix word', () => {
-    expect(normalizeModelName('-instruct')).toEqual({ base: '', quant: null })
+    expect(normalizeModelName('-instruct')).toEqual({
+      base: '',
+      quant: null,
+      owner: null
+    })
   })
 
   test('keeps the version fragment that is not a stripped suffix', () => {
     expect(normalizeModelName('nomic-embed-text-v1.5.Q8_0.gguf')).toEqual({
       base: 'nomic-embed-text-v1.5',
-      quant: 'q80'
+      quant: 'q80',
+      owner: null
     })
+  })
+
+  test('extracts the owner from an HF hub cache "models--owner--repo" directory, not the snapshot hash', () => {
+    const path =
+      '/home/user/.cache/huggingface/hub/models--professorf--gemma-4-12B-it-gguf/snapshots/3cdb2856/gemma-4-12B-it-q6_k.gguf'
+    expect(normalizeModelName(path).owner).toBe('professorf')
   })
 
   test('drops the leading segment when a trailing slash defeats the filename split', () => {
@@ -255,6 +280,86 @@ describe('modelsMatch', () => {
 
   test('does not match when the note name normalizes to an empty base', () => {
     expect(modelsMatch({ name: 'qwen3-8b' }, '-instruct')).toBe(false)
+  })
+
+  test('does not fuzzy-match repos with the same name but different owners', () => {
+    expect(
+      modelsMatch({ name: 'massivDash/gemma-4' }, 'professor/gemma-4')
+    ).toBe(false)
+  })
+
+  test('still fuzzy-matches when only one side declares an owner', () => {
+    expect(modelsMatch({ name: 'massivDash/gemma-4' }, 'gemma-4')).toBe(true)
+  })
+
+  test('does not fuzzy-match two different HF repos that reuse the same converted filename', () => {
+    // Real-world case: two unrelated HF orgs both re-uploaded a GGUF conversion
+    // of "gemma-4-12B-it" with the same quant, so the bare filenames collide.
+    // Only the directory structure (models--owner--repo) tells them apart.
+    const massivdashPath =
+      '/home/user/.cache/huggingface/hub/models--MassivDash--Gemma-4-RUST-CODER-12B/snapshots/b0ea4f15/gemma-4-12B-it.Q6_K.gguf'
+    const professorfPath =
+      '/home/user/.cache/huggingface/hub/models--professorf--gemma-4-12B-it-gguf/snapshots/3cdb2856/gemma-4-12B-it-q6_k.gguf'
+
+    expect(
+      modelsMatch(
+        {
+          name: 'gemma-4-12B-it-q6_k.gguf',
+          path: professorfPath,
+          hf_format: 'professorf/gemma-4-12B-it-gguf'
+        },
+        'MassivDash/Gemma-4-RUST-CODER-12B:Q6_K',
+        massivdashPath
+      )
+    ).toBe(false)
+  })
+
+  test('still fuzzy-matches a model cached flatly under a generic local directory against its own hf_format-keyed note', () => {
+    // A model downloaded via llama.cpp's own cache lands as a flat file
+    // (no HF-cache "models--owner--repo" structure) - the parent directory
+    // is just "llama.cpp"/"models"/etc, not a real owner, and must not be
+    // treated as one or it would wrongly disagree with the real owner
+    // ("unsloth") parsed from hf_format.
+    expect(
+      modelsMatch(
+        {
+          name: 'random-quant-name.gguf',
+          path: '/home/user/.cache/llama.cpp/random-quant-name.gguf',
+          hf_format: 'unsloth/Foo-GGUF:Q4_K_M'
+        },
+        // Not an exact string match against hf_format, so this must be
+        // resolved through the fuzzy/owner-aware tier.
+        'unsloth/Foo-GGUF'
+      )
+    ).toBe(true)
+  })
+
+  test('still fuzzy-matches the same model recorded under two differently-named generic local directories', () => {
+    expect(
+      modelsMatch(
+        { name: 'renamed.gguf', path: '/mnt/storageA/qwen3-8b-q4_k_m.gguf' },
+        'original-name',
+        '/mnt/storageB/qwen3-8b-Q4_K_M.gguf'
+      )
+    ).toBe(true)
+  })
+
+  test('does not fuzzy-match two different-sized models from the same owner whose repo name is a prefix of the other', () => {
+    // Real MassivDash data: a note already exists for the 12B model
+    // (repo "Gemma-4-RUST-CODER-12B"), and the unrelated 5B model (repo
+    // "Gemma-4-Rust-Coder") happens to share the owner and quant. The size
+    // suffix "-12B" is the only difference, so naive substring containment
+    // would treat them as the same model - they are not.
+    expect(
+      modelsMatch(
+        {
+          name: 'gemma-4-e2b-it.Q8_0.gguf',
+          path: '/home/user/.cache/huggingface/hub/models--MassivDash--Gemma-4-Rust-Coder/snapshots/642/gemma-4-e2b-it.Q8_0.gguf',
+          hf_format: 'MassivDash/Gemma-4-Rust-Coder:Q8_0'
+        },
+        'MassivDash/Gemma-4-RUST-CODER-12B:Q8_0'
+      )
+    ).toBe(false)
   })
 })
 
