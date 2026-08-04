@@ -313,9 +313,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_scan_dedupes_hf_hub_snapshots_pointing_at_the_same_blob() {
         // Mirrors the real ~/.cache/huggingface/hub layout: one content-addressed
         // blob, symlinked from two snapshot dirs (e.g. an old commit and "main").
+        // Unix-only: creating symlinks on Windows needs elevated privileges
+        // that CI runners don't have, and there's nothing OS-specific about
+        // the dedup logic itself being verified here.
         let dir = tempfile::tempdir().unwrap();
         let repo_dir = dir.path().join("models--NobodyWho--Google_Gemma4-12B-GGUF");
         let blobs_dir = repo_dir.join("blobs");
@@ -328,16 +332,10 @@ mod tests {
         fs::create_dir_all(&old_snapshot).unwrap();
         fs::create_dir_all(&main_snapshot).unwrap();
 
-        #[cfg(unix)]
-        {
-            std::os::unix::fs::symlink(&blob_path, old_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
-                .unwrap();
-            std::os::unix::fs::symlink(
-                &blob_path,
-                main_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"),
-            )
+        std::os::unix::fs::symlink(&blob_path, old_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
             .unwrap();
-        }
+        std::os::unix::fs::symlink(&blob_path, main_snapshot.join("gemma-4-12b-it-Q4_K_M.gguf"))
+            .unwrap();
 
         let mut models = Vec::new();
         scan_directory_for_gguf(&dir.path().to_path_buf(), &mut models, &mut HashSet::new())

@@ -9,8 +9,7 @@
   }
 
   type WebSocketMessage =
-    | { type: 'log'; log: LogLine }
-    | { type: 'logs_batch'; logs: LogLine[] }
+    { type: 'log'; log: LogLine } | { type: 'logs_batch'; logs: LogLine[] }
 
   let logs: LogLine[] = []
   let _loading = false

@@ -522,12 +522,10 @@ impl GitHubAuthenticatedTool {
         response.json().await.context("Failed to parse pulls")
     }
 
-    /// Resolve `owner`/`repo`/`pr_number` shared by all the `pr_*`/`update_pr` actions.
-    /// `owner` falls back to `GITHUB_OWNER`; `repo` and `pr_number` are always required.
-    fn resolve_pr_target<'a>(
-        &'a self,
-        args: &'a serde_json::Value,
-    ) -> Result<(&'a str, &'a str, u64)> {
+    /// Resolve `owner`/`repo`, falling back to `GITHUB_OWNER`/`GITHUB_REPO`
+    /// (`self.owner`/`self.repo`) when the argument is omitted or empty.
+    /// Shared by every action that targets a specific repo.
+    fn resolve_owner_repo<'a>(&'a self, args: &'a serde_json::Value) -> Result<(&'a str, &'a str)> {
         let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
         if owner.is_empty() {
             owner = &self.owner;
@@ -536,15 +534,25 @@ impl GitHubAuthenticatedTool {
         if repo.is_empty() {
             repo = &self.repo;
         }
-        let pr_number = args.get("pr_number").and_then(|v| v.as_u64());
-
         if owner.is_empty() || repo.is_empty() {
             return Err(anyhow::anyhow!(
                 "Owner and repo required (add GITHUB_OWNER to .env if owner omitted)"
             ));
         }
-        let pr_number =
-            pr_number.ok_or_else(|| anyhow::anyhow!("'pr_number' is required for this action"))?;
+        Ok((owner, repo))
+    }
+
+    /// Resolve `owner`/`repo`/`pr_number` shared by all the `pr_*`/`update_pr` actions.
+    /// `owner` falls back to `GITHUB_OWNER`; `repo` and `pr_number` are always required.
+    fn resolve_pr_target<'a>(
+        &'a self,
+        args: &'a serde_json::Value,
+    ) -> Result<(&'a str, &'a str, u64)> {
+        let (owner, repo) = self.resolve_owner_repo(args)?;
+        let pr_number = args
+            .get("pr_number")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| anyhow::anyhow!("'pr_number' is required for this action"))?;
 
         Ok((owner, repo, pr_number))
     }
@@ -687,6 +695,99 @@ impl GitHubAuthenticatedTool {
             .json()
             .await
             .context("Failed to parse updated pull request")
+    }
+
+    /// Resolve `owner`/`repo`/`head_branch`/`base_branch` shared by
+    /// `compare_commits` and `create_pr`. `owner`/`repo` fall back to
+    /// `GITHUB_OWNER`/`GITHUB_REPO`; `head_branch` is always required;
+    /// `base_branch` defaults to `"main"`.
+    fn resolve_branch_target<'a>(
+        &'a self,
+        args: &'a serde_json::Value,
+    ) -> Result<(&'a str, &'a str, &'a str, &'a str)> {
+        let (owner, repo) = self.resolve_owner_repo(args)?;
+
+        let head_branch = args
+            .get("head_branch")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("'head_branch' is required for this action"))?;
+        let base_branch = args
+            .get("base_branch")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("main");
+
+        Ok((owner, repo, head_branch, base_branch))
+    }
+
+    /// Commits present on `head_branch` but not on `base_branch`, via GitHub's
+    /// compare API - works before any PR exists, unlike `list_pull_commits`.
+    async fn compare_branch_commits(
+        &self,
+        owner: &str,
+        repo: &str,
+        base_branch: &str,
+        head_branch: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!(
+            "{}/repos/{}/{}/compare/{}...{}",
+            self.base_url,
+            owner,
+            repo,
+            urlencoding::encode(base_branch),
+            urlencoding::encode(head_branch)
+        );
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to compare branches")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse branch comparison")
+    }
+
+    async fn create_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        title: &str,
+        head_branch: &str,
+        base_branch: &str,
+        body: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
+
+        let mut payload = serde_json::Map::new();
+        payload.insert("title".to_string(), json!(title));
+        payload.insert("head".to_string(), json!(head_branch));
+        payload.insert("base".to_string(), json!(base_branch));
+        if let Some(body) = body {
+            payload.insert("body".to_string(), json!(body));
+        }
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .await
+            .context("Failed to create pull request")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GitHub API error: {}", response.status()));
+        }
+        response
+            .json()
+            .await
+            .context("Failed to parse created pull request")
     }
 
     async fn get_my_profile(&self) -> Result<serde_json::Value> {
@@ -1001,6 +1102,34 @@ impl GitHubAuthenticatedTool {
         }
         output
     }
+
+    fn format_compare_commits(&self, data: &serde_json::Value) -> String {
+        let total = data["total_commits"].as_u64().unwrap_or(0);
+        let items = data.get("commits").and_then(|c| c.as_array());
+        let items = match items.filter(|i| !i.is_empty()) {
+            Some(items) => items,
+            None => return format!("{} commit(s) ahead.\n\nNo commits found.", total),
+        };
+
+        let mut output = format!("{} commit(s) ahead.\n\n", total);
+        for item in items {
+            let sha = item["sha"].as_str().unwrap_or("???");
+            let short_sha = &sha[..sha.len().min(7)];
+            let message = item["commit"]["message"]
+                .as_str()
+                .and_then(|m| m.lines().next())
+                .unwrap_or("");
+            let author = item["commit"]["author"]["name"]
+                .as_str()
+                .unwrap_or("unknown");
+            let url = item["html_url"].as_str().unwrap_or("");
+            output.push_str(&format!(
+                "- **[{}]({})** {} — {}\n",
+                short_sha, url, message, author
+            ));
+        }
+        output
+    }
 }
 
 #[async_trait]
@@ -1012,17 +1141,17 @@ impl AgentTool for GitHubAuthenticatedTool {
     fn get_function_definition(&self) -> serde_json::Value {
         json!({
             "name": "github_authenticated",
-            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, events, pull requests (list, view details, check CI status/checks, list commits, edit title/description), and follower count. REQUIRED: GITHUB_TOKEN env variable.",
+            "description": "Access PRIVATE/AUTHENTICATED GitHub features: notifications, your repos, workflow runs, issues, events, pull requests (list, view details, check CI status/checks, list commits, edit title/description, create), compare commits between two branches, and follower count. REQUIRED: GITHUB_TOKEN env variable.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls", "followers", "pr_details", "pr_checks", "pr_commits", "update_pr"],
+                        "enum": ["notifications", "list_my_repos", "list_org_repos", "actions", "issues", "events", "pulls", "followers", "pr_details", "pr_checks", "pr_commits", "update_pr", "compare_commits", "create_pr"],
                         "description": "The action to perform."
                     },
                     "owner": { "type": "string", "description": "Repository owner (optional, falls back to GITHUB_OWNER in .env)." },
-                    "repo": { "type": "string", "description": "Repository name (optional for issues/pulls; for pr_details/pr_checks/pr_commits/update_pr, falls back to GITHUB_REPO in .env if omitted)." },
+                    "repo": { "type": "string", "description": "Repository name (optional for issues/pulls; for pr_details/pr_checks/pr_commits/update_pr/compare_commits/create_pr, falls back to GITHUB_REPO in .env if omitted)." },
                     "org": { "type": "string", "description": "Organization name (required for list_org_repos)." },
                     "username": { "type": "string", "description": "Username for events check." },
                     "page": { "type": "integer", "description": "Page number for pagination (default: 1)." },
@@ -1037,8 +1166,10 @@ impl AgentTool for GitHubAuthenticatedTool {
                         "description": "State of issues to return (default: open)."
                     },
                     "pr_number": { "type": "integer", "description": "Pull request number. Required for pr_details, pr_checks, pr_commits, and update_pr." },
-                    "title": { "type": "string", "description": "New PR title (optional, for update_pr)." },
-                    "description": { "type": "string", "description": "New PR description/body (optional, for update_pr). At least one of title/description is required." }
+                    "head_branch": { "type": "string", "description": "Source branch. Required for compare_commits and create_pr. To write a PR description, call compare_commits first to read the branch's commits, then call create_pr with a title/description composed from them." },
+                    "base_branch": { "type": "string", "description": "Branch to compare against or merge into (optional, defaults to \"main\"). Used by compare_commits and create_pr." },
+                    "title": { "type": "string", "description": "PR title. Required for create_pr; optional for update_pr." },
+                    "description": { "type": "string", "description": "PR description/body. Optional for create_pr and update_pr, but for update_pr at least one of title/description is required." }
                 },
                 "required": ["action"]
             }
@@ -1275,6 +1406,44 @@ impl AgentTool for GitHubAuthenticatedTool {
                     Ok(data) => format!(
                         "✏️ **Updated PR #{} ({}/{})**\n\n{}",
                         pr_number,
+                        owner,
+                        repo,
+                        self.format_pr_details(&data)
+                    ),
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
+            "compare_commits" => {
+                let (owner, repo, head_branch, base_branch) = self.resolve_branch_target(&args)?;
+                match self
+                    .compare_branch_commits(owner, repo, base_branch, head_branch)
+                    .await
+                {
+                    Ok(data) => format!(
+                        "📜 **Commits on `{}` not yet in `{}` ({}/{})**\n\n{}",
+                        head_branch,
+                        base_branch,
+                        owner,
+                        repo,
+                        self.format_compare_commits(&data)
+                    ),
+                    Err(e) => format!("Failed: {}", e),
+                }
+            }
+            "create_pr" => {
+                let (owner, repo, head_branch, base_branch) = self.resolve_branch_target(&args)?;
+                let title = args
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| anyhow::anyhow!("'title' is required for create_pr"))?;
+                let description = args.get("description").and_then(|v| v.as_str());
+                match self
+                    .create_pull_request(owner, repo, title, head_branch, base_branch, description)
+                    .await
+                {
+                    Ok(data) => format!(
+                        "🚀 **Created PR ({}/{})**\n\n{}",
                         owner,
                         repo,
                         self.format_pr_details(&data)
@@ -2271,7 +2440,9 @@ mod tests {
                 "pr_details",
                 "pr_checks",
                 "pr_commits",
-                "update_pr"
+                "update_pr",
+                "compare_commits",
+                "create_pr"
             ])
         );
         for parameter in [
@@ -2283,6 +2454,8 @@ mod tests {
             "filter",
             "state",
             "pr_number",
+            "head_branch",
+            "base_branch",
             "title",
             "description",
         ] {
@@ -2789,6 +2962,204 @@ mod tests {
 
         assert!(err.to_string().contains("title") || err.to_string().contains("description"));
         assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn compare_commits_renders_the_commit_list_against_the_default_base_branch() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/compare/main...feature-branch",
+            MockResponse::json(json!({
+                "total_commits": 1,
+                "commits": [
+                    {
+                        "sha": "abc1234567890",
+                        "html_url": "https://github.example/c/abc1234567890",
+                        "commit": {
+                            "message": "Fix the bug\n\nLonger description here.",
+                            "author": {"name": "Jane Doe"}
+                        }
+                    }
+                ]
+            })),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "compare_commits", "owner": "acme", "repo": "widgets", "head_branch": "feature-branch"}"#,
+            ))
+            .await
+            .expect("Comparing branches should succeed");
+
+        // base_branch defaults to "main" when omitted.
+        assert!(result.result.contains("1 commit(s) ahead"));
+        assert!(result.result.contains("abc1234"));
+        assert!(result.result.contains("Fix the bug"));
+        assert!(result.result.contains("Jane Doe"));
+        assert!(!result.result.contains("Longer description here."));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn compare_commits_reports_no_commits() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/repos/acme/widgets/compare/develop...feature-branch",
+            MockResponse::json(json!({ "total_commits": 0, "commits": [] })),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "compare_commits", "owner": "acme", "repo": "widgets", "head_branch": "feature-branch", "base_branch": "develop"}"#,
+            ))
+            .await
+            .expect("An empty comparison is not an error");
+
+        assert!(result.result.contains("No commits found"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn compare_commits_requires_a_head_branch() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "compare_commits", "owner": "acme", "repo": "widgets"}"#,
+            ))
+            .await
+            .expect_err("Missing head_branch must be rejected before any request");
+
+        assert!(err.to_string().contains("head_branch"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn create_pr_sends_title_head_base_and_description_and_reports_success() {
+        let api = MockHttpApi::serving(
+            "POST",
+            "/repos/acme/widgets/pulls",
+            MockResponse::json(pull_request_fixture()),
+        )
+        .await;
+
+        let result = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "create_pr", "owner": "acme", "repo": "widgets", "head_branch": "feature-branch", "title": "Add feature", "description": "This adds a feature."}"#,
+            ))
+            .await
+            .expect("Creating a PR should succeed");
+
+        let sent = api.only_request().json();
+        assert_eq!(sent["title"], "Add feature");
+        assert_eq!(sent["head"], "feature-branch");
+        // base_branch defaults to "main" when omitted.
+        assert_eq!(sent["base"], "main");
+        assert_eq!(sent["body"], "This adds a feature.");
+        assert!(result
+            .result
+            .starts_with("🚀 **Created PR (acme/widgets)**"));
+        assert!(result.result.contains("Add feature"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn create_pr_honors_an_explicit_base_branch_and_omits_body_when_absent() {
+        let api = MockHttpApi::serving(
+            "POST",
+            "/repos/acme/widgets/pulls",
+            MockResponse::json(pull_request_fixture()),
+        )
+        .await;
+
+        auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "create_pr", "owner": "acme", "repo": "widgets", "head_branch": "feature-branch", "base_branch": "develop", "title": "Add feature"}"#,
+            ))
+            .await
+            .expect("Creating a PR without a description should succeed");
+
+        let sent = api.only_request().json();
+        assert_eq!(sent["base"], "develop");
+        assert!(sent.get("body").is_none());
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn create_pr_requires_a_title() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "create_pr", "owner": "acme", "repo": "widgets", "head_branch": "feature-branch"}"#,
+            ))
+            .await
+            .expect_err("Missing title must be rejected before any request");
+
+        assert!(err.to_string().contains("title"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn create_pr_requires_a_head_branch() {
+        let api = MockHttpApi::start().await;
+
+        let err = auth_tool(&api)
+            .execute(&auth_call(
+                r#"{"action": "create_pr", "owner": "acme", "repo": "widgets", "title": "Add feature"}"#,
+            ))
+            .await
+            .expect_err("Missing head_branch must be rejected before any request");
+
+        assert!(err.to_string().contains("head_branch"));
+        assert_eq!(api.call_count(), 0);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn compare_commits_and_create_pr_fall_back_to_the_configured_owner_and_repo_when_omitted()
+    {
+        // auth_tool() configures owner "default-owner" (see its definition
+        // above); both calls below omit `owner` and `repo` entirely,
+        // exercising resolve_owner_repo's fallback via `.with_repo(...)`.
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            "/repos/default-owner/widgets/compare/main...feature-branch",
+            MockResponse::json(json!({ "total_commits": 0, "commits": [] })),
+        );
+        api.on(
+            "POST",
+            "/repos/default-owner/widgets/pulls",
+            MockResponse::json(pull_request_fixture()),
+        );
+        let tool = auth_tool(&api).with_repo("widgets");
+
+        let compare_result = tool
+            .execute(&auth_call(
+                r#"{"action": "compare_commits", "head_branch": "feature-branch"}"#,
+            ))
+            .await
+            .expect("The configured default owner/repo should be used when omitted");
+        assert!(compare_result
+            .result
+            .contains("`feature-branch` not yet in `main` (default-owner/widgets)"));
+
+        let create_result = tool
+            .execute(&auth_call(
+                r#"{"action": "create_pr", "head_branch": "feature-branch", "title": "Add feature"}"#,
+            ))
+            .await
+            .expect("The configured default owner/repo should be used when omitted");
+        assert!(create_result
+            .result
+            .starts_with("🚀 **Created PR (default-owner/widgets)**"));
+
         api.stop().await;
     }
 
