@@ -30,6 +30,16 @@ impl FacebookReadCommentsTool {
         }
     }
 
+    /// A tool using `credentials` instead of the process environment, so tests
+    /// can point it at a loopback mock Graph API.
+    #[cfg(test)]
+    pub(crate) fn with_credentials(credentials: FacebookCredentials) -> Self {
+        Self {
+            credentials,
+            ..Self::new()
+        }
+    }
+
     async fn read_comments(&self, post_id: &str, limit: u32) -> Result<String> {
         let access_token = self.credentials.access_token()?;
 
@@ -155,5 +165,167 @@ mod tests {
         let comment = json!({"id": "c2", "message": "hi"});
         let line = format_comment_line(&comment);
         assert!(line.contains("Unknown user"));
+    }
+
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_fb_comments".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "facebook_read_comments".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    fn tool_for(api: &MockHttpApi) -> FacebookReadCommentsTool {
+        FacebookReadCommentsTool::with_credentials(FacebookCredentials::for_test(api.base_url()))
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_read_comments_tool() {
+        let tool = FacebookReadCommentsTool::new();
+        assert_eq!(tool.metadata().id, "facebook_read_comments");
+        assert_eq!(tool.metadata().category, ToolCategory::Social);
+        assert_eq!(tool.metadata().tool_type, ToolType::FacebookCommentsRead);
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "facebook_read_comments");
+        assert_eq!(def["parameters"]["required"], json!(["post_id"]));
+    }
+
+    #[tokio::test]
+    async fn comments_are_read_from_the_post_the_caller_named() {
+        // The post id is interpolated straight into the Graph path.
+        let api = MockHttpApi::serving(
+            "GET",
+            "/v21.0/page_1_77/comments",
+            MockResponse::json(json!({"data": [
+                {
+                    "id": "c1",
+                    "from": {"name": "Jane Doe"},
+                    "message": "Great post!",
+                    "created_time": "2026-08-01T10:00:00+0000"
+                },
+                {"id": "c2"}
+            ]})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(r#"{"post_id": "page_1_77", "limit": 5}"#))
+            .await
+            .expect("Reading comments should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, "/v21.0/page_1_77/comments");
+        assert_eq!(request.query_param("fields").as_deref(), Some(FIELDS));
+        assert_eq!(request.query_param("limit").as_deref(), Some("5"));
+        assert_eq!(
+            request.query_param("access_token").as_deref(),
+            Some("test-page-token")
+        );
+
+        assert_eq!(result.tool_name, "facebook_read_comments");
+        assert!(result.tool_call_id.is_none());
+        let lines: Vec<&str> = result.result.lines().collect();
+        assert_eq!(lines.len(), 2, "{}", result.result);
+        assert!(lines[0].contains("Jane Doe: Great post!"));
+        assert!(lines[1].contains("Unknown user: (no text)"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_unrelated_post_id_is_not_silently_rewritten() {
+        // Only the exact /{post_id}/comments path is mocked, so a tool that
+        // addressed anything else would 404 here instead of passing.
+        let api = MockHttpApi::serving(
+            "GET",
+            "/v21.0/999_888/comments",
+            MockResponse::json(json!({"data": []})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(r#"{"post_id": "999_888"}"#))
+            .await
+            .expect("Reading comments should succeed");
+
+        assert_eq!(result.result, "No comments found on this post.");
+        assert_eq!(
+            api.only_request().query_param("limit").as_deref(),
+            Some("10"),
+            "The documented default limit is 10"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_graph_api_error_body_is_surfaced() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/v21.0/p1/comments",
+            MockResponse::error(400, r#"{"error":{"message":"Unsupported get request"}}"#),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(r#"{"post_id": "p1"}"#))
+            .await
+            .expect_err("A 400 must fail the call");
+
+        let message = error.to_string();
+        assert!(
+            message.starts_with("Failed to read Facebook comments:"),
+            "{}",
+            message
+        );
+        assert!(message.contains("Unsupported get request"), "{}", message);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_and_a_missing_token_fail_before_any_request() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/v21.0/p1/comments",
+            MockResponse::json(json!({"data": []})),
+        )
+        .await;
+        let tool = tool_for(&api);
+
+        assert_eq!(
+            tool.execute(&tool_call("%"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+        assert_eq!(
+            tool.execute(&tool_call("{}"))
+                .await
+                .expect_err("A missing post_id must fail")
+                .to_string(),
+            "Missing required parameter: post_id"
+        );
+
+        let tokenless = FacebookReadCommentsTool::with_credentials(
+            FacebookCredentials::for_test(api.base_url()).without_access_token(),
+        );
+        assert_eq!(
+            tokenless
+                .execute(&tool_call(r#"{"post_id": "p1"}"#))
+                .await
+                .expect_err("Without a token the call must fail")
+                .to_string(),
+            "FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached the API");
+        api.stop().await;
     }
 }

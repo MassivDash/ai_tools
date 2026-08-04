@@ -72,3 +72,40 @@ pub trait AgentTool: Send + Sync {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_category_maps_to_its_material_icon() {
+        // The frontend renders these names directly, so each one is part of the
+        // contract rather than an implementation detail.
+        let mappings = [
+            (ToolCategory::Web, "web"),
+            (ToolCategory::Financial, "currency-usd"),
+            (ToolCategory::Database, "database"),
+            (ToolCategory::Search, "magnify"),
+            (ToolCategory::File, "file-document"),
+            (ToolCategory::Google, "google"),
+            (ToolCategory::Social, "share-variant"),
+            (ToolCategory::Development, "code-tags"),
+            (ToolCategory::Utility, "wrench"),
+        ];
+        for (category, icon) in mappings {
+            assert_eq!(category.icon_name(), icon, "{:?}", category);
+        }
+    }
+
+    #[test]
+    fn categories_round_trip_through_snake_case_json() {
+        assert_eq!(
+            serde_json::to_value(ToolCategory::Development).unwrap(),
+            serde_json::json!("development")
+        );
+        assert_eq!(
+            serde_json::from_value::<ToolCategory>(serde_json::json!("file")).unwrap(),
+            ToolCategory::File
+        );
+    }
+}

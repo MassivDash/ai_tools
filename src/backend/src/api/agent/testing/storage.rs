@@ -205,4 +205,16 @@ impl TestingStorage {
             .context("Failed to delete question")?;
         Ok(())
     }
+
+    /// Drop both tables so that subsequent queries fail. Used to exercise the
+    /// error paths of the handlers that sit on top of this storage.
+    #[cfg(test)]
+    pub(crate) async fn drop_tables_for_tests(&self) {
+        for statement in ["DROP TABLE test_questions", "DROP TABLE test_suites"] {
+            sqlx::query(statement)
+                .execute(&self.pool)
+                .await
+                .expect("Failed to drop table");
+        }
+    }
 }

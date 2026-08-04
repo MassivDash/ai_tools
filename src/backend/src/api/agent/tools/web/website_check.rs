@@ -131,3 +131,185 @@ impl AgentTool for WebsiteCheckTool {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    /// This tool fetches whatever URL the caller passes in, so there is no API
+    /// host to override: the test just points the argument at the mock.
+    fn tool_call(url: &str) -> ToolCall {
+        tool_call_with_arguments(&json!({"url": url}).to_string())
+    }
+
+    fn tool_call_with_arguments(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_website".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "check_website".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_website_tool() {
+        let tool = WebsiteCheckTool::new();
+        assert_eq!(tool.metadata().id, "3");
+        assert_eq!(tool.metadata().category, ToolCategory::Web);
+        assert_eq!(tool.metadata().tool_type, ToolType::WebsiteCheck);
+        assert!(tool.is_available());
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "check_website");
+        assert_eq!(def["parameters"]["required"], json!(["url"]));
+    }
+
+    #[tokio::test]
+    async fn a_page_is_fetched_and_converted_to_markdown() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/article",
+            MockResponse::html(
+                r#"<html><head><title>T</title><style>p{color:red}</style></head>
+                   <body><h1>Hello</h1><p>Some <strong>body</strong> text.</p>
+                   <script>alert(1)</script></body></html>"#,
+            ),
+        )
+        .await;
+        let url = api.url("/article");
+
+        let result = WebsiteCheckTool::new()
+            .execute(&tool_call(&url))
+            .await
+            .expect("The fetch and conversion should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, "/article");
+
+        assert_eq!(result.tool_name, "check_website");
+        assert!(result.tool_call_id.is_none());
+        assert!(result.result.starts_with(&format!("Website: {}", url)));
+        assert!(result.result.contains("Markdown Content:"));
+        assert!(result.result.contains("Hello"));
+        assert!(result.result.contains("**body**"));
+        // Script and style contents are stripped rather than converted.
+        assert!(!result.result.contains("alert(1)"));
+        assert!(!result.result.contains("color:red"));
+        // Nothing links anywhere, so no link count is appended.
+        assert!(!result.result.contains("internal link(s)"));
+
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn same_host_links_are_counted_in_the_summary() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/index",
+            MockResponse::html(
+                r#"<html><body><p>See <a href="/other">other</a> and
+                   <a href="https://example.com/away">away</a>.</p></body></html>"#,
+            ),
+        )
+        .await;
+
+        let result = WebsiteCheckTool::new()
+            .execute(&tool_call(&api.url("/index")))
+            .await
+            .expect("The fetch and conversion should succeed");
+
+        // Only the same-host link counts as internal.
+        assert!(
+            result
+                .result
+                .contains("Found 1 internal link(s) on this page."),
+            "{}",
+            result.result
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_http_error_is_reported_with_its_status() {
+        let api = MockHttpApi::serving("GET", "/missing", MockResponse::error(404, "nope")).await;
+
+        let error = WebsiteCheckTool::new()
+            .execute(&tool_call(&api.url("/missing")))
+            .await
+            .expect_err("A 404 must fail the call");
+
+        assert_eq!(error.to_string(), "Failed to fetch URL: HTTP 404 Not Found");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_unreachable_host_is_reported_as_a_fetch_failure() {
+        // Port 1 is privileged and never bound, so the connection is refused.
+        let error = WebsiteCheckTool::new()
+            .execute(&tool_call("http://127.0.0.1:1/"))
+            .await
+            .expect_err("An unreachable host must fail the call");
+
+        assert_eq!(error.to_string(), "Failed to fetch URL");
+    }
+
+    #[tokio::test]
+    async fn a_malformed_url_fails_before_any_request() {
+        let error = WebsiteCheckTool::new()
+            .execute(&tool_call("not-a-url"))
+            .await
+            .expect_err("A malformed URL must fail the call");
+
+        assert_eq!(error.to_string(), "Invalid URL format");
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_fail_before_any_request() {
+        let tool = WebsiteCheckTool::new();
+
+        assert_eq!(
+            tool.execute(&tool_call_with_arguments("]["))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+        assert_eq!(
+            tool.execute(&tool_call_with_arguments(
+                r#"{"address": "https://example.com"}"#
+            ))
+            .await
+            .expect_err("A missing url must fail")
+            .to_string(),
+            "Missing required parameter: url"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_oversized_page_is_refused_before_conversion() {
+        // One byte over the 10 MiB cap.
+        const LIMIT: usize = 10 * 1024 * 1024;
+        let api =
+            MockHttpApi::serving("GET", "/huge", MockResponse::html(&"x".repeat(LIMIT + 1))).await;
+
+        let error = WebsiteCheckTool::new()
+            .execute(&tool_call(&api.url("/huge")))
+            .await
+            .expect_err("An oversized body must fail the call");
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "HTML response too large: {} bytes (max {} bytes)",
+                LIMIT + 1,
+                LIMIT
+            )
+        );
+        api.stop().await;
+    }
+}

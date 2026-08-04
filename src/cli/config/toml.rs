@@ -160,9 +160,13 @@ mod tests {
 
     #[test]
     fn test_read_toml_parse_error() {
+        // The file has to be the one that is read, otherwise this only tests
+        // the missing file path again
         let file_name: String = "Astrox-error.toml".to_string();
-        std::fs::write("Astrox-test.toml", "invalid toml").unwrap();
+        std::fs::write(&file_name, "this is = not = valid toml").unwrap();
+
         let result = read_toml(&file_name);
+
         assert!(result.is_err());
         remove_file(&file_name);
     }
@@ -172,6 +176,40 @@ mod tests {
         let file_name: String = "Astrox-test-write.toml".to_string();
         let result = create_toml_file(file_name.clone());
         assert!(result.is_ok());
+
+        // The created file is a valid config that can be read back
+        let written = read_toml(&file_name);
+        assert!(written.is_ok());
+        assert_eq!(written.unwrap(), result.unwrap());
+
         remove_file(&file_name);
+    }
+
+    #[test]
+    fn test_create_toml_file_refuses_to_overwrite() {
+        let file_name: String = "Astrox-test-existing.toml".to_string();
+        std::fs::write(&file_name, "host = \"do-not-touch\"").unwrap();
+
+        let result = create_toml_file(file_name.clone());
+
+        assert!(result.is_err());
+        // The existing file is left alone
+        assert_eq!(
+            std::fs::read_to_string(&file_name).unwrap(),
+            "host = \"do-not-touch\""
+        );
+
+        remove_file(&file_name);
+    }
+
+    #[test]
+    fn test_create_toml_file_reports_a_write_failure() {
+        // A path inside a folder that does not exist cannot be written to
+        let file_name: String = "Astrox-no-such-folder/Astrox.toml".to_string();
+
+        let result = create_toml_file(file_name.clone());
+
+        assert!(result.is_err());
+        assert!(!std::path::Path::new(&file_name).exists());
     }
 }

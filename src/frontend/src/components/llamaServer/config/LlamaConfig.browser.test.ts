@@ -27,6 +27,62 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
+type GetResponses = Record<string, unknown>
+
+class Rejection {
+  reason: unknown
+  constructor(reason: unknown) {
+    this.reason = reason
+  }
+}
+
+const rejectWith = (reason: unknown) => new Rejection(reason)
+
+// Answers every endpoint the panel calls on open; pass overrides per test.
+// Values are resolved as `{ data: value }` unless wrapped in `rejectWith`.
+const mockGets = (overrides: GetResponses = {}) => {
+  const responses: GetResponses = {
+    'llama-server/config': { hf_model: '', ctx_size: 0 },
+    'llama-server/models': { local_models: [] },
+    'agent/config': { debug_logging: false },
+    'model-notes': { notes: [] },
+    ...overrides
+  }
+
+  mockedAxios.get.mockImplementation((url: string) => {
+    if (!(url in responses)) {
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    }
+    const value = responses[url]
+    if (value instanceof Rejection) {
+      return Promise.reject(value.reason)
+    }
+    return Promise.resolve({ data: value })
+  })
+}
+
+const openPanel = async (props: Record<string, unknown> = {}) => {
+  const rendered = render(LlamaConfig as Component, {
+    props: { isOpen: true, onClose: vi.fn(), ...props }
+  })
+  await waitFor(() => {
+    expect(screen.getByText('Server Configuration')).toBeTruthy()
+  })
+  return rendered
+}
+
+const openAdvancedOptions = async () => {
+  fireEvent.click(screen.getByText('Advanced Options'))
+  await waitFor(() => {
+    expect(screen.getByLabelText('Model Path')).toBeTruthy()
+  })
+}
+
+const hfModelInput = () =>
+  screen.getByPlaceholderText(
+    /e.g., unsloth\/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL/
+  ) as HTMLInputElement
+
 test('renders config panel when open', () => {
   const onClose = vi.fn()
   const onSave = vi.fn()
@@ -585,4 +641,431 @@ test('closes config panel when close button is clicked', async () => {
   fireEvent.click(closeButton)
 
   expect(onClose).toHaveBeenCalledTimes(1)
+})
+
+test('loads the agent debug logging flag and persists the toggled value', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 },
+    'agent/config': { debug_logging: true }
+  })
+  mockedAxios.post.mockResolvedValue({
+    data: { success: true, message: 'Config saved' }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+
+  const debugCheckbox = (await waitFor(() =>
+    screen.getByLabelText('Debug Conversation Logging')
+  )) as HTMLInputElement
+  expect(debugCheckbox).toBeChecked()
+
+  await fireEvent.click(debugCheckbox)
+  expect(debugCheckbox).not.toBeChecked()
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('agent/config', {
+      debug_logging: false
+    })
+  })
+})
+
+test('completes the save even when persisting the debug flag fails', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockImplementation((url: string) => {
+    if (url === 'agent/config') {
+      return Promise.reject(new Error('agent config unavailable'))
+    }
+    return Promise.resolve({ data: { success: true, message: 'ok' } })
+  })
+
+  const onClose = vi.fn()
+  const onSave = vi.fn()
+  await openPanel({ onClose, onSave })
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+  expect(onSave).toHaveBeenCalledTimes(1)
+  expect(console.error).toHaveBeenCalledWith(
+    'Failed to save agent config (debug logging):',
+    expect.any(Error)
+  )
+})
+
+test('only applies llama model notes that are keyed by model name', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: '', ctx_size: 0 },
+    'llama-server/models': {
+      local_models: [
+        { name: 'alpha-model.gguf', path: '/models/alpha-model.gguf' },
+        { name: 'beta-model.gguf', path: '/models/beta-model.gguf' }
+      ]
+    },
+    'model-notes': {
+      notes: [
+        {
+          platform: 'llama',
+          model_name: 'alpha-model.gguf',
+          is_favorite: true,
+          is_default: false,
+          tags: ['fast'],
+          notes: 'my favourite'
+        },
+        {
+          // no model_name -> stored under model_path, but never matched
+          platform: 'llama',
+          model_name: '',
+          model_path: '/models/beta-model.gguf',
+          is_favorite: true,
+          is_default: false,
+          tags: ['by-path']
+        },
+        {
+          // neither name nor path -> dropped entirely
+          platform: 'llama',
+          model_name: '',
+          model_path: '',
+          is_favorite: true,
+          is_default: false,
+          tags: ['dropped']
+        },
+        {
+          // wrong platform -> ignored
+          platform: 'ollama',
+          model_name: 'alpha-model.gguf',
+          is_favorite: true,
+          is_default: false,
+          tags: ['ollama-only']
+        }
+      ]
+    }
+  })
+
+  const { container } = await openPanel({ onSave: vi.fn() })
+
+  await waitFor(() => {
+    expect(screen.getByText('fast')).toBeTruthy()
+  })
+  expect(screen.getByText('my favourite')).toBeTruthy()
+  expect(container.querySelectorAll('.favorite-icon')).toHaveLength(1)
+  expect(screen.queryByText('by-path')).not.toBeInTheDocument()
+  expect(screen.queryByText('dropped')).not.toBeInTheDocument()
+  expect(screen.queryByText('ollama-only')).not.toBeInTheDocument()
+})
+
+test('shows a fallback error when loading models fails without details', async () => {
+  mockGets({ 'llama-server/models': rejectWith({}) })
+
+  await openPanel({ onSave: vi.fn() })
+
+  await waitFor(() => {
+    expect(screen.getByText('Failed to load models')).toBeTruthy()
+  })
+})
+
+test('selecting a model with an hf_format fills the backend value and path', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: '', ctx_size: 4096 },
+    'llama-server/models': {
+      local_models: [
+        {
+          name: 'alpha-model.gguf',
+          path: '/models/alpha-model.gguf',
+          hf_format: 'org/alpha-model:Q4_K_M'
+        }
+      ]
+    }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  await openAdvancedOptions()
+
+  await waitFor(() => {
+    expect(screen.getByText('alpha-model.gguf')).toBeTruthy()
+  })
+  fireEvent.click(screen.getByText('alpha-model.gguf').closest('button')!)
+
+  await waitFor(() => {
+    expect(hfModelInput().value).toBe('org/alpha-model:Q4_K_M')
+  })
+  expect((screen.getByLabelText('Model Path') as HTMLInputElement).value).toBe(
+    '/models/alpha-model.gguf'
+  )
+  // selecting a model resets the context size so llama.cpp picks the default
+  expect(
+    (screen.getByLabelText('Context Size') as HTMLInputElement).value
+  ).toBe('0')
+})
+
+test('selecting a model without hf_format or path falls back to its name', async () => {
+  mockGets({
+    'llama-server/models': {
+      local_models: [{ name: 'beta-model.gguf' }]
+    }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  await openAdvancedOptions()
+
+  await waitFor(() => {
+    expect(screen.getByText('beta-model.gguf')).toBeTruthy()
+  })
+  fireEvent.click(screen.getByText('beta-model.gguf').closest('button')!)
+
+  await waitFor(() => {
+    expect(hfModelInput().value).toBe('beta-model.gguf')
+  })
+  // no path on the model -> the model path field is left alone
+  expect((screen.getByLabelText('Model Path') as HTMLInputElement).value).toBe(
+    ''
+  )
+})
+
+test('a manually typed model becomes the backend value and clears the model path', async () => {
+  mockGets({
+    'llama-server/config': {
+      hf_model: '',
+      ctx_size: 0,
+      model: '/models/previous.gguf'
+    }
+  })
+  mockedAxios.post.mockResolvedValue({
+    data: { success: true, message: 'ok' }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  await openAdvancedOptions()
+
+  await waitFor(() => {
+    expect(
+      (screen.getByLabelText('Model Path') as HTMLInputElement).value
+    ).toBe('/models/previous.gguf')
+  })
+
+  await fireEvent.input(hfModelInput(), {
+    target: { value: 'org/manual-model:Q8_0' }
+  })
+
+  await waitFor(() => {
+    expect(
+      (screen.getByLabelText('Model Path') as HTMLInputElement).value
+    ).toBe('')
+  })
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('llama-server/config', {
+      hf_model: 'org/manual-model:Q8_0',
+      ctx_size: 0,
+      model: ''
+    })
+  })
+})
+
+test('saves with only a model path when no HuggingFace model is set', async () => {
+  mockGets({
+    'llama-server/config': {
+      hf_model: '',
+      ctx_size: 0,
+      model: '/models/only-path.gguf'
+    }
+  })
+  mockedAxios.post.mockResolvedValue({
+    data: { success: true, message: 'ok' }
+  })
+
+  const onClose = vi.fn()
+  await openPanel({ onClose, onSave: vi.fn() })
+
+  await waitFor(() => {
+    expect(screen.getByText('Save')).not.toBeDisabled()
+  })
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('llama-server/config', {
+      hf_model: '',
+      ctx_size: 0,
+      model: '/models/only-path.gguf'
+    })
+  })
+  await waitFor(() => {
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('rejects an invalid batch size before calling the backend', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  await openAdvancedOptions()
+
+  await fireEvent.input(screen.getByLabelText('Batch Size'), {
+    target: { value: '0' }
+  })
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(screen.getByText('Batch size must be greater than 0')).toBeTruthy()
+  })
+  expect(mockedAxios.post).not.toHaveBeenCalled()
+  // the save button is released again after the validation error
+  expect(screen.getByText('Save')).not.toBeDisabled()
+})
+
+test('reloads the config and closes when no onSave callback is given', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockResolvedValue({
+    data: { success: true, message: 'ok' }
+  })
+
+  const onClose = vi.fn()
+  await openPanel({ onClose })
+
+  const configGetsBefore = mockedAxios.get.mock.calls.filter(
+    (call: unknown[]) => call[0] === 'llama-server/config'
+  ).length
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+  const configGetsAfter = mockedAxios.get.mock.calls.filter(
+    (call: unknown[]) => call[0] === 'llama-server/config'
+  ).length
+  expect(configGetsAfter).toBe(configGetsBefore + 1)
+})
+
+test('surfaces the backend error payload when saving throws', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockRejectedValueOnce({
+    response: { data: { error: 'disk is full' } },
+    message: 'Request failed with status code 500'
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(screen.getByText('disk is full')).toBeTruthy()
+  })
+})
+
+test('falls back to the error message when saving throws without a payload', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockRejectedValueOnce(new Error('gateway timeout'))
+
+  await openPanel({ onSave: vi.fn() })
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(screen.getByText('gateway timeout')).toBeTruthy()
+  })
+})
+
+test('falls back to a generic message when saving throws without details', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockRejectedValueOnce({})
+
+  const onClose = vi.fn()
+  await openPanel({ onClose, onSave: vi.fn() })
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(screen.getByText('Failed to save config')).toBeTruthy()
+  })
+  expect(onClose).not.toHaveBeenCalled()
+  expect(screen.getByText('Save')).not.toBeDisabled()
+})
+
+test('sends every advanced option in the save payload', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockResolvedValue({
+    data: { success: true, message: 'ok' }
+  })
+
+  await openPanel({ onSave: vi.fn() })
+  await openAdvancedOptions()
+
+  await fireEvent.input(screen.getByLabelText('Threads'), {
+    target: { value: '8' }
+  })
+  await fireEvent.input(screen.getByLabelText('Threads Batch'), {
+    target: { value: '4' }
+  })
+  await fireEvent.input(screen.getByLabelText('Predict (N Predict)'), {
+    target: { value: '256' }
+  })
+  await fireEvent.input(screen.getByLabelText('Batch Size'), {
+    target: { value: '512' }
+  })
+  await fireEvent.input(screen.getByLabelText('UBatch Size'), {
+    target: { value: '128' }
+  })
+  await fireEvent.input(screen.getByLabelText('GPU Layers'), {
+    target: { value: '99' }
+  })
+  await fireEvent.input(screen.getByLabelText('Model Path'), {
+    target: { value: '  /models/typed.gguf  ' }
+  })
+  await fireEvent.click(screen.getByLabelText('Flash Attention'))
+  await fireEvent.click(screen.getByLabelText('MLock'))
+  await fireEvent.click(screen.getByLabelText('No MMAP'))
+  await fireEvent.input(screen.getByLabelText('Context Size'), {
+    target: { value: '8192' }
+  })
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(mockedAxios.post).toHaveBeenCalledWith('llama-server/config', {
+      hf_model: 'saved-model',
+      ctx_size: 8192,
+      threads: 8,
+      threads_batch: 4,
+      predict: 256,
+      batch_size: 512,
+      ubatch_size: 128,
+      gpu_layers: 99,
+      flash_attn: true,
+      mlock: true,
+      no_mmap: true,
+      model: '/models/typed.gguf'
+    })
+  })
+})
+
+test('shows the saving state while the request is in flight', async () => {
+  mockGets({
+    'llama-server/config': { hf_model: 'saved-model', ctx_size: 0 }
+  })
+  mockedAxios.post.mockImplementation(() => new Promise(() => {}))
+
+  await openPanel({ onSave: vi.fn() })
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(screen.getByText('Saving...')).toBeDisabled()
+  })
 })

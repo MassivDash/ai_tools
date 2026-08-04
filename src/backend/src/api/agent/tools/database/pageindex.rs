@@ -316,4 +316,287 @@ mod tests {
         assert!(rendered.contains("- [n1] Chapter 1 (pages 1-20): Intro"));
         assert!(rendered.contains("  - [n2] Section 1.1 (pages 1-10): Details"));
     }
+
+    use crate::api::agent::core::types::FunctionCall;
+
+    /// A throwaway document directory under the hard-coded `./public/pageindex`
+    /// root the tool reads from, removed again when the test ends.
+    ///
+    /// The path is not configurable, so this really does exercise the production
+    /// lookup. Each guard uses a fresh uuid for its document id, so tests running
+    /// in parallel never see each other's documents, and only that one
+    /// subdirectory is ever deleted.
+    struct TestDocument {
+        id: String,
+    }
+
+    impl TestDocument {
+        fn new() -> Self {
+            let id = format!("test-{}", uuid::Uuid::new_v4());
+            std::fs::create_dir_all(Path::new("./public/pageindex").join(&id))
+                .expect("Failed to create the test document directory");
+            Self { id }
+        }
+
+        fn dir(&self) -> std::path::PathBuf {
+            Path::new("./public/pageindex").join(&self.id)
+        }
+
+        fn write_tree(&self, nodes: &[PageIndexNode]) {
+            std::fs::write(
+                self.dir().join("tree.json"),
+                serde_json::to_string(nodes).expect("nodes should serialise"),
+            )
+            .expect("Failed to write tree.json");
+        }
+
+        fn write_raw_tree(&self, contents: &str) {
+            std::fs::write(self.dir().join("tree.json"), contents)
+                .expect("Failed to write tree.json");
+        }
+
+        fn write_source(&self, contents: &[u8]) {
+            std::fs::write(self.dir().join("source.pdf"), contents)
+                .expect("Failed to write source.pdf");
+        }
+    }
+
+    impl Drop for TestDocument {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(self.dir());
+        }
+    }
+
+    fn node(
+        id: &str,
+        title: &str,
+        pages: (u32, u32),
+        children: Vec<PageIndexNode>,
+    ) -> PageIndexNode {
+        PageIndexNode {
+            id: id.to_string(),
+            title: title.to_string(),
+            page_start: pages.0,
+            page_end: pages.1,
+            summary: format!("{} summary", title),
+            children,
+        }
+    }
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_pageindex".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "pageindex_tool".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn the_description_lists_the_available_documents() {
+        let empty = PageIndexTool::new(vec![]);
+        let description = empty.get_function_definition()["description"]
+            .as_str()
+            .expect("a description")
+            .to_string();
+        assert!(description.contains("No PageIndex documents currently available."));
+
+        let stocked = PageIndexTool::new(vec![PageIndexSummary {
+            id: "doc1".to_string(),
+            filename: "rust-book.pdf".to_string(),
+            title: "The Rust Book".to_string(),
+        }]);
+        let description = stocked.get_function_definition()["description"]
+            .as_str()
+            .expect("a description")
+            .to_string();
+        assert!(description.contains("id: 'doc1', title: 'The Rust Book' (file: rust-book.pdf)"));
+    }
+
+    #[tokio::test]
+    async fn get_tree_renders_the_stored_outline() {
+        let document = TestDocument::new();
+        document.write_tree(&[node(
+            "n1",
+            "Chapter 1",
+            (1, 20),
+            vec![node("n1.1", "Section 1.1", (1, 10), vec![])],
+        )]);
+        let tool = PageIndexTool::new(vec![]);
+
+        let result = tool
+            .execute(&tool_call(
+                &json!({"action": "get_tree", "document_id": document.id}).to_string(),
+            ))
+            .await
+            .expect("get_tree should succeed");
+
+        assert_eq!(result.tool_name, "pageindex_tool");
+        assert!(result.tool_call_id.is_none());
+        assert!(result
+            .result
+            .starts_with(&format!("=== Table of Contents: {} ===", document.id)));
+        assert!(result
+            .result
+            .contains("- [n1] Chapter 1 (pages 1-20): Chapter 1 summary"));
+        assert!(result
+            .result
+            .contains("  - [n1.1] Section 1.1 (pages 1-10): Section 1.1 summary"));
+    }
+
+    #[tokio::test]
+    async fn get_tree_reports_an_empty_index_a_missing_one_and_an_unparseable_one() {
+        let empty = TestDocument::new();
+        empty.write_tree(&[]);
+        let broken = TestDocument::new();
+        broken.write_raw_tree("[{\"id\":");
+        let tool = PageIndexTool::new(vec![]);
+
+        let get_tree = |id: String| {
+            let tool = &tool;
+            async move {
+                tool.execute(&tool_call(
+                    &json!({"action": "get_tree", "document_id": id}).to_string(),
+                ))
+                .await
+                .expect("get_tree reports load failures in its result")
+                .result
+            }
+        };
+
+        assert_eq!(
+            get_tree(empty.id.clone()).await,
+            format!("Document '{}' has an empty index.", empty.id)
+        );
+
+        let missing = get_tree("no-such-document".to_string()).await;
+        assert!(
+            missing.starts_with("Error loading tree for document 'no-such-document': No index found for document 'no-such-document'."),
+            "{}",
+            missing
+        );
+
+        let unparseable = get_tree(broken.id.clone()).await;
+        assert!(
+            unparseable.contains("Failed to parse tree.json"),
+            "{}",
+            unparseable
+        );
+    }
+
+    #[tokio::test]
+    async fn a_traversing_document_id_is_rejected() {
+        let tool = PageIndexTool::new(vec![]);
+
+        let result = tool
+            .execute(&tool_call(
+                r#"{"action": "get_tree", "document_id": "../../etc"}"#,
+            ))
+            .await
+            .expect("The rejection is reported in the result")
+            .result;
+
+        assert!(result.contains("Invalid id: ../../etc"), "{}", result);
+    }
+
+    #[tokio::test]
+    async fn read_node_reports_an_unknown_node_and_an_unreadable_source() {
+        let document = TestDocument::new();
+        document.write_tree(&[node("n1", "Chapter 1", (1, 2), vec![])]);
+        let tool = PageIndexTool::new(vec![]);
+
+        // A node id that is not in the tree.
+        let unknown = tool
+            .execute(&tool_call(
+                &json!({"action": "read_node", "document_id": document.id, "node_id": "n9"})
+                    .to_string(),
+            ))
+            .await
+            .expect("The failure is reported in the result")
+            .result;
+        assert!(
+            unknown.contains("Node 'n9' not found in document"),
+            "{}",
+            unknown
+        );
+        assert!(unknown.contains("Use 'get_tree' to see valid node ids."));
+
+        // The node exists but there is no source PDF next to the tree.
+        let missing_pdf = tool
+            .execute(&tool_call(
+                &json!({"action": "read_node", "document_id": document.id, "node_id": "n1"})
+                    .to_string(),
+            ))
+            .await
+            .expect("The failure is reported in the result")
+            .result;
+        assert!(
+            missing_pdf.contains("Failed to read source PDF"),
+            "{}",
+            missing_pdf
+        );
+
+        // A source that exists but is not a PDF fails in extraction instead.
+        document.write_source(b"definitely not a PDF");
+        let bad_pdf = tool
+            .execute(&tool_call(
+                &json!({"action": "read_node", "document_id": document.id, "node_id": "n1"})
+                    .to_string(),
+            ))
+            .await
+            .expect("The failure is reported in the result")
+            .result;
+        assert!(
+            bad_pdf.contains("Failed to extract section text"),
+            "{}",
+            bad_pdf
+        );
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_are_rejected() {
+        let tool = PageIndexTool::new(vec![]);
+
+        assert_eq!(
+            tool.execute(&tool_call("not json"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(r#"{"document_id": "d1"}"#))
+                .await
+                .expect_err("A missing action must fail")
+                .to_string(),
+            "Missing required parameter: action"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(r#"{"action": "get_tree"}"#))
+                .await
+                .expect_err("A missing document_id must fail")
+                .to_string(),
+            "Missing required parameter: document_id"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(
+                r#"{"action": "read_node", "document_id": "d1"}"#
+            ))
+            .await
+            .expect_err("read_node without a node_id must fail")
+            .to_string(),
+            "Missing required parameter for read_node: node_id"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(
+                r#"{"action": "delete_tree", "document_id": "d1"}"#
+            ))
+            .await
+            .expect_err("An unknown action must fail")
+            .to_string(),
+            "Invalid action: delete_tree"
+        );
+    }
 }

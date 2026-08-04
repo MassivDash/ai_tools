@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::cli::cmds::interactive::{CommandExecutor, UserInput};
+use crate::cli::cmds::interactive::{CommandExecutor, RealCommandExecutor, UserInput};
 
 struct MockUserInput {
     responses: RefCell<Vec<String>>,
@@ -143,5 +143,25 @@ mod tests {
         let executed_commands = mock_executor.executed_commands.borrow();
         assert_eq!(executed_commands.len(), 1);
         assert_eq!(executed_commands[0], "--system-check");
+    }
+
+    #[test]
+    fn test_start_interactive_falls_back_to_run() {
+        // An answer that is not on the list, for example a cancelled prompt,
+        // falls back to running the development server
+        let mock_input = MockUserInput::new(vec!["Something else".to_string()]);
+        let mock_executor = MockCommandExecutor::new();
+        start_interactive(&mock_input, &mock_executor);
+
+        let executed_commands = mock_executor.executed_commands.borrow();
+        assert_eq!(executed_commands.len(), 1);
+        assert_eq!(executed_commands[0], "--run");
+    }
+
+    #[test]
+    fn test_real_command_executor_runs_the_cli_command() {
+        // --run is the one command that does not end the process, so the real
+        // executor can be exercised safely
+        RealCommandExecutor.execute_command("--run");
     }
 }

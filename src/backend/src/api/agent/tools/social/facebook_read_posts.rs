@@ -31,6 +31,16 @@ impl FacebookReadPostsTool {
         }
     }
 
+    /// A tool using `credentials` instead of the process environment, so tests
+    /// can point it at a loopback mock Graph API.
+    #[cfg(test)]
+    pub(crate) fn with_credentials(credentials: FacebookCredentials) -> Self {
+        Self {
+            credentials,
+            ..Self::new()
+        }
+    }
+
     async fn read_posts(&self, limit: u32) -> Result<String> {
         let page_id = self.credentials.page_id()?;
         let access_token = self.credentials.access_token()?;
@@ -164,5 +174,179 @@ mod tests {
         assert!(line.contains("(no text)"));
         assert!(line.contains("likes: 0"));
         assert!(line.contains("shares: 0"));
+    }
+
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    /// Where `FacebookCredentials::for_test` (page_1) reads posts from.
+    const POSTS_PATH: &str = "/v21.0/page_1/posts";
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_fb_posts".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "facebook_read_posts".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    fn tool_for(api: &MockHttpApi) -> FacebookReadPostsTool {
+        FacebookReadPostsTool::with_credentials(FacebookCredentials::for_test(api.base_url()))
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_read_posts_tool() {
+        let tool = FacebookReadPostsTool::new();
+        assert_eq!(tool.metadata().id, "facebook_read_posts");
+        assert_eq!(tool.metadata().category, ToolCategory::Social);
+        assert_eq!(tool.metadata().tool_type, ToolType::FacebookPostsRead);
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "facebook_read_posts");
+        assert_eq!(def["parameters"]["required"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn posts_are_requested_with_engagement_fields_and_rendered_one_per_line() {
+        let api = MockHttpApi::serving(
+            "GET",
+            POSTS_PATH,
+            MockResponse::json(json!({"data": [
+                {
+                    "id": "page_1_1",
+                    "message": "First",
+                    "created_time": "2026-08-01T10:00:00+0000",
+                    "likes": {"summary": {"total_count": 3}},
+                    "comments": {"summary": {"total_count": 1}},
+                    "shares": {"count": 2}
+                },
+                {"id": "page_1_2"}
+            ]})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call("{}"))
+            .await
+            .expect("Reading posts should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, POSTS_PATH);
+        assert_eq!(request.query_param("fields").as_deref(), Some(FIELDS));
+        // The default limit is 10 when the caller does not ask for one.
+        assert_eq!(request.query_param("limit").as_deref(), Some("10"));
+        assert_eq!(
+            request.query_param("access_token").as_deref(),
+            Some("test-page-token")
+        );
+
+        assert_eq!(result.tool_name, "facebook_read_posts");
+        assert!(result.tool_call_id.is_none());
+        let lines: Vec<&str> = result.result.lines().collect();
+        assert_eq!(lines.len(), 2, "{}", result.result);
+        assert!(lines[0].contains("First"));
+        assert!(lines[0].contains("likes: 3 comments: 1 shares: 2"));
+        assert!(lines[1].contains("(no text)"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn the_limit_is_clamped_to_the_documented_maximum() {
+        let api =
+            MockHttpApi::serving("GET", POSTS_PATH, MockResponse::json(json!({"data": []}))).await;
+        let tool = tool_for(&api);
+
+        tool.execute(&tool_call(r#"{"limit": 500}"#))
+            .await
+            .expect("An over-large limit is clamped, not rejected");
+        tool.execute(&tool_call(r#"{"limit": 0}"#))
+            .await
+            .expect("A zero limit is clamped, not rejected");
+
+        let limits: Vec<Option<String>> = api
+            .requests()
+            .iter()
+            .map(|request| request.query_param("limit"))
+            .collect();
+        assert_eq!(
+            limits,
+            vec![Some("25".to_string()), Some("1".to_string())],
+            "limit must be clamped into 1..=25"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_empty_page_says_so() {
+        let api =
+            MockHttpApi::serving("GET", POSTS_PATH, MockResponse::json(json!({"data": []}))).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call("{}"))
+            .await
+            .expect("An empty data array is not an error");
+
+        assert_eq!(result.result, "No posts found on the Page.");
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_graph_api_error_body_is_surfaced() {
+        let api = MockHttpApi::serving(
+            "GET",
+            POSTS_PATH,
+            MockResponse::error(
+                403,
+                r#"{"error":{"message":"(#210) requires pages_read_engagement"}}"#,
+            ),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call("{}"))
+            .await
+            .expect_err("A 403 must fail the call");
+
+        let message = error.to_string();
+        assert!(
+            message.starts_with("Failed to read Facebook posts:"),
+            "{}",
+            message
+        );
+        assert!(message.contains("pages_read_engagement"), "{}", message);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn missing_credentials_fail_before_any_request() {
+        let api =
+            MockHttpApi::serving("GET", POSTS_PATH, MockResponse::json(json!({"data": []}))).await;
+        let tokenless = FacebookReadPostsTool::with_credentials(
+            FacebookCredentials::for_test(api.base_url()).without_access_token(),
+        );
+
+        assert_eq!(
+            tokenless
+                .execute(&tool_call("{}"))
+                .await
+                .expect_err("Without a token the call must fail")
+                .to_string(),
+            "FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set"
+        );
+        assert_eq!(
+            tool_for(&api)
+                .execute(&tool_call("@"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached the API");
+        api.stop().await;
     }
 }

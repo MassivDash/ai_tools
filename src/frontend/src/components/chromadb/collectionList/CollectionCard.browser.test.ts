@@ -116,6 +116,92 @@ test('renders collection with metadata', () => {
   expect(screen.getByText('test')).toBeTruthy()
 })
 
+test('dispatches select on Enter and Space keydown', () => {
+  const handleSelect = vi.fn()
+  const { container } = render(CollectionCard as Component, {
+    props: { collection: mockCollection },
+    events: { select: handleSelect }
+  })
+
+  const card = container.querySelector('.collection-card') as HTMLElement
+
+  const enter = new KeyboardEvent('keydown', {
+    key: 'Enter',
+    bubbles: true,
+    cancelable: true
+  })
+  card.dispatchEvent(enter)
+  expect(handleSelect).toHaveBeenCalledTimes(1)
+  expect(enter.defaultPrevented).toBe(true)
+
+  const space = new KeyboardEvent('keydown', {
+    key: ' ',
+    bubbles: true,
+    cancelable: true
+  })
+  card.dispatchEvent(space)
+  expect(handleSelect).toHaveBeenCalledTimes(2)
+  expect(space.defaultPrevented).toBe(true)
+})
+
+test('ignores other keys on keydown', () => {
+  const handleSelect = vi.fn()
+  const { container } = render(CollectionCard as Component, {
+    props: { collection: mockCollection },
+    events: { select: handleSelect }
+  })
+
+  const card = container.querySelector('.collection-card') as HTMLElement
+  const tab = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    bubbles: true,
+    cancelable: true
+  })
+  card.dispatchEvent(tab)
+
+  expect(handleSelect).not.toHaveBeenCalled()
+  expect(tab.defaultPrevented).toBe(false)
+})
+
+test('renders the embedding model separately from the other metadata', () => {
+  const { container } = render(CollectionCard as Component, {
+    props: {
+      collection: {
+        id: 'test-id',
+        name: 'Test',
+        metadata: {
+          embedding_model: 'nomic-embed-text',
+          owner: 'research'
+        }
+      } as ChromaDBCollection
+    }
+  })
+
+  expect(screen.getByText('Model:')).toBeTruthy()
+  expect(screen.getByText('nomic-embed-text')).toBeTruthy()
+
+  // embedding_model is excluded from the generic metadata list
+  const metadataItems = Array.from(
+    container.querySelectorAll('.metadata-item')
+  ).map((el) => el.textContent?.replace(/\s+/g, ' ').trim())
+  expect(metadataItems).toEqual(['owner: research'])
+})
+
+test('does not render the metadata list when embedding_model is the only entry', () => {
+  const { container } = render(CollectionCard as Component, {
+    props: {
+      collection: {
+        id: 'test-id',
+        name: 'Test',
+        metadata: { embedding_model: 'nomic-embed-text' }
+      } as ChromaDBCollection
+    }
+  })
+
+  expect(screen.getByText('Model:')).toBeTruthy()
+  expect(container.querySelector('.metadata')).toBeNull()
+})
+
 test('does not render metadata section when metadata is empty', () => {
   const { container } = render(CollectionCard, {
     props: { collection: mockCollection }

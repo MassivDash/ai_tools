@@ -145,4 +145,13 @@ mod tests {
         let result = extract_body_content(html);
         assert!(result.contains("Content without closing body"));
     }
+
+    #[test]
+    fn test_extract_body_content_unterminated_body_tag_returns_original() {
+        // No '>' anywhere after the "<body" match, so the opening tag can never
+        // be terminated and the original HTML is returned verbatim.
+        let html = r#"<html><body class="main"#;
+        let result = extract_body_content(html);
+        assert_eq!(result, html);
+    }
 }

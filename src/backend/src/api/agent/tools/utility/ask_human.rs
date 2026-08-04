@@ -60,3 +60,60 @@ impl AgentTool for AskHumanTool {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::FunctionCall;
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_ask_human_tool() {
+        let tool = AskHumanTool::new();
+        assert_eq!(tool.metadata().id, "ask_human");
+        assert_eq!(tool.metadata().name, "Ask Human");
+        assert_eq!(tool.metadata().category, ToolCategory::Utility);
+        assert_eq!(tool.metadata().tool_type, ToolType::AskHuman);
+        // Nothing external is needed, so it is always offered.
+        assert!(tool.is_available());
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "ask_human");
+        assert_eq!(
+            def["parameters"]["required"],
+            json!(["question", "options"])
+        );
+        assert_eq!(def["parameters"]["properties"]["options"]["type"], "array");
+        assert_eq!(
+            def["parameters"]["properties"]["options"]["items"]["type"],
+            "string"
+        );
+        // The 'Other' requirement lives in the description the LLM sees.
+        assert!(def["description"]
+            .as_str()
+            .expect("a description")
+            .contains("'Other' as the final choice"));
+    }
+
+    #[tokio::test]
+    async fn executing_it_directly_is_an_error_because_the_loop_must_intercept_it() {
+        let tool = AskHumanTool::new();
+        let call = ToolCall {
+            id: "call_ask".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "ask_human".to_string(),
+                arguments: r#"{"question": "Proceed?", "options": ["Yes", "Other"]}"#.to_string(),
+            },
+        };
+
+        let error = tool
+            .execute(&call)
+            .await
+            .expect_err("Running this tool for real must never succeed");
+
+        assert_eq!(
+            error.to_string(),
+            "This tool requires human input and should be intercepted by the streaming loop."
+        );
+    }
+}

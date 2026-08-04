@@ -32,6 +32,16 @@ impl FacebookSendMessageTool {
         }
     }
 
+    /// A tool using `credentials` instead of the process environment, so tests
+    /// can point it at a loopback mock Graph API.
+    #[cfg(test)]
+    pub(crate) fn with_credentials(credentials: FacebookCredentials) -> Self {
+        Self {
+            credentials,
+            ..Self::new()
+        }
+    }
+
     async fn send_message(&self, recipient_id: &str, message: &str) -> Result<String> {
         let access_token = self.credentials.access_token()?;
 
@@ -119,5 +129,173 @@ impl AgentTool for FacebookSendMessageTool {
             tool_name: "facebook_send_message".to_string(),
             result,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    /// Messenger sends go to /me/messages, addressed by token rather than page id.
+    const MESSAGES_PATH: &str = "/v21.0/me/messages";
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_fb_send".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "facebook_send_message".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    fn tool_for(api: &MockHttpApi) -> FacebookSendMessageTool {
+        FacebookSendMessageTool::with_credentials(FacebookCredentials::for_test(api.base_url()))
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_send_tool() {
+        let tool = FacebookSendMessageTool::new();
+        assert_eq!(tool.metadata().id, "facebook_send_message");
+        assert_eq!(tool.metadata().category, ToolCategory::Social);
+        assert_eq!(tool.metadata().tool_type, ToolType::FacebookMessageSend);
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "facebook_send_message");
+        assert_eq!(
+            def["parameters"]["required"],
+            json!(["recipient_id", "message"])
+        );
+    }
+
+    #[tokio::test]
+    async fn a_reply_is_sent_as_a_response_type_message() {
+        let api = MockHttpApi::serving(
+            "POST",
+            MESSAGES_PATH,
+            MockResponse::json(json!({"recipient_id": "psid_9", "message_id": "mid.42"})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(
+                r#"{"recipient_id": "psid_9", "message": "On its way!"}"#,
+            ))
+            .await
+            .expect("The send should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "POST");
+        assert_eq!(request.path, MESSAGES_PATH);
+        // The token travels as a query parameter, the message as a JSON body.
+        assert_eq!(
+            request.query_param("access_token").as_deref(),
+            Some("test-page-token")
+        );
+        assert_eq!(
+            request.json(),
+            json!({
+                "recipient": {"id": "psid_9"},
+                "messaging_type": "RESPONSE",
+                "message": {"text": "On its way!"}
+            })
+        );
+
+        assert_eq!(result.tool_name, "facebook_send_message");
+        assert!(result.tool_call_id.is_none());
+        assert_eq!(
+            result.result,
+            "Successfully sent message to psid_9 (message id: mid.42)"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_response_without_a_message_id_degrades() {
+        let api = MockHttpApi::serving("POST", MESSAGES_PATH, MockResponse::json(json!({}))).await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(r#"{"recipient_id": "psid_9", "message": "hi"}"#))
+            .await
+            .expect("The send should succeed");
+
+        assert_eq!(
+            result.result,
+            "Successfully sent message to psid_9 (message id: unknown)"
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn an_outside_the_window_error_is_surfaced() {
+        let api = MockHttpApi::serving(
+            "POST",
+            MESSAGES_PATH,
+            MockResponse::error(
+                400,
+                r#"{"error":{"message":"This message is sent outside of allowed window","code":10}}"#,
+            ),
+        )
+        .await;
+
+        let error = tool_for(&api)
+            .execute(&tool_call(r#"{"recipient_id": "psid_9", "message": "hi"}"#))
+            .await
+            .expect_err("A 400 must fail the call");
+
+        let message = error.to_string();
+        assert!(
+            message.starts_with("Failed to send Facebook message:"),
+            "{}",
+            message
+        );
+        assert!(message.contains("outside of allowed window"), "{}", message);
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_and_a_missing_token_fail_before_any_request() {
+        let api = MockHttpApi::serving("POST", MESSAGES_PATH, MockResponse::json(json!({}))).await;
+        let tool = tool_for(&api);
+
+        assert_eq!(
+            tool.execute(&tool_call("~"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(r#"{"message": "hi"}"#))
+                .await
+                .expect_err("A missing recipient must fail")
+                .to_string(),
+            "Missing required parameter: recipient_id"
+        );
+        assert_eq!(
+            tool.execute(&tool_call(r#"{"recipient_id": "psid_9"}"#))
+                .await
+                .expect_err("A missing message must fail")
+                .to_string(),
+            "Missing required parameter: message"
+        );
+
+        let tokenless = FacebookSendMessageTool::with_credentials(
+            FacebookCredentials::for_test(api.base_url()).without_access_token(),
+        );
+        assert_eq!(
+            tokenless
+                .execute(&tool_call(r#"{"recipient_id": "psid_9", "message": "hi"}"#))
+                .await
+                .expect_err("Without a token the call must fail")
+                .to_string(),
+            "FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached the API");
+        api.stop().await;
     }
 }

@@ -248,3 +248,56 @@ test('tool grid is hidden when tool is selected', async () => {
     { timeout: 2000 }
   )
 })
+
+test('displays JSON to TOON component when selected', async () => {
+  render(ToolSwitcher)
+
+  fireEvent.click(screen.getByText('JSON to TOON').closest('button')!)
+
+  await waitFor(() => {
+    expect(screen.getByText('JSON to TOON Converter')).toBeTruthy()
+  })
+  // The tools grid is replaced, not merely hidden.
+  expect(screen.queryByText('Convert web pages to markdown format')).toBeNull()
+})
+
+test('displays Parquet to TXT component when selected', async () => {
+  render(ToolSwitcher)
+
+  fireEvent.click(screen.getByText('Parquet to TXT').closest('button')!)
+
+  await waitFor(() => {
+    expect(screen.getByText('Parquet to TXT Converter')).toBeTruthy()
+  })
+})
+
+test('displays Text to Tokens component when selected', async () => {
+  render(ToolSwitcher)
+
+  fireEvent.click(screen.getByText('Text to Tokens').closest('button')!)
+
+  await waitFor(() => {
+    expect(screen.getByText('Text to Tokens Converter')).toBeTruthy()
+  })
+})
+
+test('only the selected tool component is mounted at a time', async () => {
+  render(ToolSwitcher)
+
+  fireEvent.click(screen.getByText('JSON to TOON').closest('button')!)
+  await waitFor(() => {
+    expect(screen.getByText('JSON to TOON Converter')).toBeTruthy()
+  })
+  expect(screen.queryByText('Text to Tokens Converter')).toBeNull()
+
+  fireEvent.click(screen.getByText('Back to Tools'))
+  await waitFor(() => {
+    expect(screen.queryByText('JSON to TOON Converter')).toBeNull()
+  })
+
+  fireEvent.click(screen.getByText('Text to Tokens').closest('button')!)
+  await waitFor(() => {
+    expect(screen.getByText('Text to Tokens Converter')).toBeTruthy()
+  })
+  expect(screen.queryByText('JSON to TOON Converter')).toBeNull()
+})

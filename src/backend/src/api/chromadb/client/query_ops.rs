@@ -204,8 +204,136 @@ pub async fn query_collection(
 
 #[cfg(test)]
 mod tests {
+    use super::normalize_query_embeddings;
+    use crate::api::chromadb::client::ChromaDBClient;
+    use crate::api::chromadb::types::QueryRequest;
+    use crate::test_support::{
+        lock_chroma_endpoint, MockChroma, MockChromaCollection, MockChromaConfig,
+    };
+
+    /// Everything past embedding generation needs a real `ollama` binary, so the
+    /// tests below only drive the parts of `query_collection` that run before it.
+    fn request(collection: &str, query_texts: Vec<&str>) -> QueryRequest {
+        QueryRequest {
+            collection: collection.to_string(),
+            query_texts: query_texts.into_iter().map(str::to_string).collect(),
+            n_results: Some(5),
+            where_clause: None,
+        }
+    }
+
+    fn norm(embedding: &[f32]) -> f32 {
+        embedding
+            .iter()
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt()
+    }
+
     #[test]
-    fn test_function_exists() {
-        // Verify the function is defined
+    fn test_normalize_query_embeddings_scales_each_vector_to_unit_length() {
+        let mut embeddings = vec![vec![3.0, 4.0], vec![0.0, 0.0, 5.0]];
+
+        normalize_query_embeddings(&mut embeddings);
+
+        assert!((embeddings[0][0] - 0.6).abs() < 1e-6);
+        assert!((embeddings[0][1] - 0.8).abs() < 1e-6);
+        assert!((norm(&embeddings[1]) - 1.0).abs() < 1e-6);
+        assert_eq!(embeddings[1][2], 1.0);
+    }
+
+    #[test]
+    fn test_normalize_query_embeddings_leaves_a_zero_vector_alone() {
+        let mut embeddings = vec![vec![0.0, 0.0, 0.0]];
+
+        normalize_query_embeddings(&mut embeddings);
+
+        assert_eq!(embeddings, vec![vec![0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn test_normalize_query_embeddings_handles_an_empty_batch() {
+        let mut embeddings: Vec<Vec<f32>> = Vec::new();
+
+        normalize_query_embeddings(&mut embeddings);
+
+        assert!(embeddings.is_empty());
+    }
+
+    #[actix_web::test]
+    async fn test_query_fails_before_embedding_when_the_collection_is_missing() {
+        let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+
+        let error = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+            client
+                .query(request("nope", vec!["some text"]), "nomic-embed-text")
+                .await
+                .unwrap_err()
+        };
+
+        assert!(error.to_string().contains("Collection not found"));
+        assert!(format!("{:#}", error).contains("Collection nope does not exist"));
+        // The lookup is the only thing that happened; no query was attempted.
+        let requests = chroma.requests();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].path.ends_with("/collections/nope"));
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_query_rejects_an_empty_query_text_list() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![MockChromaCollection::new(
+            "notes",
+        )]))
+        .await;
+
+        let error = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+            client
+                .query(request("notes", vec![]), "nomic-embed-text")
+                .await
+                .unwrap_err()
+        };
+
+        assert_eq!(error.to_string(), "Query texts cannot be empty");
+        // The collection was resolved first, then the request was rejected.
+        assert_eq!(chroma.requests().len(), 1);
+
+        chroma.stop().await;
+    }
+
+    /// The where clause is converted before embeddings are generated, and the
+    /// conversion currently drops every clause rather than failing.
+    #[actix_web::test]
+    async fn test_query_accepts_a_where_clause_without_reaching_the_query_endpoint() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![MockChromaCollection::new(
+            "notes",
+        )]))
+        .await;
+
+        let mut query_request = request("notes", vec![]);
+        query_request.where_clause = Some(std::collections::HashMap::from([(
+            "source".to_string(),
+            serde_json::json!("upload"),
+        )]));
+
+        let error = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+            client
+                .query(query_request, "nomic-embed-text")
+                .await
+                .unwrap_err()
+        };
+
+        // The clause was silently discarded, so the empty-query-text check is
+        // what reports the failure.
+        assert_eq!(error.to_string(), "Query texts cannot be empty");
+
+        chroma.stop().await;
     }
 }

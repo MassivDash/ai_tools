@@ -204,4 +204,89 @@ mod tests {
 
         assert_eq!(collect_config_args(config, &args), expected_config);
     }
+
+    fn empty_config() -> Config {
+        Config {
+            env: "".to_string(),
+            host: "".to_string(),
+            port: None,
+            astro_port: None,
+            prod_astro_build: false,
+            cors_url: "".to_string(),
+            cookie_domain: Some("stays-unless-overwritten".to_string()),
+            chroma_address: Some("stays-unless-overwritten".to_string()),
+            llama_host: Some("keep-me".to_string()),
+            llama_port: Some(1111),
+            public_keys: PublicKeys {
+                public_api_url: "".to_string(),
+                public_llama_url: Some("keep-me-url".to_string()),
+            },
+        }
+    }
+
+    #[test]
+    fn test_collect_config_args_with_the_llama_arguments() {
+        let args = vec![
+            "--llama-host=192.168.0.56".to_string(),
+            "--llama-port=8099".to_string(),
+            "--llama-server-url=http://192.168.0.56:8099".to_string(),
+            "--cors-url=http://192.168.0.56".to_string(),
+            "--chroma-address=http://192.168.0.56:8000".to_string(),
+            "--cookie-domain=.spaceout.pl".to_string(),
+        ];
+
+        let config = collect_config_args(empty_config(), &args);
+
+        assert_eq!(config.llama_host, Some("192.168.0.56".to_string()));
+        assert_eq!(config.llama_port, Some(8099));
+        assert_eq!(
+            config.public_keys.public_llama_url,
+            Some("http://192.168.0.56:8099".to_string())
+        );
+        assert_eq!(config.cors_url, "http://192.168.0.56");
+        assert_eq!(
+            config.chroma_address,
+            Some("http://192.168.0.56:8000".to_string())
+        );
+        assert_eq!(config.cookie_domain, Some(".spaceout.pl".to_string()));
+    }
+
+    #[test]
+    fn test_empty_optional_arguments_are_dropped() {
+        let args = vec![
+            "--cookie-domain=".to_string(),
+            "--chroma-address=".to_string(),
+            "--llama-host=".to_string(),
+            "--llama-server-url=".to_string(),
+        ];
+
+        let config = collect_config_args(empty_config(), &args);
+
+        // An explicitly empty value clears the optional field
+        assert_eq!(config.cookie_domain, None);
+        assert_eq!(config.chroma_address, None);
+        // An empty llama value is ignored instead, the field keeps its value
+        assert_eq!(config.llama_host, Some("keep-me".to_string()));
+        assert_eq!(
+            config.public_keys.public_llama_url,
+            Some("keep-me-url".to_string())
+        );
+    }
+
+    #[test]
+    fn test_unparsable_ports_are_handled() {
+        let args = vec![
+            "--port=not-a-port".to_string(),
+            "--astro-port=not-a-port".to_string(),
+            "--llama-port=not-a-port".to_string(),
+        ];
+
+        let config = collect_config_args(empty_config(), &args);
+
+        // The actix ports fall back to the default of their type
+        assert_eq!(config.port, Some(0));
+        assert_eq!(config.astro_port, Some(0));
+        // An unparsable llama port is ignored instead
+        assert_eq!(config.llama_port, Some(1111));
+    }
 }

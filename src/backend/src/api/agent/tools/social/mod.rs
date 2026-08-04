@@ -80,3 +80,65 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with(tools: Vec<ToolType>) -> AgentConfig {
+        AgentConfig {
+            enabled_tools: tools,
+            ..Default::default()
+        }
+    }
+
+    /// Every social tool type, paired with the id it registers under.
+    fn all_social_tools() -> Vec<(ToolType, &'static str)> {
+        vec![
+            (ToolType::BlueskyPost, "bluesky_post"),
+            (ToolType::FacebookPost, "facebook_post"),
+            (ToolType::FacebookPostsRead, "facebook_read_posts"),
+            (ToolType::FacebookCommentsRead, "facebook_read_comments"),
+            (ToolType::FacebookMessagesRead, "facebook_read_messages"),
+            (ToolType::FacebookMessageSend, "facebook_send_message"),
+            (
+                ToolType::FacebookBusinessPagesRead,
+                "facebook_list_business_pages",
+            ),
+        ]
+    }
+
+    #[test]
+    fn nothing_is_registered_for_an_empty_configuration() {
+        let mut registry = ToolRegistry::new();
+        register(&mut registry, &config_with(vec![]));
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn every_social_tool_registers_under_its_own_id() {
+        // None of these gate on credentials at registration time - a missing
+        // token only surfaces when the tool is actually executed.
+        let mut registry = ToolRegistry::new();
+        let config = config_with(all_social_tools().into_iter().map(|(t, _)| t).collect());
+
+        register(&mut registry, &config);
+
+        for (_, id) in all_social_tools() {
+            assert!(registry.is_registered(id), "{} should be registered", id);
+        }
+        assert_eq!(registry.count(), all_social_tools().len());
+
+        // A second pass hits every duplicate-id branch and is simply logged.
+        register(&mut registry, &config);
+        assert_eq!(registry.count(), all_social_tools().len());
+    }
+
+    #[test]
+    fn enabling_one_tool_registers_only_that_tool() {
+        let mut registry = ToolRegistry::new();
+        register(&mut registry, &config_with(vec![ToolType::FacebookPost]));
+
+        assert_eq!(registry.get_all_tool_ids(), vec!["facebook_post"]);
+    }
+}

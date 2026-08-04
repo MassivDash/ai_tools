@@ -36,6 +36,60 @@ mod tests {
     use super::*;
     use actix_web::{test, web, App};
 
+    /// Registration is checked by confirming each route resolves to *something*
+    /// other than a 404. Every handler listed here requires app data that is
+    /// deliberately not provided, so extraction fails with a 500 before any
+    /// handler body - and therefore any ChromaDB call - runs.
+    ///
+    /// `GET /api/chromadb/models` is left out on purpose: it takes no extractors,
+    /// so requesting it would shell out to `ollama list`.
+    #[actix_web::test]
+    async fn test_configure_chromadb_services_registers_every_route() {
+        let app = test::init_service(App::new().configure(configure_chromadb_services)).await;
+
+        let routes = [
+            ("GET", "/api/chromadb/health"),
+            ("GET", "/api/chromadb/collections"),
+            ("POST", "/api/chromadb/collections"),
+            ("GET", "/api/chromadb/collections/some-name"),
+            ("DELETE", "/api/chromadb/collections/some-name"),
+            ("POST", "/api/chromadb/query"),
+            ("POST", "/api/chromadb/documents/upload"),
+            ("GET", "/api/chromadb/config"),
+            ("POST", "/api/chromadb/config"),
+            ("GET", "/api/chromadb/logs/ws"),
+        ];
+
+        for (method, path) in routes {
+            let req = match method {
+                "GET" => test::TestRequest::get(),
+                "POST" => test::TestRequest::post(),
+                _ => test::TestRequest::delete(),
+            }
+            .uri(path)
+            .to_request();
+
+            let resp = test::call_service(&app, req).await;
+            assert_ne!(
+                resp.status().as_u16(),
+                404,
+                "{} {} should be registered",
+                method,
+                path
+            );
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_unregistered_chromadb_paths_are_not_found() {
+        let app = test::init_service(App::new().configure(configure_chromadb_services)).await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/chromadb/nope")
+            .to_request();
+        assert_eq!(test::call_service(&app, req).await.status().as_u16(), 404);
+    }
+
     #[actix_web::test]
     #[ignore]
     async fn test_configure_chromadb_services_registers_all_endpoints() {

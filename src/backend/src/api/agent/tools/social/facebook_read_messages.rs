@@ -31,6 +31,16 @@ impl FacebookReadMessagesTool {
         }
     }
 
+    /// A tool using `credentials` instead of the process environment, so tests
+    /// can point it at a loopback mock Graph API.
+    #[cfg(test)]
+    pub(crate) fn with_credentials(credentials: FacebookCredentials) -> Self {
+        Self {
+            credentials,
+            ..Self::new()
+        }
+    }
+
     async fn list_conversations(&self, limit: u32) -> Result<String> {
         let page_id = self.credentials.page_id()?;
         let access_token = self.credentials.access_token()?;
@@ -246,5 +256,233 @@ mod tests {
         assert!(line.contains("Jane Doe"));
         assert!(line.contains("psid_789"));
         assert!(line.contains("Hello!"));
+    }
+
+    use crate::api::agent::core::types::FunctionCall;
+    use crate::test_support::{MockHttpApi, MockResponse};
+
+    const CONVERSATIONS_PATH: &str = "/v21.0/page_1/conversations";
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_fb_messages".to_string(),
+            tool_type: "function".to_string(),
+            function: FunctionCall {
+                name: "facebook_read_messages".to_string(),
+                arguments: arguments.to_string(),
+            },
+        }
+    }
+
+    fn tool_for(api: &MockHttpApi) -> FacebookReadMessagesTool {
+        FacebookReadMessagesTool::with_credentials(FacebookCredentials::for_test(api.base_url()))
+    }
+
+    #[test]
+    fn metadata_and_function_definition_describe_the_read_messages_tool() {
+        let tool = FacebookReadMessagesTool::new();
+        assert_eq!(tool.metadata().id, "facebook_read_messages");
+        assert_eq!(tool.metadata().category, ToolCategory::Social);
+        assert_eq!(tool.metadata().tool_type, ToolType::FacebookMessagesRead);
+
+        let def = tool.get_function_definition();
+        assert_eq!(def["name"], "facebook_read_messages");
+        assert_eq!(def["parameters"]["required"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn without_a_conversation_id_the_page_inbox_is_listed() {
+        let api = MockHttpApi::serving(
+            "GET",
+            CONVERSATIONS_PATH,
+            MockResponse::json(json!({"data": [{
+                "id": "t_123",
+                "updated_time": "2026-08-01T10:00:00+0000",
+                "snippet": "Hey there",
+                "participants": {"data": [
+                    {"name": "Jane Doe", "id": "psid_789"},
+                    {"name": "My Page", "id": "page_1"}
+                ]}
+            }]})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call("{}"))
+            .await
+            .expect("Listing conversations should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, CONVERSATIONS_PATH);
+        assert_eq!(
+            request.query_param("fields").as_deref(),
+            Some(CONVERSATION_FIELDS)
+        );
+        assert_eq!(request.query_param("limit").as_deref(), Some("10"));
+        assert_eq!(
+            request.query_param("access_token").as_deref(),
+            Some("test-page-token")
+        );
+
+        assert_eq!(result.tool_name, "facebook_read_messages");
+        assert!(result.tool_call_id.is_none());
+        assert!(result.result.contains("Jane Doe (psid: psid_789)"));
+        assert!(result.result.contains("Hey there"));
+        assert!(result.result.contains("conversation_id: t_123"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn with_a_conversation_id_that_conversations_messages_are_listed() {
+        let api = MockHttpApi::serving(
+            "GET",
+            "/v21.0/t_123/messages",
+            MockResponse::json(json!({"data": [{
+                "from": {"name": "Jane Doe", "id": "psid_789"},
+                "message": "Hello!",
+                "created_time": "2026-08-01T10:05:00+0000"
+            }]})),
+        )
+        .await;
+
+        let result = tool_for(&api)
+            .execute(&tool_call(r#"{"conversation_id": "t_123", "limit": 3}"#))
+            .await
+            .expect("Listing messages should succeed");
+
+        let request = api.only_request();
+        assert_eq!(request.path, "/v21.0/t_123/messages");
+        assert_eq!(
+            request.query_param("fields").as_deref(),
+            Some(MESSAGE_FIELDS)
+        );
+        assert_eq!(request.query_param("limit").as_deref(), Some("3"));
+
+        assert!(result.result.contains("Jane Doe (psid: psid_789): Hello!"));
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn empty_results_are_reported_per_endpoint() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            CONVERSATIONS_PATH,
+            MockResponse::json(json!({"data": []})),
+        );
+        api.on(
+            "GET",
+            "/v21.0/t_1/messages",
+            MockResponse::json(json!({"other": "shape"})),
+        );
+        let tool = tool_for(&api);
+
+        assert_eq!(
+            tool.execute(&tool_call("{}"))
+                .await
+                .expect("An empty inbox is not an error")
+                .result,
+            "No conversations found in the Page inbox."
+        );
+        // A body with no "data" key at all degrades the same way.
+        assert_eq!(
+            tool.execute(&tool_call(r#"{"conversation_id": "t_1"}"#))
+                .await
+                .expect("A body without data is not an error")
+                .result,
+            "No messages found in this conversation."
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn graph_api_errors_are_surfaced_for_both_endpoints() {
+        let api = MockHttpApi::start().await;
+        api.on(
+            "GET",
+            CONVERSATIONS_PATH,
+            MockResponse::error(
+                403,
+                r#"{"error":{"message":"(#3) requires pages_messaging"}}"#,
+            ),
+        );
+        api.on(
+            "GET",
+            "/v21.0/t_1/messages",
+            MockResponse::error(400, r#"{"error":{"message":"Invalid conversation id"}}"#),
+        );
+        let tool = tool_for(&api);
+
+        let inbox_error = tool
+            .execute(&tool_call("{}"))
+            .await
+            .expect_err("A 403 must fail the call")
+            .to_string();
+        assert!(
+            inbox_error.starts_with("Failed to read Facebook conversations:"),
+            "{}",
+            inbox_error
+        );
+        assert!(inbox_error.contains("pages_messaging"), "{}", inbox_error);
+
+        let message_error = tool
+            .execute(&tool_call(r#"{"conversation_id": "t_1"}"#))
+            .await
+            .expect_err("A 400 must fail the call")
+            .to_string();
+        assert!(
+            message_error.starts_with("Failed to read Facebook messages:"),
+            "{}",
+            message_error
+        );
+        assert!(
+            message_error.contains("Invalid conversation id"),
+            "{}",
+            message_error
+        );
+        api.stop().await;
+    }
+
+    #[tokio::test]
+    async fn bad_arguments_and_a_missing_token_fail_before_any_request() {
+        let api = MockHttpApi::serving(
+            "GET",
+            CONVERSATIONS_PATH,
+            MockResponse::json(json!({"data": []})),
+        )
+        .await;
+
+        assert_eq!(
+            tool_for(&api)
+                .execute(&tool_call("^"))
+                .await
+                .expect_err("Unparseable arguments must fail")
+                .to_string(),
+            "Failed to parse tool call arguments"
+        );
+
+        let tokenless = FacebookReadMessagesTool::with_credentials(
+            FacebookCredentials::for_test(api.base_url()).without_access_token(),
+        );
+        assert_eq!(
+            tokenless
+                .execute(&tool_call("{}"))
+                .await
+                .expect_err("Without a token the inbox listing must fail")
+                .to_string(),
+            "FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set"
+        );
+        assert_eq!(
+            tokenless
+                .execute(&tool_call(r#"{"conversation_id": "t_1"}"#))
+                .await
+                .expect_err("Without a token the message listing must fail")
+                .to_string(),
+            "FACEBOOK_PAGE_ACCESS_TOKEN environment variable not set"
+        );
+
+        assert_eq!(api.call_count(), 0, "Nothing should have reached the API");
+        api.stop().await;
     }
 }

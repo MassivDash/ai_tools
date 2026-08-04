@@ -113,6 +113,16 @@ impl ToolGroupsStorage {
         self.get_group(id).await
     }
 
+    /// Drop the table so that subsequent queries fail. Used to exercise the
+    /// error paths of the handlers that sit on top of this storage.
+    #[cfg(test)]
+    pub(crate) async fn drop_table_for_tests(&self) {
+        sqlx::query("DROP TABLE tool_groups")
+            .execute(&self.pool)
+            .await
+            .expect("Failed to drop tool_groups table");
+    }
+
     pub async fn delete_group(&self, id: i64) -> Result<bool> {
         let rows_affected = sqlx::query("DELETE FROM tool_groups WHERE id = ?1")
             .bind(id)

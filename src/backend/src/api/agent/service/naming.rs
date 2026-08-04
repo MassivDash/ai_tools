@@ -166,3 +166,245 @@ pub async fn attempt_conversation_naming(
         println!("⚠️ [Naming] Failed to parse JSON response");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::agent::core::types::{ChatMessage, MessageContent};
+    use crate::api::agent::memory::sqlite_memory::new_test_memory;
+    use crate::test_support::{MockLlm, MockLlmConfig, UNREACHABLE_LLM_URL};
+
+    fn message(role: MessageRole, text: &str) -> ChatMessage {
+        ChatMessage {
+            role,
+            content: MessageContent::Text(text.to_string()),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            reasoning_content: None,
+        }
+    }
+
+    /// A conversation carrying `messages`, with the auto-generated "Chat <date>"
+    /// title that marks it as never renamed.
+    async fn conversation_with(
+        messages: Vec<ChatMessage>,
+    ) -> (tempfile::TempDir, Arc<SqliteConversationMemory>, String) {
+        let (dir, memory) = new_test_memory().await;
+        let memory = Arc::new(memory);
+        let id = memory
+            .get_or_create_conversation_id(None, Some("test-model"))
+            .await
+            .expect("Failed to create conversation");
+        for message in messages {
+            memory
+                .add_message(&id, message)
+                .await
+                .expect("Failed to store message");
+        }
+        (dir, memory, id)
+    }
+
+    fn exchange() -> Vec<ChatMessage> {
+        vec![
+            message(MessageRole::System, "you are helpful"),
+            message(MessageRole::User, "what is the capital of Italy?"),
+            message(MessageRole::Assistant, "Rome."),
+            message(MessageRole::User, "and of France?"),
+        ]
+    }
+
+    async fn name_against(
+        url: &str,
+        memory: &Arc<SqliteConversationMemory>,
+        conversation_id: &str,
+    ) -> String {
+        attempt_conversation_naming(
+            Client::new(),
+            url.to_string(),
+            "test-model".to_string(),
+            Arc::clone(memory),
+            conversation_id.to_string(),
+        )
+        .await;
+        memory
+            .get_title(conversation_id)
+            .await
+            .expect("Failed to read the title back")
+    }
+
+    #[tokio::test]
+    async fn test_the_model_reply_becomes_the_conversation_title() {
+        let llm = MockLlm::start(MockLlmConfig::replying("  \"Italy trip planning\"\n")).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        // Quotes and surrounding whitespace are stripped before storing
+        assert_eq!(title, "Italy trip planning");
+
+        // Only the first user/assistant pair is used as context, and system turns
+        // are left out entirely
+        let requests = llm.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0]["model"], "test-model");
+        let prompt = requests[0]["messages"][0]["content"]
+            .as_str()
+            .expect("the prompt should be a string");
+        assert!(
+            prompt.contains("User: what is the capital of Italy?"),
+            "{}",
+            prompt
+        );
+        assert!(prompt.contains("Assistant: Rome."), "{}", prompt);
+        assert!(!prompt.contains("you are helpful"), "{}", prompt);
+        assert!(!prompt.contains("and of France?"), "{}", prompt);
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_conversation_the_user_already_named_is_left_alone() {
+        let llm = MockLlm::start(MockLlmConfig::replying("A generated title")).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        memory
+            .update_conversation_title(&id, "My own title")
+            .await
+            .expect("Failed to rename");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, "My own title");
+        assert_eq!(llm.call_count(), 0, "the model must not be consulted");
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_conversation_with_a_single_message_is_left_alone() {
+        let llm = MockLlm::start(MockLlmConfig::replying("A generated title")).await;
+        let (_dir, memory, id) = conversation_with(vec![message(MessageRole::User, "hello")]).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+        assert!(title.starts_with("Chat "), "{}", title);
+        assert_eq!(llm.call_count(), 0, "the model must not be consulted");
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_long_conversation_is_left_alone() {
+        let llm = MockLlm::start(MockLlmConfig::replying("A generated title")).await;
+        let long: Vec<ChatMessage> = (0..51)
+            .map(|i| message(MessageRole::User, &format!("message {}", i)))
+            .collect();
+        let (_dir, memory, id) = conversation_with(long).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+        assert_eq!(llm.call_count(), 0, "the model must not be consulted");
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_server_error_leaves_the_title_untouched() {
+        let mut config = MockLlmConfig::replying("never read");
+        config.chat_status = 500;
+        let llm = MockLlm::start(config).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+        assert_eq!(llm.call_count(), 1, "the request was in fact attempted");
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_an_unparsable_body_leaves_the_title_untouched() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_body = "<html>not json</html>".to_string();
+        let llm = MockLlm::start(config).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_response_without_content_leaves_the_title_untouched() {
+        let mut config = MockLlmConfig::replying("ignored");
+        config.chat_body = serde_json::json!({ "choices": [] }).to_string();
+        let llm = MockLlm::start(config).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_a_blank_title_is_not_stored() {
+        let llm = MockLlm::start(MockLlmConfig::replying("  \"\"  ")).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(&llm.chat_url(), &memory, &id).await;
+
+        assert_eq!(title, before);
+
+        llm.stop().await;
+    }
+
+    #[tokio::test]
+    async fn test_an_unreachable_server_leaves_the_title_untouched() {
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        let before = memory.get_title(&id).await.expect("Failed to read title");
+
+        let title = name_against(
+            &format!("{}/v1/chat/completions", UNREACHABLE_LLM_URL),
+            &memory,
+            &id,
+        )
+        .await;
+
+        assert_eq!(title, before);
+    }
+
+    #[tokio::test]
+    async fn test_a_store_without_tables_is_reported_and_skipped() {
+        let llm = MockLlm::start(MockLlmConfig::replying("A generated title")).await;
+        let (_dir, memory, id) = conversation_with(exchange()).await;
+        memory.drop_tables_for_tests().await;
+
+        // The message count lookup now fails, so the naming attempt gives up before
+        // reaching the model instead of propagating the error.
+        attempt_conversation_naming(
+            Client::new(),
+            llm.chat_url(),
+            "test-model".to_string(),
+            Arc::clone(&memory),
+            id,
+        )
+        .await;
+
+        assert_eq!(llm.call_count(), 0, "the model must not be consulted");
+
+        llm.stop().await;
+    }
+}

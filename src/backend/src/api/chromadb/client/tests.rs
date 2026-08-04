@@ -3,8 +3,134 @@
 //! These tests cover:
 //! - Metadata conversion utilities
 //! - Ollama configuration
-//! - Collection operations (with mocks where needed)
-//! - Integration tests (require ChromaDB server)
+//! - Collection operations (against the in-process `MockChroma` server)
+//! - Integration tests (require ChromaDB server *and* Ollama)
+
+/// Whole-client tests driven against [`MockChroma`], which speaks the subset of
+/// the ChromaDB v2 REST API that this client uses.
+///
+/// Every test here holds the `CHROMA_ENDPOINT` lock while building its client,
+/// because `ChromaDBClient::new` configures the underlying `chroma` client
+/// through that process-global environment variable.
+#[cfg(test)]
+mod client_tests {
+    use super::super::*;
+    use crate::test_support::{
+        lock_chroma_endpoint, MockChroma, MockChromaCollection, MockChromaConfig,
+        UNPARSEABLE_CHROMA_ENDPOINT,
+    };
+
+    #[test]
+    fn test_client_creation_accepts_a_well_formed_endpoint() {
+        let _guard = lock_chroma_endpoint();
+        // Building a client makes no request, so an address nothing listens on
+        // is enough - and makes it obvious that no real server is involved.
+        assert!(ChromaDBClient::new("http://127.0.0.1:1").is_ok());
+    }
+
+    #[test]
+    fn test_client_creation_rejects_an_unparseable_endpoint() {
+        let _guard = lock_chroma_endpoint();
+        let error = match ChromaDBClient::new(UNPARSEABLE_CHROMA_ENDPOINT) {
+            Ok(_) => panic!("An unparseable endpoint should not produce a client"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains(&format!(
+            "Failed to create ChromaDB client with endpoint: {}",
+            UNPARSEABLE_CHROMA_ENDPOINT
+        )));
+    }
+
+    #[actix_web::test]
+    async fn test_health_check_is_true_when_collections_can_be_listed() {
+        let chroma = MockChroma::start(MockChromaConfig::empty()).await;
+
+        let healthy = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+            client.health_check().await.unwrap()
+        };
+
+        assert!(healthy);
+        // The probe is a list request capped at 10, not a dedicated endpoint.
+        let requests = chroma.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].query, "limit=10");
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_health_check_is_false_when_the_server_rejects_the_probe() {
+        let chroma = MockChroma::start(MockChromaConfig {
+            list_status: Some(400),
+            ..MockChromaConfig::empty()
+        })
+        .await;
+
+        let healthy = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+            // A failed probe is reported as "not healthy", not as an error.
+            client.health_check().await.unwrap()
+        };
+
+        assert!(!healthy);
+
+        chroma.stop().await;
+    }
+
+    #[actix_web::test]
+    async fn test_health_check_is_false_when_nothing_is_listening() {
+        let healthy = {
+            let _guard = lock_chroma_endpoint();
+            let client = ChromaDBClient::new("http://127.0.0.1:1").unwrap();
+            client.health_check().await.unwrap()
+        };
+
+        assert!(!healthy);
+    }
+
+    #[actix_web::test]
+    async fn test_collection_lifecycle() {
+        let chroma = MockChroma::start(MockChromaConfig::holding(vec![MockChromaCollection::new(
+            "existing",
+        )
+        .with_count(2)]))
+        .await;
+
+        let _guard = lock_chroma_endpoint();
+        let client = ChromaDBClient::new(&chroma.base_url).unwrap();
+
+        // Create
+        let created = client.create_collection("notes", None).await.unwrap();
+        assert_eq!(created.name, "notes");
+
+        // Get
+        let retrieved = client.get_collection("notes").await.unwrap();
+        assert_eq!(retrieved.name, "notes");
+        assert_eq!(retrieved.id, created.id);
+
+        // List sees both the pre-existing collection and the new one
+        let collections = client.list_collections().await.unwrap();
+        let names: Vec<&str> = collections.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["existing", "notes"]);
+        assert_eq!(collections[0].count, Some(2));
+
+        // Delete
+        client.delete_collection("notes").await.unwrap();
+
+        let collections_after = client.list_collections().await.unwrap();
+        assert!(!collections_after.iter().any(|c| c.name == "notes"));
+        assert_eq!(chroma.collection_names(), vec!["existing".to_string()]);
+
+        // And the deleted collection is no longer retrievable.
+        assert!(client.get_collection("notes").await.is_err());
+
+        chroma.stop().await;
+    }
+}
 
 #[cfg(test)]
 mod integration_tests {
@@ -13,53 +139,9 @@ mod integration_tests {
     use std::collections::HashMap;
     use uuid::Uuid;
 
-    // Note: These tests require a running ChromaDB server
-    // They are marked as integration tests and should be run separately
-    // For unit tests, see individual module test blocks
-
-    #[tokio::test]
-    #[ignore] // Ignore by default - requires ChromaDB server
-    async fn test_client_creation() {
-        let client = ChromaDBClient::new("http://localhost:8000");
-        assert!(client.is_ok());
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_health_check() {
-        let client = ChromaDBClient::new("http://localhost:8000").unwrap();
-        let health = client.health_check().await;
-        assert!(health.is_ok());
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_collection_lifecycle() {
-        let client = ChromaDBClient::new("http://localhost:8000").unwrap();
-        let test_collection = format!("test_collection_{}", Uuid::new_v4());
-
-        // Create collection
-        let created = client
-            .create_collection(&test_collection, None)
-            .await
-            .unwrap();
-        assert_eq!(created.name, test_collection);
-
-        // Get collection
-        let retrieved = client.get_collection(&test_collection).await.unwrap();
-        assert_eq!(retrieved.name, test_collection);
-
-        // List collections
-        let collections = client.list_collections().await.unwrap();
-        assert!(collections.iter().any(|c| c.name == test_collection));
-
-        // Delete collection
-        client.delete_collection(&test_collection).await.unwrap();
-
-        // Verify deletion
-        let collections_after = client.list_collections().await.unwrap();
-        assert!(!collections_after.iter().any(|c| c.name == test_collection));
-    }
+    // This test requires both a running ChromaDB server and a running Ollama
+    // instance (document ingestion and querying both generate embeddings), so it
+    // is never run as part of the normal suite.
 
     #[tokio::test]
     #[ignore]

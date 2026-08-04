@@ -47,6 +47,49 @@ test('renders when token usage is greater than zero', async () => {
   expect(getByText(/30 \/ 4096 tokens/)).toBeTruthy()
 })
 
+test('follows token usage and context size updates', async () => {
+  const { rerender, getByText, queryByText } = render(
+    TokenUsageDisplay as Component,
+    {
+      props: {
+        tokenUsage: {
+          prompt_tokens: 10,
+          completion_tokens: 10,
+          total_tokens: 20
+        },
+        ctxSize: 200
+      }
+    }
+  )
+
+  expect(getByText('20 / 200 tokens (10%)')).toBeTruthy()
+
+  await rerender({
+    tokenUsage: {
+      prompt_tokens: 30,
+      completion_tokens: 30,
+      total_tokens: 60
+    },
+    ctxSize: 400
+  })
+  expect(getByText('60 / 400 tokens (15%)')).toBeTruthy()
+
+  // Context size is unknown again — fall back to the bare token count
+  await rerender({
+    tokenUsage: {
+      prompt_tokens: 30,
+      completion_tokens: 30,
+      total_tokens: 60
+    },
+    ctxSize: 0
+  })
+  expect(getByText('60 tokens')).toBeTruthy()
+
+  // Usage cleared — the whole display disappears
+  await rerender({ tokenUsage: null, ctxSize: 400 })
+  expect(queryByText(/tokens/)).toBeNull()
+})
+
 test('renders correctly when ctxSize is 0', async () => {
   const { getByText } = render(TokenUsageDisplay as Component, {
     props: {

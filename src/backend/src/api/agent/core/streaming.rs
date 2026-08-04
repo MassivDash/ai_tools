@@ -411,6 +411,13 @@ pub async fn execute_agent_loop_streaming(
             // Send tool call events
             let tool_calls_to_process = accumulated_tool_calls.clone();
             let mut requires_human_input = false;
+            // Pairs each tool_call with its own result by construction (not by
+            // name/id lookup afterwards) — see the comment above `iteration_tool_results.push`
+            // for why a lookup was unsafe.
+            let mut iteration_tool_results: Vec<(
+                crate::api::agent::core::types::ToolCall,
+                ToolCallResult,
+            )> = Vec::new();
 
             for tool_call in &tool_calls_to_process {
                 let tool_name = tool_call.function.name.clone();
@@ -500,6 +507,7 @@ pub async fn execute_agent_loop_streaming(
                             }))
                             .await;
                         tool_results.push(result.clone());
+                        iteration_tool_results.push((tool_call.clone(), result));
                     }
                     Err(e) => {
                         let duration = tool_exec_start.elapsed();
@@ -530,7 +538,8 @@ pub async fn execute_agent_loop_streaming(
                             result: format!("Error: {:#}", e),
                         };
                         logger.log_tool_result(&error_result);
-                        tool_results.push(error_result);
+                        tool_results.push(error_result.clone());
+                        iteration_tool_results.push((tool_call.clone(), error_result));
                     }
                 }
             }
@@ -563,26 +572,16 @@ pub async fn execute_agent_loop_streaming(
             messages.push(assistant_message.clone());
             logger.log_message(&assistant_message);
 
-            // Add tool results as tool messages
+            // Add tool results as tool messages. Paired directly from execution
+            // (`iteration_tool_results`) rather than looked up afterwards: a
+            // lookup by `tool_name` previously compared the result's display
+            // name (e.g. "System Tools") against the call's function name
+            // (e.g. "system_command"), which never matched — every tool
+            // result silently became an empty string in the LLM's context,
+            // so the model had no real data to work from and confabulated
+            // an answer instead of reporting (or admitting it lacked) results.
             if !requires_human_input {
-                let tool_calls_to_msg_process = messages
-                    .last()
-                    .unwrap()
-                    .tool_calls
-                    .as_ref()
-                    .unwrap()
-                    .clone();
-                for tool_call in tool_calls_to_msg_process {
-                    let result = tool_results
-                        .iter()
-                        .find(|r| r.tool_name == tool_call.function.name)
-                        .cloned()
-                        .unwrap_or_else(|| ToolCallResult {
-                            tool_call_id: None,
-                            tool_name: tool_call.function.name.clone(),
-                            result: String::new(),
-                        });
-
+                for (tool_call, result) in &iteration_tool_results {
                     let tool_message = ChatMessage {
                         role: MessageRole::Tool,
                         content: MessageContent::Text(result.result.clone()),

@@ -188,4 +188,125 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }
+
+    fn request(html: &str, count_tokens: bool) -> HtmlRequest {
+        HtmlRequest {
+            html: html.to_string(),
+            extract_body: true,
+            enable_preprocessing: false,
+            remove_navigation: false,
+            remove_forms: false,
+            preprocessing_preset: None,
+            count_tokens,
+        }
+    }
+
+    async fn post(body: &HtmlRequest) -> actix_web::dev::ServiceResponse {
+        let app = test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/html-to-markdown")
+            .set_json(body)
+            .to_request();
+        test::call_service(&app, req).await
+    }
+
+    #[actix_rt::test]
+    async fn test_whitespace_only_html_is_rejected_with_a_message() {
+        let resp = post(&request("   \n\t ", false)).await;
+
+        assert_eq!(resp.status().as_u16(), 400);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert_eq!(body["error"], "HTML content cannot be empty");
+    }
+
+    #[actix_rt::test]
+    async fn test_response_reports_internal_links_found_in_the_markdown() {
+        let resp = post(&request(
+            r#"<html><body><h1>Docs</h1>
+               <a href="/guide">Guide</a>
+               <a href="./nested">Nested</a>
+               <a href="https://other.example/away">External</a>
+               </body></html>"#,
+            false,
+        ))
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: MarkdownResponseBody = test::read_body_json(resp).await;
+
+        // Links are resolved against the hard-coded https://example.com base URL.
+        assert_eq!(body.internal_links_count, 2);
+        assert_eq!(body.internal_links.len(), 2);
+        let full_urls: Vec<&str> = body
+            .internal_links
+            .iter()
+            .map(|l| l.full_url.as_str())
+            .collect();
+        assert!(full_urls.contains(&"https://example.com/guide"));
+        assert!(full_urls.contains(&"https://example.com/nested"));
+
+        let guide = body
+            .internal_links
+            .iter()
+            .find(|l| l.original == "/guide")
+            .unwrap();
+        assert_eq!(guide.link_text, "Guide");
+
+        assert!(body.markdown.contains("Docs"));
+        // Token counting was not requested.
+        assert_eq!(body.token_count, 0);
+    }
+
+    #[actix_rt::test]
+    async fn test_count_tokens_populates_the_token_count() {
+        let resp = post(&request(
+            "<html><body><p>Some reasonably long sentence to tokenize.</p></body></html>",
+            true,
+        ))
+        .await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: MarkdownResponseBody = test::read_body_json(resp).await;
+        assert!(body.token_count > 0);
+    }
+
+    #[actix_rt::test]
+    async fn test_html_without_links_reports_none() {
+        let resp = post(&request("<html><body><p>Plain</p></body></html>", false)).await;
+
+        assert_eq!(resp.status().as_u16(), 200);
+        let body: MarkdownResponseBody = test::read_body_json(resp).await;
+        assert_eq!(body.internal_links_count, 0);
+        assert!(body.internal_links.is_empty());
+    }
+
+    #[actix_rt::test]
+    async fn test_body_without_the_html_field_is_rejected() {
+        let app = test::init_service(App::new().service(convert_html_to_markdown_endpoint)).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/html-to-markdown")
+            .set_json(serde_json::json!({ "extract_body": true }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_client_error());
+    }
+
+    /// `MarkdownResponse` is serialize-only, so the tests deserialize into a mirror.
+    #[derive(serde::Deserialize)]
+    struct MarkdownResponseBody {
+        markdown: String,
+        internal_links_count: usize,
+        internal_links: Vec<LinkInfoBody>,
+        token_count: usize,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct LinkInfoBody {
+        original: String,
+        full_url: String,
+        link_text: String,
+    }
 }

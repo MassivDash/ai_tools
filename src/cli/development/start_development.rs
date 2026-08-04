@@ -1,19 +1,81 @@
 use crate::cli::config::create_dotenv::create_dotenv_frontend;
 use crate::cli::config::get_config::Config;
 use crate::cli::pre_run::npm::checks::NPM;
-use crate::cli::utils::terminal::{
-    dev_info, do_chromadb_log, do_front_log, do_server_log, step, success, warning,
+use crate::cli::utils::logs::{
+    handle_actix_line, handle_astro_line, stream_lines, wait_until_ready, RealBrowserOpener,
 };
+use crate::cli::utils::ports::{bind_available_port, chromadb_port_from_config};
+use crate::cli::utils::server_args::BackendArgs;
+use crate::cli::utils::services::{start_chromadb, terminate_services};
+use crate::cli::utils::terminal::step;
 use ctrlc::set_handler;
-use std::io::{BufRead, BufReader};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
-use std::process::Command;
+use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
+
+/// Decide whether the monitor loop should stop.
+/// It stops on ctrl-c, once every child process has exited, or once every log
+/// reading thread has finished because its stream was closed.
+pub fn should_stop_monitoring(
+    running: bool,
+    all_children_exited: bool,
+    all_threads_finished: bool,
+) -> bool {
+    !running || all_children_exited || all_threads_finished
+}
+
+/// Spawn `cargo watch` on the backend so it restarts on every source change.
+fn spawn_backend_watch(config: &Config, port: u16, chromadb_address: &str) -> Child {
+    let watch_command = BackendArgs {
+        host: &config.host,
+        port,
+        env: None,
+        cors_url: None,
+        chroma_address: chromadb_address,
+        cookie_domain: config.cookie_domain.as_deref(),
+        llama_host: config.llama_host.as_deref(),
+        llama_port: config.llama_port,
+    }
+    .to_watch_command();
+
+    let mut cargo_cmd = Command::new("cargo");
+    #[cfg(unix)]
+    cargo_cmd.process_group(0);
+
+    cargo_cmd
+        .current_dir("./src/backend")
+        .arg("watch")
+        .arg("-w")
+        .arg("./src")
+        .arg("-x")
+        .arg(watch_command)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to start backend development server")
+}
+
+/// Spawn the astro development server on `astro_port`.
+fn spawn_frontend(astro_port: u16) -> Child {
+    let mut node_cmd = Command::new(NPM);
+    #[cfg(unix)]
+    node_cmd.process_group(0);
+
+    node_cmd
+        .arg("run")
+        .arg("start")
+        .arg("--")
+        .arg("--port")
+        .arg(astro_port.to_string())
+        .stdout(std::process::Stdio::piped())
+        .current_dir("./src/frontend")
+        .spawn()
+        .expect("Failed to start frontend development server")
+}
 
 /// Start the development server
 /// The development server will start the actix backend server and the astro frontend server
@@ -29,120 +91,29 @@ pub fn start_development(config: Config) {
     })
     .expect("Error setting Ctrl-C handler");
 
-    // Check if the port is available for the backend server
-    let mut port = config.port.unwrap_or(8080);
-    let mut astro_port = config.astro_port.unwrap_or(5431);
-    let mut chromadb_port = 8000;
+    // Check if the ports are available, the listeners are held until every port
+    // has been picked so that two services can never land on the same port
+    let (port, rust_port_listener) =
+        bind_available_port(&config.host, config.port.unwrap_or(8080), "Port");
+    let (astro_port, astro_port_listener) =
+        bind_available_port(&config.host, config.astro_port.unwrap_or(5431), "Port");
+    let (chromadb_port, chromadb_port_listener) = bind_available_port(
+        &config.host,
+        chromadb_port_from_config(config.chroma_address.as_deref()),
+        "ChromaDB port",
+    );
 
-    // Extract port from chroma_address if provided, otherwise use default 8000
-    if let Some(ref chroma_addr) = config.chroma_address {
-        if let Some(port_str) = chroma_addr.split(':').next_back() {
-            if let Ok(parsed_port) = port_str.parse::<u16>() {
-                chromadb_port = parsed_port;
-            }
-        }
-    }
-
-    let mut rust_port_listener = std::net::TcpListener::bind(format!("{}:{}", config.host, port));
-    let mut astro_port_listener =
-        std::net::TcpListener::bind(format!("{}:{}", config.host, astro_port));
-    let mut chromadb_port_listener =
-        std::net::TcpListener::bind(format!("{}:{}", config.host, chromadb_port));
-
-    // Loop until you find the port that is available
-
-    while rust_port_listener.is_err() {
-        warning(format!("Port {} is not available", port).as_str());
-        port += 1;
-        rust_port_listener = std::net::TcpListener::bind(format!("{}:{}", config.host, port));
-    }
-
-    // kill the listener
+    // kill the listeners
     drop(rust_port_listener);
-
-    while astro_port_listener.is_err() {
-        warning(format!("Port {} is not available", astro_port).as_str());
-        astro_port += 1;
-        astro_port_listener =
-            std::net::TcpListener::bind(format!("{}:{}", config.host, astro_port));
-    }
-
-    // kill the listener
     drop(astro_port_listener);
-
-    while chromadb_port_listener.is_err() {
-        warning(format!("ChromaDB port {} is not available", chromadb_port).as_str());
-        chromadb_port += 1;
-        chromadb_port_listener =
-            std::net::TcpListener::bind(format!("{}:{}", config.host, chromadb_port));
-    }
-
-    // kill the listener
     drop(chromadb_port_listener);
 
     // Build the final ChromaDB address using the actual port (may have been incremented)
     let chromadb_address = format!("http://{}:{}", config.host, chromadb_port);
 
-    // Start ChromaDB server using chroma run command directly
-    step("Starting ChromaDB server");
-    let mut chromadb_cmd = Command::new(NPM);
-    #[cfg(unix)]
-    chromadb_cmd.process_group(0);
-
-    let mut chromadb_server = chromadb_cmd
-        .current_dir("./src/chromadb")
-        .arg("start")
-        .arg("--")
-        .arg("--host")
-        .arg(&config.host)
-        .arg("--port")
-        .arg(chromadb_port.to_string())
-        .arg("--path")
-        .arg("./database")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to start ChromaDB server");
-
-    // Wait for ChromaDB server to be ready and set up continuous reading
-    let stdout_chromadb = chromadb_server.stdout.take().unwrap();
-    let chromadb_ready = Arc::new(AtomicBool::new(false));
-    let chromadb_ready_clone = chromadb_ready.clone();
-    let chromadb_port_clone = chromadb_port;
-
-    // Spawn thread to read ChromaDB logs continuously
-    let chromadb_handle = thread::spawn(move || {
-        let mut reader = BufReader::new(stdout_chromadb);
-        let mut buf = Vec::new();
-        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
-            if bytes_read == 0 {
-                break;
-            }
-            let line = String::from_utf8_lossy(&buf)
-                .trim_end_matches(&['\r', '\n'][..])
-                .to_string();
-            buf.clear();
-            if !line.trim().is_empty() {
-                do_chromadb_log(&format!("{}\n", line));
-
-                // Check if ChromaDB is ready
-                if !chromadb_ready_clone.load(Ordering::SeqCst)
-                    && (line.contains("Running Chroma")
-                        || line.contains("Chroma is running")
-                        || line.contains("Uvicorn running")
-                        || line.contains(format!(":{}", chromadb_port_clone).as_str()))
-                {
-                    chromadb_ready_clone.store(true, Ordering::SeqCst);
-                    success("ChromaDB server is ready");
-                }
-            }
-        }
-    });
-
-    // Wait for ChromaDB to be ready before starting backend
-    while !chromadb_ready.load(Ordering::SeqCst) {
-        sleep(Duration::from_millis(100));
-    }
+    // Start ChromaDB server and wait for it to be ready before starting backend
+    let mut chromadb = start_chromadb(&config.host, chromadb_port);
+    wait_until_ready(&chromadb.ready);
 
     // Crate the host env for astro to call the actix backend server
     create_dotenv_frontend(
@@ -153,130 +124,38 @@ pub fn start_development(config: Config) {
 
     // Start the backend development server
     step("Start the actix backend development server");
-    let mut cargo_cmd = Command::new("cargo");
-    #[cfg(unix)]
-    cargo_cmd.process_group(0);
-
-    let mut cargo_watch = cargo_cmd
-        .current_dir("./src/backend")
-        .arg("watch")
-        .arg("-w")
-        .arg("./src")
-        .arg("-x")
-        .arg({
-            let mut cmd = format!(
-                "run -- --host={} --port={} --chroma_address={}",
-                config.host, port, chromadb_address
-            );
-            if let Some(ref domain) = config.cookie_domain {
-                cmd.push_str(&format!(" --cookie_domain={}", domain));
-            }
-            if let Some(ref llama_host) = config.llama_host {
-                cmd.push_str(&format!(" --llama_host={}", llama_host));
-            }
-            if let Some(ref llama_port) = config.llama_port {
-                cmd.push_str(&format!(" --llama_port={}", llama_port));
-            }
-            cmd
-        })
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to start backend development server");
+    let mut cargo_watch = spawn_backend_watch(&config, port, &chromadb_address);
 
     // Wait for the backend development server to start and set up continuous reading
     let stdout_rust = cargo_watch.stdout.take().unwrap();
     let rust_ready = Arc::new(AtomicBool::new(false));
     let rust_ready_clone = rust_ready.clone();
     let host_clone = config.host.clone();
-    let port_clone = port;
 
     // Spawn thread to read Rust backend logs continuously
     let rust_handle = thread::spawn(move || {
-        let mut reader = BufReader::new(stdout_rust);
-        let mut buf = Vec::new();
-        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
-            if bytes_read == 0 {
-                break;
-            }
-            let line = String::from_utf8_lossy(&buf)
-                .trim_end_matches(&['\r', '\n'][..])
-                .to_string();
-            buf.clear();
-            if !line.trim().is_empty() {
-                do_server_log(&format!("{}\n", line));
-
-                // Check if Actix server is ready
-                if !rust_ready_clone.load(Ordering::SeqCst)
-                    && line.contains("Actix server has started 🚀")
-                {
-                    rust_ready_clone.store(true, Ordering::SeqCst);
-                    dev_info(&host_clone, &port_clone);
-                    success("Actix server is running, starting the frontend development server");
-                }
-            }
-        }
+        stream_lines(stdout_rust, |line| {
+            handle_actix_line(line, &host_clone, port, &rust_ready_clone)
+        });
     });
 
     // Wait for Rust backend to be ready before starting frontend
-    while !rust_ready.load(Ordering::SeqCst) {
-        sleep(Duration::from_millis(100));
-    }
+    wait_until_ready(&rust_ready);
 
     // Start the frontend development server
     step("Starting astro frontend development server");
-
-    let mut node_cmd = Command::new(NPM);
-    #[cfg(unix)]
-    node_cmd.process_group(0);
-
-    let mut node_watch = node_cmd
-        .arg("run")
-        .arg("start")
-        .arg("--")
-        .arg("--port")
-        .arg(astro_port.to_string())
-        .stdout(std::process::Stdio::piped())
-        .current_dir("./src/frontend")
-        .spawn()
-        .expect("Failed to start frontend development server");
+    let mut node_watch = spawn_frontend(astro_port);
 
     // Watch the std output of astro bundle if std will have "ready" then open the browser to the development server
     let stdout_node = node_watch.stdout.take().unwrap();
     let astro_ready = Arc::new(AtomicBool::new(false));
     let astro_ready_clone = astro_ready.clone();
-    let astro_port_clone = astro_port;
 
     // Spawn thread to read Astro frontend logs continuously
     let astro_handle = thread::spawn(move || {
-        let mut reader = BufReader::new(stdout_node);
-        let mut buf = Vec::new();
-        while let Ok(bytes_read) = reader.read_until(b'\n', &mut buf) {
-            if bytes_read == 0 {
-                break;
-            }
-            let line = String::from_utf8_lossy(&buf)
-                .trim_end_matches(&['\r', '\n'][..])
-                .to_string();
-            buf.clear();
-            if !line.trim().is_empty() {
-                do_front_log(&format!("{}\n", line));
-
-                // Check if Astro is ready and open browser
-                if !astro_ready_clone.load(Ordering::SeqCst) && line.contains("ready") {
-                    astro_ready_clone.store(true, Ordering::SeqCst);
-                    success("Astro is ready, opening the browser");
-
-                    let browser = Command::new("open")
-                        .arg(format!("http://localhost:{}", astro_port_clone))
-                        .spawn();
-
-                    if let Err(err) = browser {
-                        println!("Failed to execute command: {}", err);
-                        println!("Are You a Ci Secret Agent ?");
-                    }
-                }
-            }
-        }
+        stream_lines(stdout_node, |line| {
+            handle_astro_line(line, astro_port, &astro_ready_clone, &RealBrowserOpener)
+        });
     });
 
     // Main loop: keep the process alive and monitor all three services
@@ -284,75 +163,55 @@ pub fn start_development(config: Config) {
     loop {
         sleep(Duration::from_millis(100));
 
-        if !running.load(Ordering::SeqCst) {
-            break;
-        }
-
-        // Check if all processes have exited
-        if chromadb_server.try_wait().unwrap_or(None).is_some()
+        let all_children_exited = chromadb.child.try_wait().unwrap_or(None).is_some()
             && cargo_watch.try_wait().unwrap_or(None).is_some()
-            && node_watch.try_wait().unwrap_or(None).is_some()
-        {
-            break;
-        }
+            && node_watch.try_wait().unwrap_or(None).is_some();
 
-        // Check if threads have finished (streams closed)
-        if chromadb_handle.is_finished() && rust_handle.is_finished() && astro_handle.is_finished()
-        {
+        let all_threads_finished =
+            chromadb.logs.is_finished() && rust_handle.is_finished() && astro_handle.is_finished();
+
+        if should_stop_monitoring(
+            running.load(Ordering::SeqCst),
+            all_children_exited,
+            all_threads_finished,
+        ) {
             break;
         }
     }
+
     step("Cleaning up orphaned processes");
 
-    #[cfg(unix)]
-    {
-        // Kill the entire process groups (including any spawned children) using negative PID
-        let _ = Command::new("kill")
-            .arg("-9")
-            .arg("--")
-            .arg(format!("-{}", chromadb_server.id()))
-            .status();
-        let _ = Command::new("kill")
-            .arg("-9")
-            .arg("--")
-            .arg(format!("-{}", cargo_watch.id()))
-            .status();
-        let _ = Command::new("kill")
-            .arg("-9")
-            .arg("--")
-            .arg(format!("-{}", node_watch.id()))
-            .status();
-        let _ = Command::new("pkill").arg("-9").arg("llama-server").status();
-        // cargo run's child (the actual backend binary) can escape cargo watch's
-        // process group, so the group kill above may not reach it and it stays
-        // bound to the port. Kill it directly by binary path as a fallback.
-        let _ = Command::new("pkill")
-            .arg("-9")
-            .arg("-f")
-            .arg("target/debug/backend")
-            .status();
-
-        let _ = chromadb_server.wait();
-        let _ = cargo_watch.wait();
-        let _ = node_watch.wait();
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = chromadb_server.kill();
-        let _ = cargo_watch.kill();
-        let _ = node_watch.kill();
-        let _ = Command::new("taskkill")
-            .arg("/F")
-            .arg("/IM")
-            .arg("llama-server.exe")
-            .status();
-
-        let _ = chromadb_server.wait();
-        let _ = cargo_watch.wait();
-        let _ = node_watch.wait();
-    }
+    terminate_services(
+        &mut [&mut chromadb.child, &mut cargo_watch, &mut node_watch],
+        "target/debug/backend",
+    );
 
     step("Exiting");
 
     std::process::exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_stop_monitoring_on_ctrl_c() {
+        assert!(should_stop_monitoring(false, false, false));
+    }
+
+    #[test]
+    fn test_should_stop_monitoring_when_all_children_exited() {
+        assert!(should_stop_monitoring(true, true, false));
+    }
+
+    #[test]
+    fn test_should_stop_monitoring_when_all_threads_finished() {
+        assert!(should_stop_monitoring(true, false, true));
+    }
+
+    #[test]
+    fn test_keep_monitoring_while_the_services_are_alive() {
+        assert!(!should_stop_monitoring(true, false, false));
+    }
 }
