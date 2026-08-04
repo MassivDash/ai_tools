@@ -24,8 +24,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language:
-          - TypeScript
+        include:
+          - language: TypeScript
+            build-mode: autobuild
+          - language: Rust
+            build-mode: none
 
     steps:
       - name: Checkout
@@ -37,10 +40,14 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
           source-root: src
 
+      # Rust analysis doesn't support autobuild - it uses build-mode: none
+      # (source-only, no compilation) instead.
       - name: Autobuild
         id: autobuild
+        if: matrix.build-mode == 'autobuild'
         uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
