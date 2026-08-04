@@ -525,10 +525,7 @@ impl GitHubAuthenticatedTool {
     /// Resolve `owner`/`repo`, falling back to `GITHUB_OWNER`/`GITHUB_REPO`
     /// (`self.owner`/`self.repo`) when the argument is omitted or empty.
     /// Shared by every action that targets a specific repo.
-    fn resolve_owner_repo<'a>(
-        &'a self,
-        args: &'a serde_json::Value,
-    ) -> Result<(&'a str, &'a str)> {
+    fn resolve_owner_repo<'a>(&'a self, args: &'a serde_json::Value) -> Result<(&'a str, &'a str)> {
         let mut owner = args.get("owner").and_then(|v| v.as_str()).unwrap_or("");
         if owner.is_empty() {
             owner = &self.owner;
@@ -3063,7 +3060,9 @@ mod tests {
         // base_branch defaults to "main" when omitted.
         assert_eq!(sent["base"], "main");
         assert_eq!(sent["body"], "This adds a feature.");
-        assert!(result.result.starts_with("🚀 **Created PR (acme/widgets)**"));
+        assert!(result
+            .result
+            .starts_with("🚀 **Created PR (acme/widgets)**"));
         assert!(result.result.contains("Add feature"));
         api.stop().await;
     }
@@ -3123,8 +3122,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compare_commits_and_create_pr_fall_back_to_the_configured_owner_and_repo_when_omitted(
-    ) {
+    async fn compare_commits_and_create_pr_fall_back_to_the_configured_owner_and_repo_when_omitted()
+    {
         // auth_tool() configures owner "default-owner" (see its definition
         // above); both calls below omit `owner` and `repo` entirely,
         // exercising resolve_owner_repo's fallback via `.with_repo(...)`.
