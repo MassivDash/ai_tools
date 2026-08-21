@@ -30,7 +30,9 @@ use crate::api::agent::tools::utility::google_oauth::GoogleOAuthProvider;
 use crate::api::agent::tools::utility::google_sheets::{
     GoogleSheetsReadTool, GoogleSheetsWriteTool,
 };
-use crate::api::agent::tools::utility::google_tasks::{GoogleTasksReadTool, GoogleTasksWriteTool};
+use crate::api::agent::tools::utility::google_tasks::{
+    GoogleTasksCloseTool, GoogleTasksDeleteTool, GoogleTasksReadTool, GoogleTasksWriteTool,
+};
 use crate::api::agent::tools::utility::google_youtube::GoogleYouTubeReadTool;
 use crate::api::agent::tools::utility::system::SystemCommandTool;
 use crate::api::agent::tools::utility::weather::{ForecastTool, WeatherTool};
@@ -84,6 +86,8 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
         || config.enabled_tools.contains(&ToolType::GoogleSheetsWrite)
         || config.enabled_tools.contains(&ToolType::GoogleTasksRead)
         || config.enabled_tools.contains(&ToolType::GoogleTasksWrite)
+        || config.enabled_tools.contains(&ToolType::GoogleTasksClose)
+        || config.enabled_tools.contains(&ToolType::GoogleTasksDelete)
         || config.enabled_tools.contains(&ToolType::GoogleContactsRead)
         || config.enabled_tools.contains(&ToolType::GoogleYouTubeRead);
 
@@ -173,6 +177,20 @@ pub fn register(registry: &mut ToolRegistry, config: &AgentConfig) {
                     let tool = GoogleTasksWriteTool::new(Arc::clone(&oauth_arc));
                     if let Err(e) = registry.register(Arc::new(tool)) {
                         println!("⚠️ Failed to register Google Tasks Write tool: {}", e);
+                    }
+                }
+
+                if config.enabled_tools.contains(&ToolType::GoogleTasksClose) {
+                    let tool = GoogleTasksCloseTool::new(Arc::clone(&oauth_arc));
+                    if let Err(e) = registry.register(Arc::new(tool)) {
+                        println!("⚠️ Failed to register Google Tasks Close tool: {}", e);
+                    }
+                }
+
+                if config.enabled_tools.contains(&ToolType::GoogleTasksDelete) {
+                    let tool = GoogleTasksDeleteTool::new(Arc::clone(&oauth_arc));
+                    if let Err(e) = registry.register(Arc::new(tool)) {
+                        println!("⚠️ Failed to register Google Tasks Delete tool: {}", e);
                     }
                 }
 
