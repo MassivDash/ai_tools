@@ -70,6 +70,7 @@ pub fn build_llama_launch_plan(config: &Config) -> LlamaLaunchPlan {
     }
     if let Some(true) = config.flash_attn {
         args.push("--flash-attn".to_string());
+        args.push("on".to_string());
     }
     if let Some(true) = config.mlock {
         args.push("--mlock".to_string());
@@ -80,6 +81,10 @@ pub fn build_llama_launch_plan(config: &Config) -> LlamaLaunchPlan {
     if let Some(gpu_layers_val) = config.gpu_layers {
         args.push("--gpu-layers".to_string());
         args.push(gpu_layers_val.to_string());
+    }
+    if let Some(n_cpu_moe_val) = config.n_cpu_moe {
+        args.push("--n-cpu-moe".to_string());
+        args.push(n_cpu_moe_val.to_string());
     }
     if let Some(host_val) = &config.host {
         args.push("--host".to_string());
@@ -411,6 +416,7 @@ mod tests {
             mlock: Some(true),
             no_mmap: Some(true),
             gpu_layers: Some(35),
+            n_cpu_moe: Some(32),
             model: None,
             host: Some("0.0.0.0".to_string()),
             port: Some(8099),
@@ -502,10 +508,13 @@ mod tests {
                 "--ubatch-size",
                 "128",
                 "--flash-attn",
+                "on",
                 "--mlock",
                 "--no-mmap",
                 "--gpu-layers",
                 "35",
+                "--n-cpu-moe",
+                "32",
                 "--host",
                 "0.0.0.0",
                 "--port",

@@ -18,6 +18,7 @@ const emptyForm: FormValues = {
   mlock: false,
   no_mmap: false,
   gpu_layers: '',
+  n_cpu_moe: '',
   model: ''
 }
 
@@ -111,6 +112,17 @@ describe('LlamaConfigRequestSchema', () => {
     )
   })
 
+  test('allows 0 N CPU MoE but rejects a negative count', () => {
+    expect(LlamaConfigRequestSchema.safeParse({ n_cpu_moe: 0 }).success).toBe(
+      true
+    )
+    const result = LlamaConfigRequestSchema.safeParse({ n_cpu_moe: -1 })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toBe(
+      'N CPU MoE must be 0 or greater'
+    )
+  })
+
   test('rejects non-integer numbers', () => {
     const result = LlamaConfigRequestSchema.safeParse({ threads: 2.5 })
     expect(result.success).toBe(false)
@@ -169,7 +181,8 @@ describe('buildLlamaConfigPayload', () => {
         predict: -1,
         batch_size: 2048,
         ubatch_size: 512,
-        gpu_layers: 0
+        gpu_layers: 0,
+        n_cpu_moe: 32
       })
     ).toEqual({
       hf_model: '',
@@ -180,6 +193,7 @@ describe('buildLlamaConfigPayload', () => {
       batch_size: 2048,
       ubatch_size: 512,
       gpu_layers: 0,
+      n_cpu_moe: 32,
       model: ''
     })
   })
@@ -232,6 +246,7 @@ describe('buildLlamaConfigPayload', () => {
       mlock: false,
       no_mmap: false,
       gpu_layers: 99,
+      n_cpu_moe: 32,
       model: ' /models/a.gguf '
     })
     const result = LlamaConfigRequestSchema.safeParse(payload)
@@ -244,6 +259,7 @@ describe('buildLlamaConfigPayload', () => {
       ubatch_size: 512,
       flash_attn: true,
       gpu_layers: 99,
+      n_cpu_moe: 32,
       model: '/models/a.gguf'
     })
   })

@@ -33,6 +33,12 @@ export const LlamaConfigRequestSchema = z.object({
     .nonnegative('GPU layers must be 0 or greater')
     .nullable()
     .optional(),
+  n_cpu_moe: z
+    .number()
+    .int()
+    .nonnegative('N CPU MoE must be 0 or greater')
+    .nullable()
+    .optional(),
   model: z.string().trim().nullable().optional()
 })
 
@@ -50,6 +56,7 @@ export const buildLlamaConfigPayload = (values: {
   mlock: boolean
   no_mmap: boolean
   gpu_layers: number | ''
+  n_cpu_moe: number | ''
   model: string
 }) => {
   const payload: Record<string, any> = {}
@@ -81,6 +88,9 @@ export const buildLlamaConfigPayload = (values: {
   }
   if (values.gpu_layers !== '') {
     payload.gpu_layers = values.gpu_layers
+  }
+  if (values.n_cpu_moe !== '') {
+    payload.n_cpu_moe = values.n_cpu_moe
   }
 
   // Optional boolean fields - only include if true

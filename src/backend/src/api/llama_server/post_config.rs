@@ -19,6 +19,7 @@ pub struct ConfigRequest {
     pub mlock: Option<bool>,
     pub no_mmap: Option<bool>,
     pub gpu_layers: Option<u32>,
+    pub n_cpu_moe: Option<u32>,
     pub model: Option<String>,
 }
 
@@ -122,6 +123,11 @@ pub async fn post_update_config(
         println!("📝 Updated gpu-layers to: {:?}", config_guard.gpu_layers);
     }
 
+    if let Some(n_cpu_moe) = body.n_cpu_moe {
+        config_guard.n_cpu_moe = Some(n_cpu_moe);
+        println!("📝 Updated n-cpu-moe to: {:?}", config_guard.n_cpu_moe);
+    }
+
     if let Some(model) = &body.model {
         if model.trim().is_empty() {
             config_guard.model = None;
@@ -180,6 +186,7 @@ mod tests {
                 mlock: None,
                 no_mmap: None,
                 gpu_layers: None,
+                n_cpu_moe: None,
                 model: None,
             })
             .to_request();
@@ -223,6 +230,7 @@ mod tests {
                 mlock: Some(false),
                 no_mmap: Some(true),
                 gpu_layers: Some(10),
+                n_cpu_moe: Some(32),
                 model: Some("/path/to/model".to_string()),
             })
             .to_request();
@@ -239,6 +247,7 @@ mod tests {
         assert_eq!(config_guard.ctx_size, 2048);
         assert_eq!(config_guard.threads, Some(4));
         assert_eq!(config_guard.gpu_layers, Some(10));
+        assert_eq!(config_guard.n_cpu_moe, Some(32));
     }
 
     #[actix_web::test]
@@ -268,6 +277,7 @@ mod tests {
                 mlock: None,
                 no_mmap: None,
                 gpu_layers: None,
+                n_cpu_moe: None,
                 model: None,
             })
             .to_request();
@@ -307,6 +317,7 @@ mod tests {
                 mlock: None,
                 no_mmap: None,
                 gpu_layers: None,
+                n_cpu_moe: None,
                 model: None,
             })
             .to_request();
