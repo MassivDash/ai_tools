@@ -174,7 +174,7 @@
       const stored = localStorage.getItem(getStorageKey(modelKey))
       if (stored) return JSON.parse(stored)
     } catch (e) {
-      console.warn('Failed to load model config from localStorage:', e)
+      console.error('Failed to load model config from localStorage:', e)
     }
     return null
   }
@@ -184,7 +184,7 @@
     try {
       localStorage.setItem(getStorageKey(modelKey), JSON.stringify(options))
     } catch (e) {
-      console.warn('Failed to save model config to localStorage:', e)
+      console.error('Failed to save model config to localStorage:', e)
     }
   }
 
