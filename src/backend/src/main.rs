@@ -106,8 +106,20 @@ async fn main() -> std::io::Result<()> {
     let mut llama_config_init = Config::default();
     if let Ok(Some(default_config)) = default_configs_storage.get_llama_default().await {
         llama_config_init.hf_model = default_config.hf_model.clone();
+        llama_config_init.ctx_size = default_config.ctx_size;
+        llama_config_init.threads = default_config.threads;
+        llama_config_init.threads_batch = default_config.threads_batch;
+        llama_config_init.predict = default_config.predict;
+        llama_config_init.batch_size = default_config.batch_size;
+        llama_config_init.ubatch_size = default_config.ubatch_size;
+        llama_config_init.flash_attn = default_config.flash_attn;
+        llama_config_init.mlock = default_config.mlock;
+        llama_config_init.no_mmap = default_config.no_mmap;
+        llama_config_init.gpu_layers = default_config.gpu_layers;
+        llama_config_init.n_cpu_moe = default_config.n_cpu_moe;
+        llama_config_init.model = default_config.model;
         println!(
-            "✅ Using default Llama model from config: {}",
+            "✅ Using default Llama config from database for model: {}",
             default_config.hf_model
         );
     } else {

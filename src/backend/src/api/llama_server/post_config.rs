@@ -35,107 +35,117 @@ pub async fn post_update_config(
     config: web::Data<Arc<Mutex<Config>>>,
     default_configs: web::Data<Arc<DefaultConfigsStorage>>,
 ) -> ActixResult<HttpResponse> {
-    // Handle hf_model update and save to default configs (drop lock before await)
-    if let Some(hf_model) = &body.hf_model {
-        if !hf_model.trim().is_empty() {
-            let hf_model_trimmed = hf_model.trim().to_string();
-            {
-                let mut config_guard = config.lock().unwrap();
-                config_guard.hf_model = hf_model_trimmed.clone();
+    // Update all config fields (scope mutex guard)
+    {
+        let mut config_guard = config.lock().unwrap();
+
+        if let Some(hf_model) = &body.hf_model {
+            if !hf_model.trim().is_empty() {
+                config_guard.hf_model = hf_model.trim().to_string();
                 println!("📝 Updated HF model to: {}", config_guard.hf_model);
-            } // Drop lock here
-
-            // Save as default config (hf_model is primary) - lock is dropped
-            if let Err(e) = default_configs
-                .set_llama_default(&LlamaDefaultConfig {
-                    hf_model: hf_model_trimmed.clone(),
-                })
-                .await
-            {
-                println!("⚠️  Failed to save llama default config: {}", e);
             } else {
-                println!("✅ Saved llama default config");
+                config_guard.hf_model = String::new();
+                println!("📝 Cleared HF model");
             }
-        } else {
-            let mut config_guard = config.lock().unwrap();
-            config_guard.hf_model = String::new();
-            println!("📝 Cleared HF model");
+        }
+
+        if let Some(ctx_size) = body.ctx_size {
+            config_guard.ctx_size = ctx_size;
+            println!("📝 Updated context size to: {}", config_guard.ctx_size);
+        }
+
+        if let Some(threads) = body.threads {
+            config_guard.threads = Some(threads);
+            println!("📝 Updated threads to: {:?}", config_guard.threads);
+        }
+
+        if let Some(threads_batch) = body.threads_batch {
+            config_guard.threads_batch = Some(threads_batch);
+            println!(
+                "📝 Updated threads-batch to: {:?}",
+                config_guard.threads_batch
+            );
+        }
+
+        if let Some(predict) = body.predict {
+            config_guard.predict = Some(predict);
+            println!("📝 Updated predict to: {:?}", config_guard.predict);
+        }
+
+        if let Some(batch_size) = body.batch_size {
+            if batch_size > 0 {
+                config_guard.batch_size = Some(batch_size);
+                println!("📝 Updated batch-size to: {:?}", config_guard.batch_size);
+            }
+        }
+
+        if let Some(ubatch_size) = body.ubatch_size {
+            if ubatch_size > 0 {
+                config_guard.ubatch_size = Some(ubatch_size);
+                println!("📝 Updated ubatch-size to: {:?}", config_guard.ubatch_size);
+            }
+        }
+
+        if let Some(flash_attn) = body.flash_attn {
+            config_guard.flash_attn = Some(flash_attn);
+            println!("📝 Updated flash-attn to: {:?}", config_guard.flash_attn);
+        }
+
+        if let Some(mlock) = body.mlock {
+            config_guard.mlock = Some(mlock);
+            println!("📝 Updated mlock to: {:?}", config_guard.mlock);
+        }
+
+        if let Some(no_mmap) = body.no_mmap {
+            config_guard.no_mmap = Some(no_mmap);
+            println!("📝 Updated no-mmap to: {:?}", config_guard.no_mmap);
+        }
+
+        if let Some(gpu_layers) = body.gpu_layers {
+            config_guard.gpu_layers = Some(gpu_layers);
+            println!("📝 Updated gpu-layers to: {:?}", config_guard.gpu_layers);
+        }
+
+        if let Some(n_cpu_moe) = body.n_cpu_moe {
+            config_guard.n_cpu_moe = Some(n_cpu_moe);
+            println!("📝 Updated n-cpu-moe to: {:?}", config_guard.n_cpu_moe);
+        }
+
+        if let Some(model) = &body.model {
+            if model.trim().is_empty() {
+                config_guard.model = None;
+                println!("📝 Cleared model path");
+            } else {
+                config_guard.model = Some(model.trim().to_string());
+                println!("📝 Updated model to: {:?}", config_guard.model);
+            }
         }
     }
 
-    // Update other config fields (no await points here)
-    let mut config_guard = config.lock().unwrap();
-
-    if let Some(ctx_size) = body.ctx_size {
-        config_guard.ctx_size = ctx_size;
-        println!("📝 Updated context size to: {}", config_guard.ctx_size);
-    }
-
-    if let Some(threads) = body.threads {
-        config_guard.threads = Some(threads);
-        println!("📝 Updated threads to: {:?}", config_guard.threads);
-    }
-
-    if let Some(threads_batch) = body.threads_batch {
-        config_guard.threads_batch = Some(threads_batch);
-        println!(
-            "📝 Updated threads-batch to: {:?}",
-            config_guard.threads_batch
-        );
-    }
-
-    if let Some(predict) = body.predict {
-        config_guard.predict = Some(predict);
-        println!("📝 Updated predict to: {:?}", config_guard.predict);
-    }
-
-    if let Some(batch_size) = body.batch_size {
-        if batch_size > 0 {
-            config_guard.batch_size = Some(batch_size);
-            println!("📝 Updated batch-size to: {:?}", config_guard.batch_size);
+    // Save full snapshot as default config in SQLite
+    let snapshot = {
+        let config_guard = config.lock().unwrap();
+        LlamaDefaultConfig {
+            hf_model: config_guard.hf_model.clone(),
+            ctx_size: config_guard.ctx_size,
+            threads: config_guard.threads,
+            threads_batch: config_guard.threads_batch,
+            predict: config_guard.predict,
+            batch_size: config_guard.batch_size,
+            ubatch_size: config_guard.ubatch_size,
+            flash_attn: config_guard.flash_attn,
+            mlock: config_guard.mlock,
+            no_mmap: config_guard.no_mmap,
+            gpu_layers: config_guard.gpu_layers,
+            n_cpu_moe: config_guard.n_cpu_moe,
+            model: config_guard.model.clone(),
         }
-    }
+    };
 
-    if let Some(ubatch_size) = body.ubatch_size {
-        if ubatch_size > 0 {
-            config_guard.ubatch_size = Some(ubatch_size);
-            println!("📝 Updated ubatch-size to: {:?}", config_guard.ubatch_size);
-        }
-    }
-
-    if let Some(flash_attn) = body.flash_attn {
-        config_guard.flash_attn = Some(flash_attn);
-        println!("📝 Updated flash-attn to: {:?}", config_guard.flash_attn);
-    }
-
-    if let Some(mlock) = body.mlock {
-        config_guard.mlock = Some(mlock);
-        println!("📝 Updated mlock to: {:?}", config_guard.mlock);
-    }
-
-    if let Some(no_mmap) = body.no_mmap {
-        config_guard.no_mmap = Some(no_mmap);
-        println!("📝 Updated no-mmap to: {:?}", config_guard.no_mmap);
-    }
-
-    if let Some(gpu_layers) = body.gpu_layers {
-        config_guard.gpu_layers = Some(gpu_layers);
-        println!("📝 Updated gpu-layers to: {:?}", config_guard.gpu_layers);
-    }
-
-    if let Some(n_cpu_moe) = body.n_cpu_moe {
-        config_guard.n_cpu_moe = Some(n_cpu_moe);
-        println!("📝 Updated n-cpu-moe to: {:?}", config_guard.n_cpu_moe);
-    }
-
-    if let Some(model) = &body.model {
-        if model.trim().is_empty() {
-            config_guard.model = None;
-            println!("📝 Cleared model path");
-        } else {
-            config_guard.model = Some(model.trim().to_string());
-            println!("📝 Updated model to: {:?}", config_guard.model);
-        }
+    if let Err(e) = default_configs.set_llama_default(&snapshot).await {
+        println!("⚠️  Failed to save llama default config: {}", e);
+    } else {
+        println!("✅ Saved llama default config to SQLite");
     }
 
     Ok(HttpResponse::Ok().json(ConfigResponse {
