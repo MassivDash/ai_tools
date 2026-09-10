@@ -24,7 +24,7 @@
     "@iconify-json/mdi": "^1.2.3",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
-    "astro": "^7.1.6",
+    "astro": "^7.3.2",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
     "heic2any": "^0.0.4",
