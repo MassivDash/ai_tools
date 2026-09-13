@@ -54,10 +54,21 @@ impl DefaultConfigsStorage {
             .filename(&db_path_for_connection)
             .create_if_missing(true);
 
-        let pool = SqlitePool::connect_with(options).await.context(format!(
-            "Failed to connect to SQLite database at: {}",
-            display_path
-        ))?;
+        let pool = if db_path_str == ":memory:" {
+            sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_with(options)
+                .await
+                .context(format!(
+                    "Failed to connect to SQLite database at: {}",
+                    display_path
+                ))?
+        } else {
+            SqlitePool::connect_with(options).await.context(format!(
+                "Failed to connect to SQLite database at: {}",
+                display_path
+            ))?
+        };
 
         // Create default_configs table
         println!("📋 Creating default_configs table if it doesn't exist...");
