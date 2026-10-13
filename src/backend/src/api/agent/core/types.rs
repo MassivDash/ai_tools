@@ -29,6 +29,8 @@ pub enum ToolType {
     GoogleSheetsWrite,
     GoogleTasksRead,
     GoogleTasksWrite,
+    GoogleTasksClose,
+    GoogleTasksDelete,
     GoogleContactsRead,
     GoogleYouTubeRead,
     GooglePlacesSearch,

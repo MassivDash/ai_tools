@@ -864,6 +864,16 @@ test('a manually typed model becomes the backend value and clears the model path
     expect(mockedAxios.post).toHaveBeenCalledWith('llama-server/config', {
       hf_model: 'org/manual-model:Q8_0',
       ctx_size: 0,
+      threads: null,
+      threads_batch: null,
+      predict: null,
+      batch_size: null,
+      ubatch_size: null,
+      gpu_layers: null,
+      n_cpu_moe: null,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: ''
     })
   })
@@ -893,6 +903,16 @@ test('saves with only a model path when no HuggingFace model is set', async () =
     expect(mockedAxios.post).toHaveBeenCalledWith('llama-server/config', {
       hf_model: '',
       ctx_size: 0,
+      threads: null,
+      threads_batch: null,
+      predict: null,
+      batch_size: null,
+      ubatch_size: null,
+      gpu_layers: null,
+      n_cpu_moe: null,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: '/models/only-path.gguf'
     })
   })
@@ -1048,6 +1068,7 @@ test('sends every advanced option in the save payload', async () => {
       batch_size: 512,
       ubatch_size: 128,
       gpu_layers: 99,
+      n_cpu_moe: null,
       flash_attn: true,
       mlock: true,
       no_mmap: true,

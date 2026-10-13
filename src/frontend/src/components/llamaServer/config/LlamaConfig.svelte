@@ -41,6 +41,7 @@
     mlock?: boolean | null
     no_mmap?: boolean | null
     gpu_layers?: number | null
+    n_cpu_moe?: number | null
     model?: string | null
   }
 
@@ -65,6 +66,7 @@
   let newMlock: boolean = false
   let newNoMmap: boolean = false
   let newGpuLayers: number | '' = ''
+  let newNCpuMoe: number | '' = ''
   let newModel: string = ''
   let loadingModels = false
   let savingConfig = false
@@ -89,7 +91,7 @@
       newMlock = config.mlock ?? false
       newNoMmap = config.no_mmap ?? false
       newGpuLayers = config.gpu_layers ?? ''
-      newModel = config.model ?? ''
+      newNCpuMoe = config.n_cpu_moe ?? ''
       newModel = config.model ?? ''
     } catch (err: any) {
       console.error('Failed to load config:', err)
@@ -162,6 +164,52 @@
     }
   }
 
+  const getStorageKey = (modelKey: string) => {
+    return `llama_model_config_${modelKey.trim()}`
+  }
+
+  const loadModelConfigFromLocalStorage = (modelKey: string) => {
+    if (!modelKey || !modelKey.trim()) return null
+    try {
+      const stored = localStorage.getItem(getStorageKey(modelKey))
+      if (stored) return JSON.parse(stored)
+    } catch (e) {
+      console.error('Failed to load model config from localStorage:', e)
+    }
+    return null
+  }
+
+  const saveModelConfigToLocalStorage = (modelKey: string, options: any) => {
+    if (!modelKey || !modelKey.trim()) return
+    try {
+      localStorage.setItem(getStorageKey(modelKey), JSON.stringify(options))
+    } catch (e) {
+      console.error('Failed to save model config to localStorage:', e)
+    }
+  }
+
+  const applySavedOptionsForModel = (modelKey: string) => {
+    const cached = loadModelConfigFromLocalStorage(modelKey)
+    if (cached) {
+      if (typeof cached.ctx_size === 'number') newCtxSize = cached.ctx_size
+      if (cached.threads !== undefined) newThreads = cached.threads ?? ''
+      if (cached.threads_batch !== undefined)
+        newThreadsBatch = cached.threads_batch ?? ''
+      if (cached.predict !== undefined) newPredict = cached.predict ?? ''
+      if (cached.batch_size !== undefined)
+        newBatchSize = cached.batch_size ?? ''
+      if (cached.ubatch_size !== undefined)
+        newUbatchSize = cached.ubatch_size ?? ''
+      if (typeof cached.flash_attn === 'boolean')
+        newFlashAttn = cached.flash_attn
+      if (typeof cached.mlock === 'boolean') newMlock = cached.mlock
+      if (typeof cached.no_mmap === 'boolean') newNoMmap = cached.no_mmap
+      if (cached.gpu_layers !== undefined)
+        newGpuLayers = cached.gpu_layers ?? ''
+      if (cached.n_cpu_moe !== undefined) newNCpuMoe = cached.n_cpu_moe ?? ''
+    }
+  }
+
   const handleModelSelect = (model: ModelInfo) => {
     newHfModel = model.hf_format || model.name
     newHfModelBackend = model.hf_format || ''
@@ -169,6 +217,10 @@
       newModel = model.path
     }
     newCtxSize = 0
+
+    // Attempt to restore saved per-model options from localStorage
+    const modelKey = newHfModelBackend || newHfModel || newModel
+    applySavedOptionsForModel(modelKey)
   }
 
   const handleSave = async () => {
@@ -195,6 +247,7 @@
         mlock: newMlock,
         no_mmap: newNoMmap,
         gpu_layers: newGpuLayers,
+        n_cpu_moe: newNCpuMoe,
         model: newModel
       })
 
@@ -212,6 +265,21 @@
         validationResult.data
       )
       if (response.data.success) {
+        const modelKey = hfModelValue || newModel
+        saveModelConfigToLocalStorage(modelKey, {
+          ctx_size: newCtxSize,
+          threads: newThreads,
+          threads_batch: newThreadsBatch,
+          predict: newPredict,
+          batch_size: newBatchSize,
+          ubatch_size: newUbatchSize,
+          flash_attn: newFlashAttn,
+          mlock: newMlock,
+          no_mmap: newNoMmap,
+          gpu_layers: newGpuLayers,
+          n_cpu_moe: newNCpuMoe
+        })
+
         // Also save agent config for debug logging
         try {
           await axiosBackendInstance.post('agent/config', {
@@ -420,6 +488,21 @@
             label=""
             type="number"
             bind:value={newGpuLayers}
+            min="0"
+          />
+        </div>
+
+        <div class="config-section">
+          <LabelWithHelp
+            id="n-cpu-moe"
+            label="N CPU MoE"
+            helpText="Number of MoE (Mixture of Experts) layers to offload to CPU. Useful for running MoE models like Nemotron."
+          />
+          <Input
+            id="n-cpu-moe"
+            label=""
+            type="number"
+            bind:value={newNCpuMoe}
             min="0"
           />
         </div>

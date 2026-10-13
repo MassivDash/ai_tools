@@ -17,6 +17,7 @@ pub struct ConfigResponse {
     pub mlock: Option<bool>,
     pub no_mmap: Option<bool>,
     pub gpu_layers: Option<u32>,
+    pub n_cpu_moe: Option<u32>,
     pub model: Option<String>,
 }
 
@@ -35,6 +36,7 @@ pub async fn get_llama_config(config: web::Data<Arc<Mutex<Config>>>) -> ActixRes
         mlock: config_guard.mlock,
         no_mmap: config_guard.no_mmap,
         gpu_layers: config_guard.gpu_layers,
+        n_cpu_moe: config_guard.n_cpu_moe,
         model: config_guard.model.clone(),
     }))
 }
@@ -82,6 +84,7 @@ mod tests {
             mlock: Some(false),
             no_mmap: Some(true),
             gpu_layers: Some(10),
+            n_cpu_moe: Some(32),
             model: Some("/path/to/model".to_string()),
             host: Some("0.0.0.0".to_string()),
             port: Some(8080),
@@ -106,6 +109,7 @@ mod tests {
         assert_eq!(body.ctx_size, 2048);
         assert_eq!(body.threads, Some(4));
         assert_eq!(body.gpu_layers, Some(10));
+        assert_eq!(body.n_cpu_moe, Some(32));
         assert_eq!(body.model, Some("/path/to/model".to_string()));
     }
 }

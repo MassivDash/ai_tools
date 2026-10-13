@@ -70,16 +70,26 @@ pub fn build_llama_launch_plan(config: &Config) -> LlamaLaunchPlan {
     }
     if let Some(true) = config.flash_attn {
         args.push("--flash-attn".to_string());
+        args.push("on".to_string());
     }
-    if let Some(true) = config.mlock {
-        args.push("--mlock".to_string());
-    }
-    if let Some(true) = config.no_mmap {
-        args.push("--no-mmap".to_string());
+    // llama.cpp replaced --mlock/--no-mmap with a single --load-mode flag.
+    let load_mode = match (config.mlock == Some(true), config.no_mmap == Some(true)) {
+        (true, true) => Some("mlock"),
+        (false, true) => Some("none"),
+        (true, false) => Some("mmap+mlock"),
+        (false, false) => None,
+    };
+    if let Some(mode) = load_mode {
+        args.push("--load-mode".to_string());
+        args.push(mode.to_string());
     }
     if let Some(gpu_layers_val) = config.gpu_layers {
         args.push("--gpu-layers".to_string());
         args.push(gpu_layers_val.to_string());
+    }
+    if let Some(n_cpu_moe_val) = config.n_cpu_moe {
+        args.push("--n-cpu-moe".to_string());
+        args.push(n_cpu_moe_val.to_string());
     }
     if let Some(host_val) = &config.host {
         args.push("--host".to_string());
@@ -411,6 +421,7 @@ mod tests {
             mlock: Some(true),
             no_mmap: Some(true),
             gpu_layers: Some(35),
+            n_cpu_moe: Some(32),
             model: None,
             host: Some("0.0.0.0".to_string()),
             port: Some(8099),
@@ -502,10 +513,13 @@ mod tests {
                 "--ubatch-size",
                 "128",
                 "--flash-attn",
-                "--mlock",
-                "--no-mmap",
+                "on",
+                "--load-mode",
+                "mlock",
                 "--gpu-layers",
                 "35",
+                "--n-cpu-moe",
+                "32",
                 "--host",
                 "0.0.0.0",
                 "--port",
@@ -525,7 +539,7 @@ mod tests {
 
         let plan = build_llama_launch_plan(&config);
 
-        for flag in ["--flash-attn", "--mlock", "--no-mmap"] {
+        for flag in ["--flash-attn", "--load-mode", "--mlock", "--no-mmap"] {
             assert!(
                 !plan.args.iter().any(|a| a == flag),
                 "{} should be omitted when the option is Some(false)",
@@ -534,6 +548,27 @@ mod tests {
         }
         // The non-boolean options are unaffected.
         assert!(plan.args.iter().any(|a| a == "--gpu-layers"));
+    }
+
+    #[test]
+    fn test_load_mode_maps_mlock_and_no_mmap() {
+        let cases = [
+            (Some(true), Some(true), Some("mlock")),
+            (Some(false), Some(true), Some("none")),
+            (Some(true), Some(false), Some("mmap+mlock")),
+            (Some(false), Some(false), None),
+            (None, None, None),
+        ];
+        for (mlock, no_mmap, expected) in cases {
+            let plan = build_llama_launch_plan(&Config {
+                mlock,
+                no_mmap,
+                ..full_config()
+            });
+            let pos = plan.args.iter().position(|a| a == "--load-mode");
+            let got = pos.map(|i| plan.args[i + 1].as_str());
+            assert_eq!(got, expected, "mlock={:?} no_mmap={:?}", mlock, no_mmap);
+        }
     }
 
     #[actix_web::test]

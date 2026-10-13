@@ -108,6 +108,8 @@ pub async fn get_available_tools() -> ActixResult<HttpResponse> {
             ToolType::GoogleSheetsWrite,
             ToolType::GoogleTasksRead,
             ToolType::GoogleTasksWrite,
+            ToolType::GoogleTasksClose,
+            ToolType::GoogleTasksDelete,
             ToolType::GoogleContactsRead,
             ToolType::GoogleYouTubeRead,
             ToolType::GooglePlacesSearch,

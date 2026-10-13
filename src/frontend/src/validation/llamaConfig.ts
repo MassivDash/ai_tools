@@ -33,6 +33,12 @@ export const LlamaConfigRequestSchema = z.object({
     .nonnegative('GPU layers must be 0 or greater')
     .nullable()
     .optional(),
+  n_cpu_moe: z
+    .number()
+    .int()
+    .nonnegative('N CPU MoE must be 0 or greater')
+    .nullable()
+    .optional(),
   model: z.string().trim().nullable().optional()
 })
 
@@ -50,6 +56,7 @@ export const buildLlamaConfigPayload = (values: {
   mlock: boolean
   no_mmap: boolean
   gpu_layers: number | ''
+  n_cpu_moe: number | ''
   model: string
 }) => {
   const payload: Record<string, any> = {}
@@ -63,36 +70,20 @@ export const buildLlamaConfigPayload = (values: {
     payload.ctx_size = values.ctx_size
   }
 
-  // Optional numeric fields - only include if not empty string
-  if (values.threads !== '') {
-    payload.threads = values.threads
-  }
-  if (values.threads_batch !== '') {
-    payload.threads_batch = values.threads_batch
-  }
-  if (values.predict !== '') {
-    payload.predict = values.predict
-  }
-  if (values.batch_size !== '') {
-    payload.batch_size = values.batch_size
-  }
-  if (values.ubatch_size !== '') {
-    payload.ubatch_size = values.ubatch_size
-  }
-  if (values.gpu_layers !== '') {
-    payload.gpu_layers = values.gpu_layers
-  }
+  // Optional numeric fields - empty input is sent as null so the backend clears it
+  const orNull = (v: number | '') => (v === '' ? null : v)
+  payload.threads = orNull(values.threads)
+  payload.threads_batch = orNull(values.threads_batch)
+  payload.predict = orNull(values.predict)
+  payload.batch_size = orNull(values.batch_size)
+  payload.ubatch_size = orNull(values.ubatch_size)
+  payload.gpu_layers = orNull(values.gpu_layers)
+  payload.n_cpu_moe = orNull(values.n_cpu_moe)
 
-  // Optional boolean fields - only include if true
-  if (values.flash_attn) {
-    payload.flash_attn = values.flash_attn
-  }
-  if (values.mlock) {
-    payload.mlock = values.mlock
-  }
-  if (values.no_mmap) {
-    payload.no_mmap = values.no_mmap
-  }
+  // Boolean fields - always sent so unchecking a box actually turns it off
+  payload.flash_attn = values.flash_attn
+  payload.mlock = values.mlock
+  payload.no_mmap = values.no_mmap
 
   // model - optional, include if provided (even empty string to clear it)
   if (values.model !== undefined) {

@@ -18,6 +18,7 @@ const emptyForm: FormValues = {
   mlock: false,
   no_mmap: false,
   gpu_layers: '',
+  n_cpu_moe: '',
   model: ''
 }
 
@@ -111,6 +112,17 @@ describe('LlamaConfigRequestSchema', () => {
     )
   })
 
+  test('allows 0 N CPU MoE but rejects a negative count', () => {
+    expect(LlamaConfigRequestSchema.safeParse({ n_cpu_moe: 0 }).success).toBe(
+      true
+    )
+    const result = LlamaConfigRequestSchema.safeParse({ n_cpu_moe: -1 })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toBe(
+      'N CPU MoE must be 0 or greater'
+    )
+  })
+
   test('rejects non-integer numbers', () => {
     const result = LlamaConfigRequestSchema.safeParse({ threads: 2.5 })
     expect(result.success).toBe(false)
@@ -131,10 +143,20 @@ describe('LlamaConfigRequestSchema', () => {
 })
 
 describe('buildLlamaConfigPayload', () => {
-  test('drops every empty numeric field and every false boolean', () => {
+  test('sends empty numeric fields as null so they get cleared', () => {
     expect(buildLlamaConfigPayload(emptyForm)).toEqual({
       hf_model: '',
       ctx_size: 0,
+      threads: null,
+      threads_batch: null,
+      predict: null,
+      batch_size: null,
+      ubatch_size: null,
+      gpu_layers: null,
+      n_cpu_moe: null,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: ''
     })
   })
@@ -169,7 +191,8 @@ describe('buildLlamaConfigPayload', () => {
         predict: -1,
         batch_size: 2048,
         ubatch_size: 512,
-        gpu_layers: 0
+        gpu_layers: 0,
+        n_cpu_moe: 32
       })
     ).toEqual({
       hf_model: '',
@@ -180,11 +203,15 @@ describe('buildLlamaConfigPayload', () => {
       batch_size: 2048,
       ubatch_size: 512,
       gpu_layers: 0,
+      n_cpu_moe: 32,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: ''
     })
   })
 
-  test('includes the boolean flags only when they are true', () => {
+  test('always sends the boolean flags so they can be switched off', () => {
     const payload = buildLlamaConfigPayload({
       ...emptyForm,
       flash_attn: true,
@@ -198,9 +225,11 @@ describe('buildLlamaConfigPayload', () => {
     })
 
     const off = buildLlamaConfigPayload(emptyForm)
-    expect('flash_attn' in off).toBe(false)
-    expect('mlock' in off).toBe(false)
-    expect('no_mmap' in off).toBe(false)
+    expect(off).toMatchObject({
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false
+    })
   })
 
   test('sends a trimmed model path, including the empty string used to clear it', () => {
@@ -232,6 +261,7 @@ describe('buildLlamaConfigPayload', () => {
       mlock: false,
       no_mmap: false,
       gpu_layers: 99,
+      n_cpu_moe: 32,
       model: ' /models/a.gguf '
     })
     const result = LlamaConfigRequestSchema.safeParse(payload)
@@ -240,10 +270,15 @@ describe('buildLlamaConfigPayload', () => {
       hf_model: 'unsloth/Qwen3-8B-GGUF',
       ctx_size: 8192,
       threads: 8,
+      threads_batch: null,
+      predict: null,
       batch_size: 2048,
       ubatch_size: 512,
       flash_attn: true,
+      mlock: false,
+      no_mmap: false,
       gpu_layers: 99,
+      n_cpu_moe: 32,
       model: '/models/a.gguf'
     })
   })
