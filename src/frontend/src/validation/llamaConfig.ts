@@ -93,16 +93,10 @@ export const buildLlamaConfigPayload = (values: {
     payload.n_cpu_moe = values.n_cpu_moe
   }
 
-  // Optional boolean fields - only include if true
-  if (values.flash_attn) {
-    payload.flash_attn = values.flash_attn
-  }
-  if (values.mlock) {
-    payload.mlock = values.mlock
-  }
-  if (values.no_mmap) {
-    payload.no_mmap = values.no_mmap
-  }
+  // Boolean fields - always sent so unchecking a box actually turns it off
+  payload.flash_attn = values.flash_attn
+  payload.mlock = values.mlock
+  payload.no_mmap = values.no_mmap
 
   // model - optional, include if provided (even empty string to clear it)
   if (values.model !== undefined) {

@@ -143,10 +143,13 @@ describe('LlamaConfigRequestSchema', () => {
 })
 
 describe('buildLlamaConfigPayload', () => {
-  test('drops every empty numeric field and every false boolean', () => {
+  test('drops every empty numeric field but keeps false booleans', () => {
     expect(buildLlamaConfigPayload(emptyForm)).toEqual({
       hf_model: '',
       ctx_size: 0,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: ''
     })
   })
@@ -194,11 +197,14 @@ describe('buildLlamaConfigPayload', () => {
       ubatch_size: 512,
       gpu_layers: 0,
       n_cpu_moe: 32,
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false,
       model: ''
     })
   })
 
-  test('includes the boolean flags only when they are true', () => {
+  test('always sends the boolean flags so they can be switched off', () => {
     const payload = buildLlamaConfigPayload({
       ...emptyForm,
       flash_attn: true,
@@ -212,9 +218,11 @@ describe('buildLlamaConfigPayload', () => {
     })
 
     const off = buildLlamaConfigPayload(emptyForm)
-    expect('flash_attn' in off).toBe(false)
-    expect('mlock' in off).toBe(false)
-    expect('no_mmap' in off).toBe(false)
+    expect(off).toMatchObject({
+      flash_attn: false,
+      mlock: false,
+      no_mmap: false
+    })
   })
 
   test('sends a trimmed model path, including the empty string used to clear it', () => {
@@ -258,6 +266,8 @@ describe('buildLlamaConfigPayload', () => {
       batch_size: 2048,
       ubatch_size: 512,
       flash_attn: true,
+      mlock: false,
+      no_mmap: false,
       gpu_layers: 99,
       n_cpu_moe: 32,
       model: '/models/a.gguf'
