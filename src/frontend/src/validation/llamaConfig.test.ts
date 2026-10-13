@@ -143,10 +143,17 @@ describe('LlamaConfigRequestSchema', () => {
 })
 
 describe('buildLlamaConfigPayload', () => {
-  test('drops every empty numeric field but keeps false booleans', () => {
+  test('sends empty numeric fields as null so they get cleared', () => {
     expect(buildLlamaConfigPayload(emptyForm)).toEqual({
       hf_model: '',
       ctx_size: 0,
+      threads: null,
+      threads_batch: null,
+      predict: null,
+      batch_size: null,
+      ubatch_size: null,
+      gpu_layers: null,
+      n_cpu_moe: null,
       flash_attn: false,
       mlock: false,
       no_mmap: false,
@@ -263,6 +270,8 @@ describe('buildLlamaConfigPayload', () => {
       hf_model: 'unsloth/Qwen3-8B-GGUF',
       ctx_size: 8192,
       threads: 8,
+      threads_batch: null,
+      predict: null,
       batch_size: 2048,
       ubatch_size: 512,
       flash_attn: true,
