@@ -6,9 +6,4 @@ import svelte from '@astrojs/svelte'
 export default defineConfig({
   integrations: [svelte({ extensions: ['.svelte'] })],
   server: { host: true },
-  vite: {
-    build: {
-      chunkSizeWarningLimit: 3500
-    }
-  }
 })
