@@ -2,10 +2,13 @@ import { defineConfig } from 'astro/config'
 
 import svelte from '@astrojs/svelte'
 
-import react from '@astrojs/react';
-
 // https://astro.build/config
 export default defineConfig({
-  integrations: [svelte({ extensions: ['.svelte'] }), react()],
-  server: { host: true }
+  integrations: [svelte({ extensions: ['.svelte'] })],
+  server: { host: true },
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 3500
+    }
+  }
 })
