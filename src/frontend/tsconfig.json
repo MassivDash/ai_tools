@@ -3,8 +3,7 @@
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist", "**/*.test.ts"],
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    "jsx": "preserve",
     "verbatimModuleSyntax": true,
     "plugins": [
       {
